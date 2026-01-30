@@ -16,6 +16,7 @@ export interface WERTestResult extends WERResult {
   synthesisTimeMs: number;
   transcriptionTimeMs: number;
   totalTimeMs: number;
+  // isCJK and metricName are inherited from WERResult
 }
 
 interface UseWERTestReturn {

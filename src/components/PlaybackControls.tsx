@@ -232,7 +232,7 @@ export function PlaybackControls({
                     <div className="text-2xl font-bold text-purple-600">
                       {werTestResult.werPercentage.toFixed(1)}%
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">Word Error Rate</div>
+                    <div className="text-xs text-gray-500 mt-1">{werTestResult.isCJK ? 'Character Error Rate' : 'Word Error Rate'}</div>
                   </div>
                   <div className="text-center p-3 bg-white rounded-lg shadow-sm">
                     <div className={`text-2xl font-bold ${werTestResult.accuracyPercentage >= 90 ? 'text-green-600' : werTestResult.accuracyPercentage >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
@@ -258,8 +258,8 @@ export function PlaybackControls({
                 </div>
 
                 <div className="text-xs text-gray-600 space-y-1">
-                  <p><strong>Reference:</strong> {werTestResult.totalReferenceWords} words</p>
-                  <p><strong>Hypothesis:</strong> {werTestResult.totalHypothesisWords} words</p>
+                  <p><strong>Reference:</strong> {werTestResult.totalReferenceWords} {werTestResult.isCJK ? 'characters' : 'words'}</p>
+                  <p><strong>Hypothesis:</strong> {werTestResult.totalHypothesisWords} {werTestResult.isCJK ? 'characters' : 'words'}</p>
                   <p><strong>Synthesis:</strong> {werTestResult.synthesisTimeMs}ms | <strong>Transcription:</strong> {werTestResult.transcriptionTimeMs}ms | <strong>Total:</strong> {werTestResult.totalTimeMs}ms</p>
                 </div>
 
