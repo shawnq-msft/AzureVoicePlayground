@@ -21,7 +21,8 @@
       "Bash(git push:*)",
       "Bash(git stash:*)",
       "Skill(commit-push-deploy)",
-      "Bash(npm install @google/genai)"
+      "Bash(npm install @google/genai)",
+      "WebSearch"
     ]
   }
 }
