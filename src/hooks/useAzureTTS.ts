@@ -3,6 +3,7 @@ import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
 import { AzureSettings, WordBoundary, SynthesisState } from '../types/azure';
 import { buildPersonalVoiceSsml } from '../lib/personalVoice/personalVoiceClient';
 import { createSpeechConfig } from '../utils/azureSpeechConfig';
+import { useSynthesizerPool } from './useSynthesizerPool';
 
 export function useAzureTTS(settings: AzureSettings) {
   const [state, setState] = useState<SynthesisState>('idle');
@@ -10,6 +11,7 @@ export function useAzureTTS(settings: AzureSettings) {
   const [wordBoundaries, setWordBoundaries] = useState<WordBoundary[]>([]);
   const [currentWordIndex, setCurrentWordIndex] = useState<number>(-1);
   const [audioData, setAudioData] = useState<ArrayBuffer | null>(null);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
 
   // Use a ref to always have the latest settings
   const settingsRef = useRef(settings);
@@ -29,8 +31,11 @@ export function useAzureTTS(settings: AzureSettings) {
   const useFallbackPlaybackRef = useRef<boolean>(false);
   const inputTextRef = useRef<string>('');
   const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const synthesisStartTimeRef = useRef<number>(0);
 
-  const initializeSynthesizer = useCallback(() => {
+  const { acquireAsync } = useSynthesizerPool(settings);
+
+  const initializeSynthesizer = useCallback(async () => {
     if (synthesizerRef.current) {
       synthesizerRef.current.close();
     }
@@ -41,6 +46,18 @@ export function useAzureTTS(settings: AzureSettings) {
 
     console.log('Initializing synthesizer with voice:', currentSettings.selectedVoice, 'isPersonalVoice:', isPersonalVoice);
     console.log('personalVoiceInfo:', currentSettings.personalVoiceInfo);
+
+    // Try to acquire a pre-connected synthesizer from the pool (waits up to 3s)
+    const poolEntry = await acquireAsync();
+    if (poolEntry) {
+      console.log('[TTS] Using pre-connected synthesizer from pool');
+      synthesizerRef.current = poolEntry.synthesizer;
+      playerRef.current = poolEntry.player;
+      return poolEntry.synthesizer;
+    }
+
+    // Fallback: create fresh synthesizer
+    console.log('[TTS] Pool empty, creating fresh synthesizer');
 
     // Determine the correct endpoint based on region
     const speechConfig = createSpeechConfig(currentSettings.apiKey, currentSettings.region);
@@ -63,7 +80,7 @@ export function useAzureTTS(settings: AzureSettings) {
     synthesizerRef.current = synthesizer;
 
     return synthesizer;
-  }, []);
+  }, [acquireAsync]);
 
   const trackWordPosition = useCallback(() => {
     if (!isPlayingRef.current) {
@@ -115,7 +132,7 @@ export function useAzureTTS(settings: AzureSettings) {
   }, []);
 
   const synthesize = useCallback(
-    (text: string, locale?: string) => {
+    async (text: string, locale?: string) => {
       if (!text.trim()) {
         setError('Please enter some text to synthesize');
         return;
@@ -132,8 +149,9 @@ export function useAzureTTS(settings: AzureSettings) {
       synthesisCompleteRef.current = false;
       useFallbackPlaybackRef.current = false;
       inputTextRef.current = text;
+      setLatencyMs(null);
 
-      const synthesizer = initializeSynthesizer();
+      const synthesizer = await initializeSynthesizer();
 
       // Set a timeout - after 1 second, if no word boundary, use fallback mode
       const fallbackTimeout = setTimeout(() => {
@@ -199,6 +217,13 @@ export function useAzureTTS(settings: AzureSettings) {
       synthesizer.synthesizing = (_s, e) => {
         if (e.result.audioData) {
           audioChunksRef.current.push(new Uint8Array(e.result.audioData));
+
+          // Measure latency on first audio chunk (time to first byte)
+          if (audioChunksRef.current.length === 1) {
+            const latency = Date.now() - synthesisStartTimeRef.current;
+            setLatencyMs(latency);
+            console.log(`⏱️ Time to first audio byte: ${latency}ms`);
+          }
 
           // Start playback on first audio chunk if using fallback mode
           if (useFallbackPlaybackRef.current && !isPlayingRef.current && audioChunksRef.current.length === 1) {
@@ -291,6 +316,9 @@ export function useAzureTTS(settings: AzureSettings) {
       console.log('selectedVoice:', currentSettings.selectedVoice);
       console.log('locale:', locale);
       console.log('=======================');
+
+      // Record start time for latency measurement (time to first audio byte)
+      synthesisStartTimeRef.current = Date.now();
 
       if (isPersonalVoice) {
         const model = currentSettings.personalVoiceInfo!.model || 'DragonLatestNeural';
@@ -390,6 +418,7 @@ export function useAzureTTS(settings: AzureSettings) {
     wordBoundaries,
     currentWordIndex,
     audioData,
+    latencyMs,
     synthesize,
     pause,
     resume,

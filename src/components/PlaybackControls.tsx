@@ -8,6 +8,7 @@ interface PlaybackControlsProps {
   audioData: ArrayBuffer | null;
   hasText: boolean;
   isConfigured: boolean;
+  latencyMs?: number | null;
   onPlay: () => void;
   onPause: () => void;
   onResume: () => void;
@@ -27,6 +28,7 @@ export function PlaybackControls({
   audioData,
   hasText,
   isConfigured,
+  latencyMs,
   onPlay,
   onPause,
   onResume,
@@ -91,6 +93,12 @@ export function PlaybackControls({
             <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
           )}
         </div>
+        {latencyMs != null && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-gray-500">Latency:</span>
+            <span className="text-xs font-semibold text-indigo-600">{latencyMs}ms</span>
+          </div>
+        )}
       </div>
 
       {/* Error Display */}
