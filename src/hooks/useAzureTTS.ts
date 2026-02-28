@@ -5,6 +5,32 @@ import { buildPersonalVoiceSsml } from '../lib/personalVoice/personalVoiceClient
 import { createSpeechConfig } from '../utils/azureSpeechConfig';
 import { useSynthesizerPool } from './useSynthesizerPool';
 
+function logSynthesisLatencies(result: SpeechSDK.SpeechSynthesisResult): void {
+  console.log('=== SDK Synthesis Result ===');
+  console.log('Result ID:', result.resultId);
+  console.log('Reason:', result.reason);
+  console.log('Audio duration (ticks):', result.audioDuration);
+  console.log('Audio data size:', result.audioData?.byteLength, 'bytes');
+  console.log('Error details:', result.errorDetails || '(none)');
+  if (result.properties) {
+    const props = result.properties;
+    // These are available in the Python SDK but may not be populated in JS SDK
+    const keys = [
+      'SpeechServiceResponse_SynthesisFirstByteLatencyMs',
+      'SpeechServiceResponse_SynthesisFinishLatencyMs',
+      'SpeechServiceResponse_SynthesisNetworkLatencyMs',
+      'SpeechServiceResponse_SynthesisServiceLatencyMs',
+    ];
+    for (const key of keys) {
+      const val = props.getProperty(key);
+      console.log(`  ${key}: ${val || '(not available in JS SDK)'}`);
+    }
+  } else {
+    console.log('properties: not available (JS SDK does not populate for synthesis results)');
+  }
+  console.log('============================');
+}
+
 export function useAzureTTS(settings: AzureSettings) {
   const [state, setState] = useState<SynthesisState>('idle');
   const [error, setError] = useState<string>('');
@@ -335,6 +361,7 @@ export function useAzureTTS(settings: AzureSettings) {
         synthesizer.speakSsmlAsync(
           ssml,
           (result) => {
+            logSynthesisLatencies(result);
             if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
               console.log('Personal voice synthesis completed successfully');
             } else {
@@ -353,6 +380,7 @@ export function useAzureTTS(settings: AzureSettings) {
         synthesizer.speakTextAsync(
           text,
           (result) => {
+            logSynthesisLatencies(result);
             if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
               console.log('Synthesis completed successfully');
             } else {
