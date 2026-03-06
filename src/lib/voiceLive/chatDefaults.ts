@@ -92,14 +92,88 @@ export const RECOGNITION_LANGUAGES = [
 ];
 
 const ALL_CHAT_VOICES = [
-  // Azure HD Voices (DragonHD)
-  { id: 'en-us-ava:DragonHDLatestNeural', name: 'Ava (DragonHD)' },
-  { id: 'en-us-andrew:DragonHDLatestNeural', name: 'Andrew (DragonHD)' },
-  { id: 'en-us-emma:DragonHDLatestNeural', name: 'Emma (DragonHD)' },
-  { id: 'en-us-steffan:DragonHDLatestNeural', name: 'Steffan (DragonHD)' },
-  { id: 'zh-cn-xiaochen:DragonHDLatestNeural', name: 'Xiaochen (DragonHD)' },
-  { id: 'ja-jp-masaru:DragonHDLatestNeural', name: 'Masaru (DragonHD)' },
-  { id: 'de-DE-Seraphina:DragonHDLatestNeural', name: 'Seraphina (DragonHD)' },
+  // Azure HD Voices - en-US (DragonHD)
+  { id: 'en-us-ava:DragonHDLatestNeural', name: 'Ava (HD, en-US)' },
+  { id: 'en-us-andrew:DragonHDLatestNeural', name: 'Andrew (HD, en-US)' },
+  { id: 'en-us-adam:DragonHDLatestNeural', name: 'Adam (HD, en-US)' },
+  { id: 'en-us-alloy:DragonHDLatestNeural', name: 'Alloy (HD, en-US)' },
+  { id: 'en-us-aria:DragonHDLatestNeural', name: 'Aria (HD, en-US)' },
+  { id: 'en-us-bree:DragonHDLatestNeural', name: 'Bree (HD, en-US)' },
+  { id: 'en-us-brian:DragonHDLatestNeural', name: 'Brian (HD, en-US)' },
+  { id: 'en-us-davis:DragonHDLatestNeural', name: 'Davis (HD, en-US)' },
+  { id: 'en-us-emma:DragonHDLatestNeural', name: 'Emma (HD, en-US)' },
+  { id: 'en-us-emma2:DragonHDLatestNeural', name: 'Emma2 (HD, en-US)' },
+  { id: 'en-us-jane:DragonHDLatestNeural', name: 'Jane (HD, en-US)' },
+  { id: 'en-us-jenny:DragonHDLatestNeural', name: 'Jenny (HD, en-US)' },
+  { id: 'en-us-nova:DragonHDLatestNeural', name: 'Nova (HD, en-US)' },
+  { id: 'en-us-phoebe:DragonHDLatestNeural', name: 'Phoebe (HD, en-US)' },
+  { id: 'en-us-serena:DragonHDLatestNeural', name: 'Serena (HD, en-US)' },
+  { id: 'en-us-steffan:DragonHDLatestNeural', name: 'Steffan (HD, en-US)' },
+  { id: 'en-us-andrew2:DragonHDLatestNeural', name: 'Andrew2 (HD, en-US)' },
+  { id: 'en-us-andrew3:DragonHDLatestNeural', name: 'Andrew3 (HD, en-US)' },
+  { id: 'en-us-ava3:DragonHDLatestNeural', name: 'Ava3 (HD, en-US)' },
+  // Azure HD Voices - en-US (DragonHD Omni)
+  { id: 'en-us-andrew:DragonHDOmniLatestNeural', name: 'Andrew (HD Omni, en-US)' },
+  { id: 'en-us-ava:DragonHDOmniLatestNeural', name: 'Ava (HD Omni, en-US)' },
+  { id: 'en-us-caleb:DragonHDOmniLatestNeural', name: 'Caleb (HD Omni, en-US)' },
+  { id: 'en-us-dana:DragonHDOmniLatestNeural', name: 'Dana (HD Omni, en-US)' },
+  { id: 'en-us-lewis:DragonHDOmniLatestNeural', name: 'Lewis (HD Omni, en-US)' },
+  { id: 'en-us-phoebe:DragonHDOmniLatestNeural', name: 'Phoebe (HD Omni, en-US)' },
+  // Azure HD Voices - en-US (DragonHD Flash)
+  { id: 'en-us-jimmie:DragonHDFlashLatestNeural', name: 'Jimmie (HD Flash, en-US)' },
+  { id: 'en-us-tiana:DragonHDFlashLatestNeural', name: 'Tiana (HD Flash, en-US)' },
+  { id: 'en-us-tyler:DragonHDFlashLatestNeural', name: 'Tyler (HD Flash, en-US)' },
+  // Azure HD Voices - en-GB (DragonHD)
+  { id: 'en-gb-ada:DragonHDLatestNeural', name: 'Ada (HD, en-GB)' },
+  { id: 'en-gb-ollie:DragonHDLatestNeural', name: 'Ollie (HD, en-GB)' },
+  // Azure HD Voices - en-IN (DragonHD)
+  { id: 'en-in-meera:DragonHDLatestNeural', name: 'Meera (HD, en-IN)' },
+  { id: 'en-in-aarti:DragonHDLatestNeural', name: 'Aarti (HD, en-IN)' },
+  { id: 'en-in-arjun:DragonHDLatestNeural', name: 'Arjun (HD, en-IN)' },
+  // Azure HD Voices - de-DE (DragonHD)
+  { id: 'de-de-seraphina:DragonHDLatestNeural', name: 'Seraphina (HD, de-DE)' },
+  { id: 'de-de-florian:DragonHDLatestNeural', name: 'Florian (HD, de-DE)' },
+  // Azure HD Voices - es-ES (DragonHD)
+  { id: 'es-es-ximena:DragonHDLatestNeural', name: 'Ximena (HD, es-ES)' },
+  { id: 'es-es-tristan:DragonHDLatestNeural', name: 'Tristan (HD, es-ES)' },
+  // Azure HD Voices - es-MX (DragonHD)
+  { id: 'es-mx-ximena:DragonHDLatestNeural', name: 'Ximena (HD, es-MX)' },
+  { id: 'es-mx-tristan:DragonHDLatestNeural', name: 'Tristan (HD, es-MX)' },
+  // Azure HD Voices - fr-FR (DragonHD)
+  { id: 'fr-fr-vivienne:DragonHDLatestNeural', name: 'Vivienne (HD, fr-FR)' },
+  { id: 'fr-fr-remy:DragonHDLatestNeural', name: 'Remy (HD, fr-FR)' },
+  // Azure HD Voices - fr-CA (DragonHD)
+  { id: 'fr-ca-sylvie:DragonHDLatestNeural', name: 'Sylvie (HD, fr-CA)' },
+  { id: 'fr-ca-thierry:DragonHDLatestNeural', name: 'Thierry (HD, fr-CA)' },
+  // Azure HD Voices - it-IT (DragonHD)
+  { id: 'it-it-isabella:DragonHDLatestNeural', name: 'Isabella (HD, it-IT)' },
+  { id: 'it-it-alessio:DragonHDLatestNeural', name: 'Alessio (HD, it-IT)' },
+  // Azure HD Voices - ja-JP (DragonHD)
+  { id: 'ja-jp-nanami:DragonHDLatestNeural', name: 'Nanami (HD, ja-JP)' },
+  { id: 'ja-jp-masaru:DragonHDLatestNeural', name: 'Masaru (HD, ja-JP)' },
+  // Azure HD Voices - ko-KR (DragonHD)
+  { id: 'ko-kr-sunhi:DragonHDLatestNeural', name: 'SunHi (HD, ko-KR)' },
+  { id: 'ko-kr-hyunsu:DragonHDLatestNeural', name: 'Hyunsu (HD, ko-KR)' },
+  // Azure HD Voices - pt-BR (DragonHD)
+  { id: 'pt-br-thalita:DragonHDLatestNeural', name: 'Thalita (HD, pt-BR)' },
+  { id: 'pt-br-macerio:DragonHDLatestNeural', name: 'Macerio (HD, pt-BR)' },
+  // Azure HD Voices - zh-CN (DragonHD)
+  { id: 'zh-cn-xiaochen:DragonHDLatestNeural', name: 'Xiaochen (HD, zh-CN)' },
+  { id: 'zh-cn-yunfan:DragonHDLatestNeural', name: 'Yunfan (HD, zh-CN)' },
+  // Azure HD Voices - zh-CN (DragonHD Omni)
+  { id: 'zh-cn-xiaoyue:DragonHDOmniLatestNeural', name: 'Xiaoyue (HD Omni, zh-CN)' },
+  { id: 'zh-cn-yunqi:DragonHDOmniLatestNeural', name: 'Yunqi (HD Omni, zh-CN)' },
+  // Azure HD Voices - zh-CN (DragonHD Flash)
+  { id: 'zh-cn-xiaoxiao:DragonHDFlashLatestNeural', name: 'Xiaoxiao (HD Flash, zh-CN)' },
+  { id: 'zh-cn-xiaoxiao2:DragonHDFlashLatestNeural', name: 'Xiaoxiao2 (HD Flash, zh-CN)' },
+  { id: 'zh-cn-xiaochen:DragonHDFlashLatestNeural', name: 'Xiaochen (HD Flash, zh-CN)' },
+  { id: 'zh-cn-xiaoshuang:DragonHDFlashLatestNeural', name: 'Xiaoshuang (HD Flash, zh-CN)' },
+  { id: 'zh-cn-xiaoyou:DragonHDFlashLatestNeural', name: 'Xiaoyou (HD Flash, zh-CN)' },
+  { id: 'zh-cn-xiaoyu:DragonHDFlashLatestNeural', name: 'Xiaoyu (HD Flash, zh-CN)' },
+  { id: 'zh-cn-yunxiao:DragonHDFlashLatestNeural', name: 'Yunxiao (HD Flash, zh-CN)' },
+  { id: 'zh-cn-yunyi:DragonHDFlashLatestNeural', name: 'Yunyi (HD Flash, zh-CN)' },
+  { id: 'zh-cn-yunxia:DragonHDFlashLatestNeural', name: 'Yunxia (HD Flash, zh-CN)' },
+  { id: 'zh-cn-yunye:DragonHDFlashLatestNeural', name: 'Yunye (HD Flash, zh-CN)' },
   // Azure Multilingual Voices
   { id: 'en-US-AvaMultilingualNeural', name: 'Ava Multilingual' },
   { id: 'en-US-AndrewMultilingualNeural', name: 'Andrew Multilingual' },
