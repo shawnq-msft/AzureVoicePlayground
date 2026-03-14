@@ -10,34 +10,39 @@ A feature-rich web application showcasing Microsoft Azure's voice and speech AI 
 
 | Feature | Description |
 |---------|-------------|
-| **Voice Creation** | Create custom AI voices from audio samples. Record consent and voice samples, train personal voice models |
-| **Text to Speech** | Convert text to speech with 400+ premium Azure voices. Supports word highlighting, SSML, and voice filtering |
-| **Podcast Generator** | Generate multi-speaker podcast-style audio. AI script generation from URLs (HTML/PDF) via Azure OpenAI |
-| **Voice Changer** | Transform audio to different voices using 28+ conversion targets including Turbo models |
+| **Voice Creation** | Create custom AI voices from audio samples. Record consent and voice samples, train personal voice models (DragonLatestNeural, PhoenixLatestNeural). Supports 10 locales |
+| **Text to Speech** | Convert text to speech with 400+ premium Azure voices. Word highlighting, SSML support, voice styles, adjustable rate/pitch/volume, voice filtering by language/gender/type, MP3 export. 90+ locales |
+| **Multi Talker** | Generate multi-speaker conversations with automatic SSML generation and turn-taking. 9 languages with pre-built presets. Uses DragonHDLatestNeural model |
+| **Voice Changer** | Transform audio to different voices using 28+ conversion targets including Turbo Multilingual models. Supports audio upload and download |
+| **Speech to Text** | Transcribe audio with 4 models: Realtime (145 locales), Fast Transcription (95 languages), LLM Speech, and Whisper. Speaker diarization, word-level timestamps, WER testing, export to TXT/SRT/VTT |
+| **Video Translation** | Translate video content with voice dubbing and lip-sync. Subtitle generation, speaker count configuration, iteration support for refinement |
+| **Podcast Agent** | AI-powered podcast generation from text, URLs, or files. OneHost/TwoHosts modes, 3 styles, 5 length options, multi-talker voice pairs. Supports 14 locales. Video generation with Bing wallpaper backgrounds |
 
 ### Voice Agent
 
 | Feature | Description |
 |---------|-------------|
-| **Voice Live Chat** | Real-time voice conversation with AI. Supports avatars (video/photo), client-side VAD, 14+ languages, and accurate response latency tracking |
-| **Voice Live Translator** | Real-time voice translation with metrics dashboard (latency, tokens, cost) |
+| **Voice Live Chat** | Real-time voice conversation with AI via WebRTC. Avatar support (video/photo with lip-sync), client-side VAD, accurate response latency tracking, function calling, 14+ languages |
+| **Voice Live Translator** | Real-time voice translation with metrics dashboard tracking latency, tokens, and cost per conversation |
 
 ## Tech Stack
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS
+- **Frontend**: React 18, TypeScript, Vite 6, Tailwind CSS
 - **Azure SDKs**:
-  - `@azure/ai-voicelive` - Real-time voice chat/translation
-  - `microsoft-cognitiveservices-speech-sdk` - TTS, multi-talker, voice conversion
+  - `@azure/ai-voicelive` - Real-time voice chat and translation via WebRTC
+  - `microsoft-cognitiveservices-speech-sdk` - TTS, STT, multi-talker, voice conversion, personal voice
 - **AI Libraries**:
-  - `@ricky0123/vad-web` - Client-side Voice Activity Detection for accurate latency measurement
+  - `@ricky0123/vad-web` - Client-side Voice Activity Detection (ONNX v5 model)
 - **Other**: PDF.js for document extraction, gh-pages for deployment
 
 ## Azure Services Used
 
-- Azure Speech Services (TTS, Voice List, Multi-talker, Voice Conversion, Personal Voice)
-- Azure Voice Live (Real-time chat, Translation, Avatars via WebRTC)
-- Azure OpenAI (Optional - podcast script generation)
-- Azure Blob Storage (Optional - voice changer audio storage)
+- **Azure Speech Services** - TTS (400+ voices), STT (4 models), Voice Conversion, Multi-talker, Personal Voice
+- **Azure Voice Live** - Real-time voice chat, Translation, Avatars via WebRTC
+- **Azure Podcast API** (2026-01-01-preview) - AI podcast generation with multi-speaker synthesis
+- **Azure Video Translation API** (2024-05-20-preview) - Video dubbing with lip-sync
+- **Azure OpenAI** (Optional) - Podcast script generation from documents
+- **Azure Blob Storage** (Optional) - Voice changer audio storage
 
 ## Getting Started
 
@@ -61,15 +66,27 @@ Configure in the sidebar settings panel:
 
 **Content Generation:**
 - Azure Speech API Key
-- Region (40+ regions supported)
+- Region (35+ regions supported including China North 3)
 
 **Voice Agent:**
 - Voice Live Endpoint
 - Voice Live API Key
 
 **Optional:**
-- Azure OpenAI endpoint/key (for podcast AI generation)
+- Azure OpenAI endpoint/key (for podcast AI script generation)
 - Azure Blob Storage connection (for voice changer)
+
+## Supported Regions
+
+| Area | Regions |
+|------|---------|
+| **Americas** | Brazil South, Canada Central/East, Central US, East US, East US 2, North/South/West Central US, West US/2/3 |
+| **Europe** | France Central, Germany West Central, Italy North, North Europe, Norway East, Sweden Central, Switzerland North/West, UK South/West, West Europe |
+| **Asia Pacific** | Australia East, Central India, East Asia, Japan East/West, Korea Central, Southeast Asia |
+| **Middle East & Africa** | Qatar Central, South Africa North, UAE North |
+| **China** | China North 3 |
+
+**Podcast Agent regions**: eastus, westeurope, southeastasia
 
 ## Performance Metrics
 
@@ -96,15 +113,27 @@ Voice Live Chat playground features accurate response latency measurement with c
 - VAD pauses during assistant playback to prevent false detection
 - Latency displayed in message format: `Xms (service) + Yms (VAD) = Zms (total)`
 
-Enable in settings: ☑️ **Show response latency**
+Enable in settings: **Show response latency**
+
+## Multi-Talker Voice Names
+
+The Podcast Agent uses the following multi-talker voices:
+
+| Voice Name | Speakers | Language |
+|------------|----------|----------|
+| `en-Multitalker-1:DragonHDLatestNeural` (Default) | ava, ada, emma, jane, andrew, brian, davis, steffan | English |
+| `zh-CN-Multitalker-Xiaochen-Yunhan:DragonHDLatestNeural` | xiaochen, yunhan | Chinese |
 
 ## URL Routing
 
 Direct links to playgrounds via URL hash:
-- `#text-to-speech`
+
 - `#voice-creation`
+- `#text-to-speech`
 - `#multi-talker`
 - `#voice-changer`
+- `#speech-to-text`
+- `#video-translation`
 - `#podcast-agent`
 - `#voice-live-chat`
 - `#voice-live-translator`
@@ -113,31 +142,62 @@ Direct links to playgrounds via URL hash:
 
 ```
 src/
-├── components/          # React components for each playground
-│   ├── VoiceLiveChatPlayground.tsx      # Azure Voice Live with VAD
-│   ├── VoiceLiveTranslatorPlayground.tsx
-│   ├── PodcastAgentPlayground.tsx
+├── components/              # React components
+│   ├── VoiceCreationPlayground.tsx
 │   ├── TextToSpeechPlayground.tsx
 │   ├── MultiTalkerPlayground.tsx
 │   ├── VoiceChangerPlayground.tsx
-│   └── VoiceCreationPlayground.tsx
-├── hooks/               # Custom hooks
+│   ├── SpeechToTextPlayground.tsx
+│   ├── VideoTranslationPlayground.tsx
+│   ├── PodcastAgentPlayground.tsx
+│   ├── VoiceLiveChatPlayground.tsx
+│   ├── VoiceLiveTranslatorPlayground.tsx
+│   ├── NavigationSidebar.tsx
+│   └── ...                  # Shared UI components
+├── hooks/                   # Custom React hooks
 │   ├── useAzureTTS.ts
+│   ├── useRealtimeSTT.ts
+│   ├── useFastTranscription.ts
+│   ├── useWhisperTranscription.ts
+│   ├── useLLMSpeech.ts
+│   ├── useMultiTalkerTTS.ts
+│   ├── useVoiceConversion.ts
+│   ├── usePodcastGeneration.ts
+│   ├── useVideoTranslation.ts
+│   ├── useSynthesizerPool.ts
 │   ├── useSettings.ts
 │   ├── useHistoryStorage.ts
-│   └── ...
-├── lib/                 # API clients and utilities
-│   ├── voiceLive/
-│   │   ├── chatClient.ts          # Voice Live WebRTC client
-│   │   └── audio/pcmPlayer.ts     # PCM audio playback with timing
-│   ├── podcast/podcastClient.ts
-│   ├── personalVoice/
-│   └── multiTalker/
-├── types/               # TypeScript type definitions
+│   └── ...                  # History & feature hooks
+├── lib/                     # API clients and utilities
+│   ├── voiceLive/           # Voice Live WebRTC client + audio
+│   │   ├── chatClient.ts
+│   │   ├── interpreter.ts
+│   │   ├── metrics.ts
+│   │   └── audio/           # PCM player, mic capture, audio handler
+│   ├── podcast/             # Podcast API client + video renderer
+│   ├── videoTranslation/    # Video translation client
+│   ├── personalVoice/       # Personal voice API client
+│   └── tts/                 # Synthesizer pool for efficient TTS
+├── types/                   # TypeScript type definitions
 │   ├── azure.ts
 │   ├── podcast.ts
+│   ├── multiTalker.ts
+│   ├── stt.ts
+│   ├── videoTranslation.ts
+│   ├── voiceConversion.ts
+│   ├── personalVoice.ts
+│   └── history.ts
+├── utils/                   # Utilities
+│   ├── voiceList.ts         # Voice fetching and filtering
+│   ├── sttLanguages.ts      # STT language definitions
+│   ├── podcastPresets.ts    # Multi-language podcast presets
+│   ├── audioConversion.ts   # Audio format conversion
+│   ├── blobStorage.ts       # Azure Blob Storage helpers
+│   ├── azureOpenAI.ts       # Azure OpenAI integration
+│   ├── werCalculation.ts    # Word Error Rate calculation
+│   ├── sttExport.ts         # Transcript export (TXT/SRT/VTT)
 │   └── ...
-└── App.tsx              # Main app with routing
+└── App.tsx                  # Main app with routing
 ```
 
 ## License
