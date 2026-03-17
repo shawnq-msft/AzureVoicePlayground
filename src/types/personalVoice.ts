@@ -30,6 +30,7 @@ export interface PersonalVoice {
   projectId: string;
   consentId: string;
   speakerProfileId: string;
+  displayName?: string;
   description?: string;
   createdDateTime?: string;
   lastActionDateTime?: string;
@@ -96,4 +97,24 @@ export interface BaseModel {
   releaseDateTime: string;
   expirationDateTime?: string;
   capabilities: string[];
+}
+
+// ============ Text-Prompt Voice Design Types ============
+
+export interface VoiceCandidate {
+  id: string;
+  uri: string;
+  expiresAt: string;
+}
+
+export interface DesignVoiceResponse {
+  voicePrompt: string;
+  sampleText: string;
+  candidates: VoiceCandidate[];
+}
+
+export interface VoiceExample {
+  title: string;
+  prompt: string;
+  sampleText: string;
 }

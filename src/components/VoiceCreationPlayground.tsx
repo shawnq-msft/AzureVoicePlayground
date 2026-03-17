@@ -5,6 +5,7 @@ import {
   type VoiceCreationConfig,
   type Consent,
   type BaseModel,
+  type VoiceCandidate,
   DEFAULT_VOICE_CREATION_CONFIG,
   SUPPORTED_LOCALES,
   PERSONAL_VOICE_MODELS,
@@ -23,8 +24,11 @@ import {
   waitForPersonalVoiceReady,
   synthesizeWithPersonalVoice,
   buildPersonalVoiceSsml,
+  designVoice,
+  createPersonalVoiceFromCandidate,
   type PersonalVoiceClientConfig,
 } from '../lib/personalVoice/personalVoiceClient';
+import { VOICE_EXAMPLES } from '../data/voiceExamples';
 
 interface VoiceCreationPlaygroundProps {
   settings: {
@@ -59,6 +63,15 @@ export function VoiceCreationPlayground({ settings }: VoiceCreationPlaygroundPro
 
   // Text prompt state
   const [voiceDescription, setVoiceDescription] = useState('');
+  const [textPromptStep, setTextPromptStep] = useState<'describe' | 'select'>('describe');
+  const [sampleText, setSampleText] = useState('');
+  const [candidates, setCandidates] = useState<VoiceCandidate[]>([]);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [textPromptVoiceName, setTextPromptVoiceName] = useState('');
+  const [isGeneratingCandidates, setIsGeneratingCandidates] = useState(false);
+  const [isCreatingFromCandidate, setIsCreatingFromCandidate] = useState(false);
+  const [textPromptError, setTextPromptError] = useState<string | null>(null);
+  const [textPromptStatus, setTextPromptStatus] = useState('');
 
   // Voice list
   const [voices, setVoices] = useState<PersonalVoice[]>([]);
@@ -86,6 +99,10 @@ Bonjour, ceci est ma voix personnelle.`);
   // Audio-based voice creation only works in these regions
   const SUPPORTED_AUDIO_REGIONS = ['eastus', 'eastus2', 'westeurope', 'southeastasia', 'swedencentral'];
   const isAudioRegionSupported = SUPPORTED_AUDIO_REGIONS.includes(settings.region.toLowerCase());
+
+  // Text-prompt voice creation only works in East US
+  const TEXT_PROMPT_SUPPORTED_REGIONS = ['eastus'];
+  const isTextPromptRegionSupported = TEXT_PROMPT_SUPPORTED_REGIONS.includes(settings.region.toLowerCase());
 
   const clientConfig: PersonalVoiceClientConfig = {
     apiKey: settings.apiKey,
@@ -282,6 +299,96 @@ Bonjour, ceci est ma voix personnelle.`);
 
   const getConsentTemplate = () => {
     return `I ${config.voiceTalentName || '[your name]'} am aware that recordings of my voice will be used by ${config.companyName} to create and use a synthetic version of my voice.`;
+  };
+
+  // Text-prompt handlers
+  const handleLoadExample = (index: number) => {
+    const example = VOICE_EXAMPLES[index];
+    setVoiceDescription(example.prompt);
+    setSampleText(example.sampleText);
+    setTextPromptError(null);
+  };
+
+  const handleGenerateCandidates = async () => {
+    if (!voiceDescription.trim() || !sampleText.trim()) {
+      setTextPromptError('Please enter both a voice description and sample text');
+      return;
+    }
+
+    setIsGeneratingCandidates(true);
+    setTextPromptError(null);
+    setTextPromptStatus('Generating voice candidates...');
+
+    try {
+      const result = await designVoice(clientConfig, voiceDescription.trim(), sampleText.trim());
+      const newCandidates = result.candidates || [];
+      if (newCandidates.length === 0) {
+        setTextPromptError('No voice candidates were generated. Please try a different description.');
+        setTextPromptStatus('');
+        return;
+      }
+      setCandidates(newCandidates);
+      setSelectedCandidateId(newCandidates[0].id);
+      setTextPromptStatus('');
+      setTextPromptStep('select');
+    } catch (error) {
+      console.error('Voice design failed:', error);
+      setTextPromptError(error instanceof Error ? error.message : 'Failed to generate voice candidates');
+      setTextPromptStatus('');
+    } finally {
+      setIsGeneratingCandidates(false);
+    }
+  };
+
+  const handleCreateFromCandidate = async () => {
+    if (!selectedCandidateId || !textPromptVoiceName.trim()) {
+      setTextPromptError('Please select a candidate and enter a voice name');
+      return;
+    }
+
+    setIsCreatingFromCandidate(true);
+    setTextPromptError(null);
+    setTextPromptStatus('Creating project...');
+
+    try {
+      await ensureProject();
+
+      setTextPromptStatus('Creating personal voice...');
+      const personalVoiceId = `ai-gen-${Date.now()}`;
+      await createPersonalVoiceFromCandidate(
+        clientConfig,
+        personalVoiceId,
+        config.projectId,
+        selectedCandidateId,
+        textPromptVoiceName.trim(),
+      );
+
+      setTextPromptStatus('Voice created successfully!');
+      await loadVoices();
+
+      // Reset wizard after a delay
+      setTimeout(() => {
+        setTextPromptStep('describe');
+        setCandidates([]);
+        setSelectedCandidateId(null);
+        setTextPromptVoiceName('');
+        setTextPromptStatus('');
+      }, 2000);
+    } catch (error) {
+      console.error('Voice creation from candidate failed:', error);
+      let errorMessage = 'Voice creation failed';
+      if (error instanceof Error) {
+        if (error.message.includes('409')) {
+          errorMessage = 'A voice with this name already exists. Please use a different name.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      setTextPromptError(errorMessage);
+      setTextPromptStatus('');
+    } finally {
+      setIsCreatingFromCandidate(false);
+    }
   };
 
   return (
@@ -519,58 +626,228 @@ Bonjour, ceci est ma voix personnelle.`);
                       )}
                     </div>
                   ) : (
-                    /* Text Prompt Voice Creation - Compact */
+                    /* Text Prompt Voice Creation */
                     <div className="h-full flex flex-col gap-3">
-                      <div className="flex gap-4 items-end flex-shrink-0">
-                        <div className="flex-1">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Voice Name</label>
-                          <input
-                            type="text"
-                            value={config.voiceName}
-                            onChange={(e) => setConfig((c) => ({ ...c, voiceName: e.target.value }))}
-                            placeholder="my-custom-voice"
-                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                          />
+                      {!isTextPromptRegionSupported ? (
+                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                          <div className="flex items-start gap-3">
+                            <svg className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div>
+                              <h3 className="font-semibold text-amber-800">Region Not Supported</h3>
+                              <p className="text-sm text-amber-700 mt-1">
+                                Text-prompt voice creation is currently only available in:
+                              </p>
+                              <ul className="text-sm text-amber-700 mt-2 list-disc list-inside">
+                                <li><strong>East US</strong> (eastus)</li>
+                              </ul>
+                              <p className="text-sm text-amber-700 mt-2">
+                                Your current region is <strong>{settings.region}</strong>. Please update your region in the sidebar settings.
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="w-32">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Language</label>
-                          <select
-                            value={config.locale}
-                            onChange={(e) => setConfig((c) => ({ ...c, locale: e.target.value }))}
-                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                          >
-                            {SUPPORTED_LOCALES.map((loc) => (
-                              <option key={loc.code} value={loc.code}>
-                                {loc.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
+                      ) : textPromptStep === 'describe' ? (
+                        /* Step 1: Describe Voice */
+                        <>
+                          {/* Gating Notice */}
+                          <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 flex items-center gap-2 text-sm flex-shrink-0">
+                            <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-amber-800">
+                              Text-prompt voice creation is in preview and requires gating approval.{' '}
+                              <a
+                                href="https://learn.microsoft.com/en-us/azure/ai-services/speech-service/custom-neural-voice"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-amber-700 underline hover:text-amber-900 font-medium"
+                              >
+                                Learn more and apply for access
+                              </a>
+                            </span>
+                          </div>
+                          {/* Quick Examples */}
+                          <div className="flex-shrink-0">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Quick Examples</label>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              {VOICE_EXAMPLES.map((example, index) => (
+                                <button
+                                  key={example.title}
+                                  onClick={() => handleLoadExample(index)}
+                                  className="px-2 py-1 text-xs bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 border border-gray-200 hover:border-emerald-300 rounded transition-colors text-gray-700 truncate"
+                                  title={example.prompt}
+                                >
+                                  {example.title}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
 
-                      <div className="flex-1 min-h-0 flex flex-col">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Voice Description <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                          value={voiceDescription}
-                          onChange={(e) => setVoiceDescription(e.target.value)}
-                          placeholder="e.g., A warm, friendly female voice with a slight British accent. Middle-aged, calm and professional tone, suitable for audiobooks and narration."
-                          className="flex-1 min-h-[80px] w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
-                        />
-                      </div>
+                          {/* Voice Prompt */}
+                          <div className="flex-1 min-h-0 flex flex-col">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Voice Description <span className="text-red-500">*</span>
+                            </label>
+                            <textarea
+                              value={voiceDescription}
+                              onChange={(e) => setVoiceDescription(e.target.value)}
+                              placeholder="Describe the voice you want to create, e.g., 'A warm, friendly female voice with a slight British accent. Middle-aged, calm and professional tone, suitable for audiobooks and narration.'"
+                              className="flex-1 min-h-[60px] w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+                            />
+                          </div>
 
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <button
-                          disabled={!voiceDescription.trim() || isCreating}
-                          className="px-4 py-1.5 bg-emerald-600 text-white text-sm rounded hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
-                        >
-                          Generate Voice
-                        </button>
-                        <span className="text-xs text-amber-600">
-                          This feature is in development (coming soon)
-                        </span>
-                      </div>
+                          {/* Sample Text */}
+                          <div className="flex-shrink-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-xs font-medium text-gray-700">
+                                Sample Text <span className="text-red-500">*</span>
+                              </label>
+                              <span className={`text-xs ${sampleText.length > 300 ? 'text-red-500' : 'text-gray-400'}`}>
+                                {sampleText.length}/300
+                              </span>
+                            </div>
+                            <textarea
+                              value={sampleText}
+                              onChange={(e) => {
+                                if (e.target.value.length <= 300) {
+                                  setSampleText(e.target.value);
+                                }
+                              }}
+                              placeholder="Enter sample text that will be spoken by the generated voice candidates..."
+                              className="w-full h-16 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+                            />
+                          </div>
+
+                          {/* Generate Button & Status */}
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <button
+                              onClick={handleGenerateCandidates}
+                              disabled={!voiceDescription.trim() || !sampleText.trim() || isGeneratingCandidates || sampleText.length > 300}
+                              className="px-4 py-1.5 bg-emerald-600 text-white text-sm rounded hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                            >
+                              {isGeneratingCandidates ? 'Generating...' : 'Generate Candidates'}
+                            </button>
+
+                            {isGeneratingCandidates && textPromptStatus && (
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 animate-spin text-emerald-600" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                <span className="text-sm text-emerald-700">{textPromptStatus}</span>
+                              </div>
+                            )}
+
+                            {textPromptError && (
+                              <p className="text-sm text-red-600">{textPromptError}</p>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        /* Step 2: Select & Create */
+                        <>
+                          {/* Summary */}
+                          <div className="bg-gray-50 border border-gray-200 rounded p-2 flex-shrink-0">
+                            <p className="text-xs text-gray-500 mb-1">Voice Description:</p>
+                            <p className="text-xs text-gray-700 line-clamp-2">{voiceDescription}</p>
+                            <p className="text-xs text-gray-500 mt-1 mb-1">Sample Text:</p>
+                            <p className="text-xs text-gray-700 line-clamp-1">{sampleText}</p>
+                          </div>
+
+                          {/* Candidates */}
+                          <div className="flex-1 min-h-0 overflow-auto">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Select a Voice Candidate
+                            </label>
+                            <div className="space-y-2">
+                              {candidates.map((candidate, index) => (
+                                <div
+                                  key={candidate.id}
+                                  onClick={() => setSelectedCandidateId(candidate.id)}
+                                  className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${
+                                    selectedCandidateId === candidate.id
+                                      ? 'border-emerald-500 bg-emerald-50'
+                                      : 'border-gray-200 bg-white hover:border-gray-300'
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="voiceCandidate"
+                                    checked={selectedCandidateId === candidate.id}
+                                    onChange={() => setSelectedCandidateId(candidate.id)}
+                                    className="accent-emerald-600"
+                                  />
+                                  <span className="text-sm font-medium text-gray-700 flex-shrink-0">
+                                    Candidate {index + 1}
+                                  </span>
+                                  <audio
+                                    controls
+                                    src={candidate.uri}
+                                    className="h-8 flex-1 min-w-0"
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Voice Name & Actions */}
+                          <div className="flex gap-3 items-end flex-shrink-0">
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Voice Name <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={textPromptVoiceName}
+                                onChange={(e) => setTextPromptVoiceName(e.target.value)}
+                                placeholder="my-custom-voice"
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <button
+                              onClick={() => {
+                                setTextPromptStep('describe');
+                                setTextPromptError(null);
+                                setTextPromptStatus('');
+                              }}
+                              className="px-4 py-1.5 bg-white text-gray-700 text-sm rounded border border-gray-300 hover:bg-gray-50 font-medium"
+                            >
+                              Back
+                            </button>
+                            <button
+                              onClick={handleCreateFromCandidate}
+                              disabled={!selectedCandidateId || !textPromptVoiceName.trim() || isCreatingFromCandidate}
+                              className="px-4 py-1.5 bg-emerald-600 text-white text-sm rounded hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                            >
+                              {isCreatingFromCandidate ? 'Creating...' : 'Create Personal Voice'}
+                            </button>
+
+                            {isCreatingFromCandidate && textPromptStatus && (
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 animate-spin text-emerald-600" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                <span className="text-sm text-emerald-700">{textPromptStatus}</span>
+                              </div>
+                            )}
+
+                            {textPromptError && (
+                              <p className="text-sm text-red-600">{textPromptError}</p>
+                            )}
+
+                            {textPromptStatus && !isCreatingFromCandidate && (
+                              <span className="text-sm text-emerald-700">{textPromptStatus}</span>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -774,7 +1051,7 @@ ${ssml}
                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                       </svg>
-                      <span className="font-medium text-gray-800 text-sm">{voice.id}</span>
+                      <span className="font-medium text-gray-800 text-sm">{voice.displayName || voice.id}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span
