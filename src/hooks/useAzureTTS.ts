@@ -38,6 +38,7 @@ export function useAzureTTS(settings: AzureSettings) {
   const [currentWordIndex, setCurrentWordIndex] = useState<number>(-1);
   const [audioData, setAudioData] = useState<ArrayBuffer | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [resultId, setResultId] = useState<string | null>(null);
 
   // Use a ref to always have the latest settings
   const settingsRef = useRef(settings);
@@ -176,6 +177,7 @@ export function useAzureTTS(settings: AzureSettings) {
       useFallbackPlaybackRef.current = false;
       inputTextRef.current = text;
       setLatencyMs(null);
+      setResultId(null);
 
       const synthesizer = await initializeSynthesizer();
 
@@ -362,6 +364,9 @@ export function useAzureTTS(settings: AzureSettings) {
           ssml,
           (result) => {
             logSynthesisLatencies(result);
+            if (result.resultId) {
+              setResultId(result.resultId);
+            }
             if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
               console.log('Personal voice synthesis completed successfully');
             } else {
@@ -381,6 +386,9 @@ export function useAzureTTS(settings: AzureSettings) {
           text,
           (result) => {
             logSynthesisLatencies(result);
+            if (result.resultId) {
+              setResultId(result.resultId);
+            }
             if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
               console.log('Synthesis completed successfully');
             } else {
@@ -447,6 +455,7 @@ export function useAzureTTS(settings: AzureSettings) {
     currentWordIndex,
     audioData,
     latencyMs,
+    resultId,
     synthesize,
     pause,
     resume,

@@ -57,7 +57,7 @@ export function TextToSpeechPlayground({
   const [baseModels, setBaseModels] = useState<BaseModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
 
-  const { state, error, wordBoundaries, currentWordIndex, audioData, latencyMs, synthesize, pause, resume, stop } =
+  const { state, error, wordBoundaries, currentWordIndex, audioData, latencyMs, resultId, synthesize, pause, resume, stop } =
     useAzureTTS(settings);
 
   // WER Test hook
@@ -201,6 +201,7 @@ export function TextToSpeechPlayground({
               hasText={text.trim().length > 0}
               isConfigured={isConfigured}
               latencyMs={latencyMs}
+              resultId={resultId}
               onPlay={handlePlay}
               onPause={pause}
               onResume={resume}

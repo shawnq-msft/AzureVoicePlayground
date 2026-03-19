@@ -9,6 +9,7 @@ interface PlaybackControlsProps {
   hasText: boolean;
   isConfigured: boolean;
   latencyMs?: number | null;
+  resultId?: string | null;
   onPlay: () => void;
   onPause: () => void;
   onResume: () => void;
@@ -29,6 +30,7 @@ export function PlaybackControls({
   hasText,
   isConfigured,
   latencyMs,
+  resultId,
   onPlay,
   onPause,
   onResume,
@@ -100,6 +102,14 @@ export function PlaybackControls({
           </div>
         )}
       </div>
+
+      {/* Result ID Display */}
+      {resultId && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-medium text-gray-500">Result ID:</span>
+          <code className="text-xs font-mono text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded select-all">{resultId}</code>
+        </div>
+      )}
 
       {/* Error Display */}
       {error && (
