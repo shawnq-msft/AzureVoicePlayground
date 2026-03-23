@@ -8,6 +8,9 @@ interface PodcastContentUploaderProps {
 
 type InputTab = 'text' | 'url' | 'file';
 
+// UI performance limit: 6M characters (~6MB text)
+const MAX_UI_CHAR_COUNT = 6 * 1024 * 1024;
+
 export function PodcastContentUploader({ onContentChange, disabled = false }: PodcastContentUploaderProps) {
   const [activeTab, setActiveTab] = useState<InputTab>('text');
   const [textInput, setTextInput] = useState('');
@@ -30,14 +33,25 @@ export function PodcastContentUploader({ onContentChange, disabled = false }: Po
     if (source.text) {
       const textLength = source.text.length;
       
-      // First check: if text length <= MAX_PLAIN_TEXT_LENGTH, it passes
+      // First check: character count limit for UI performance
+      if (textLength > MAX_UI_CHAR_COUNT) {
+        const actualMChar = (textLength / 1024 / 1024).toFixed(1);
+        const maxMChar = (MAX_UI_CHAR_COUNT / 1024 / 1024).toFixed(0);
+        setError(
+          `Text is too long. Current: ${actualMChar}M characters exceeds the ${maxMChar}M character limit for UI performance. ` +
+          `For larger content, use file upload or URL instead.`
+        );
+        return;
+      }
+      
+      // Second check: if text length <= MAX_PLAIN_TEXT_LENGTH, it passes
       if (textLength <= MAX_PLAIN_TEXT_LENGTH) {
         // Text is within inline limit, no further validation needed
         onContentChange(source);
         return;
       }
       
-      // Second check: text > MAX_PLAIN_TEXT_LENGTH, check if file size <= MAX_CONTENT_FILE_SIZE
+      // Third check: text > MAX_PLAIN_TEXT_LENGTH, check if file size <= MAX_CONTENT_FILE_SIZE
       // If exceeds 8MB, it will be uploaded via temp file API automatically
       const textBlob = new Blob([source.text], { type: 'text/plain' });
       const textBytes = textBlob.size;
@@ -213,17 +227,18 @@ export function PodcastContentUploader({ onContentChange, disabled = false }: Po
               value={textInput}
               onChange={(e) => handleTextChange(e.target.value)}
               disabled={disabled}
-              placeholder="Paste your text content here (up to 6MB)..."
+              maxLength={MAX_UI_CHAR_COUNT}
+              placeholder="Paste your text content here (up to 50MB)..."
               className="w-full h-48 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
             />
             <div className="mt-1 text-xs text-gray-500">
-              {textInput.length.toLocaleString()} characters
+              {textInput.length.toLocaleString()} / {MAX_UI_CHAR_COUNT.toLocaleString()} characters
               {textInput.length > 0 && (
                 <>
                   {' '}({(new Blob([textInput]).size / 1024).toFixed(1)} KB)
                   {new Blob([textInput]).size > MAX_PLAIN_TEXT_LENGTH && (
                     <span className="ml-2 text-amber-600">
-                      → Will use {new Blob([textInput]).size > 8 * 1024 * 1024 ? 'temp file upload' : 'base64 encoding'}
+                      → Will use temp file upload
                     </span>
                   )}
                 </>

@@ -14,6 +14,7 @@ import {
   TempFile,
   MAX_PLAIN_TEXT_LENGTH,
   MAX_BASE64_TEXT_LENGTH,
+  MAX_CONTENT_FILE_SIZE,
 } from '../../types/podcast';
 
 const API_VERSION = '2026-01-01-preview';
@@ -80,9 +81,11 @@ export async function fileToBase64(file: File): Promise<string> {
  * Prepare content payload based on source type
  * Strategy:
  * - Text <= 1MB: uses 'text' property (inline)
- * - Text > 1MB and <= 8MB: uses 'base64Text' property
- * - Files/Text > 8MB: uploads as temp file via temp file API, uses 'tempFileId'
+ * - Text > 1MB: uploads as temp file, uses 'tempFileId' property
+ * - File (PDF) <= 8MB: uses 'base64Text' property
+ * - File > 8MB: uploads as temp file, uses 'tempFileId' property
  * - URL: uses 'url' property with detected file format
+ * Note: base64Text is only for file uploads (especially PDFs), not for text input
  */
 export async function prepareContentPayload(
   config: PodcastApiConfig,
@@ -103,29 +106,19 @@ export async function prepareContentPayload(
         text: source.text,
         fileFormat: 'Txt',
       };
-    } else {
-      // Convert to base64 first to check its size
+    } else if (textBytes <= MAX_CONTENT_FILE_SIZE) {
+      // For text > 1MB, use temp file upload (base64 is only for PDF format)
+      console.log(`Uploading as temp file (${textBytes} bytes, >1MB, <=50MB)`);
       const textBlob = new Blob([source.text || ''], { type: 'text/plain' });
       const textFile = new File([textBlob], 'content.txt', { type: 'text/plain' });
-      const base64Text = await fileToBase64(textFile);
-
-      if (base64Text.length <= MAX_BASE64_TEXT_LENGTH) {
-        // Use base64 for content where base64 size <= 8MB
-        console.log(`Using base64Text (${base64Text.length} bytes, <=8MB)`);
-        return {
-          base64Text,
-          fileFormat: 'Txt',
-        };
-      } else {
-        // Upload as temp file for content where base64 size > 8MB
-        console.log(`Uploading as temp file (${base64Text.length} bytes, >8MB)`);
-        const tempFileId = createTempFileId();
-        await uploadTempFile(config, textFile, tempFileId, 120); // 2 hour expiry
-        return {
-          tempFileId,
-          fileFormat: 'Txt',
-        };
-      }
+      const tempFileId = createTempFileId();
+      await uploadTempFile(config, textFile, tempFileId, 120); // 2 hour expiry
+      return {
+        tempFileId,
+        fileFormat: 'Txt',
+      };
+    } else {
+      throw new Error(`Text content is too large (${(textBytes / 1024 / 1024).toFixed(1)}MB). Maximum allowed size is ${(MAX_CONTENT_FILE_SIZE / 1024 / 1024).toFixed(0)}MB.`);
     }
   }
 
@@ -155,7 +148,7 @@ export async function prepareContentPayload(
         base64Text,
         fileFormat,
       };
-    } else if (source.file.size <= 50 * 1024 * 1024) {
+    } else if (source.file.size <= MAX_CONTENT_FILE_SIZE) {
       // Upload as temp file for files > 8MB and <= 50MB
       console.log('Uploading file as temp file (>8MB, <=50MB)');
       const tempFileId = createTempFileId();
@@ -165,7 +158,7 @@ export async function prepareContentPayload(
         fileFormat,
       };
     } else {
-      throw new Error('File size exceeds maximum limit of 50MB');
+      throw new Error(`File size exceeds maximum limit of ${(MAX_CONTENT_FILE_SIZE / 1024 / 1024).toFixed(0)}MB`);
     }
   }
 
