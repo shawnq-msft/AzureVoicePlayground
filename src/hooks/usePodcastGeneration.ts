@@ -43,6 +43,7 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
     config: PodcastConfig,
     voiceName?: string,
     speakerNames?: string,
+    genderPreference?: 'Male' | 'Female',
     addToHistory?: (entry: Omit<PodcastHistoryEntry, 'id'>) => void
   ) => {
     let tempFileId: string | undefined;
@@ -89,16 +90,20 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
           length: config.length,
           additionalInstructions: config.additionalInstructions || undefined,
         },
-        tts: config.hostType === 'TwoHosts' && speakerNames
+        tts: (config.hostType === 'TwoHosts' && speakerNames) || 
+             (config.hostType === 'OneHost' && (voiceName || genderPreference))
           ? {
               voiceName: voiceName || undefined,
               multiTalkerVoiceSpeakerNames: speakerNames,
+              genderPreference,
             }
           : undefined,
       };
 
       console.log('Creating generation with params:', createParams);
+      console.log('Voice name passed to API:', voiceName);
       console.log('Speaker names passed to API:', speakerNames);
+      console.log('Gender preference passed to API:', genderPreference);
 
       const { generation } = await createGeneration(apiConfig, createParams);
 
@@ -122,8 +127,10 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
           }
 
           // Update progress based on generation status
-          if (gen.status === 'Running') {
-            setProgress({ step: 4, totalSteps: 5, message: 'Converting to audio...' });
+          if (gen.status === 'NotStarted') {
+            setProgress({ step: 3, totalSteps: 5, message: 'Waiting for generation to start...' });
+          } else if (gen.status === 'Running') {
+            setProgress({ step: 4, totalSteps: 5, message: 'Processing and generating audio...' });
           }
 
           setCurrentGeneration(gen);
@@ -148,10 +155,10 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
 
       // Add to history if callback provided
       if (addToHistory && completedGeneration.output?.audioFileUrl) {
-        const contentPreview = contentSource.type === 'text'
-          ? contentSource.text?.substring(0, 100) || ''
-          : contentSource.type === 'url'
-            ? contentSource.url || ''
+        const contentPreview = contentSource.text
+          ? contentSource.text.substring(0, 100)
+          : contentSource.url
+            ? contentSource.url
             : contentSource.file?.name || '';
 
         addToHistory({

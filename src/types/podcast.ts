@@ -144,6 +144,50 @@ export interface TempFile {
   };
 }
 
+export interface VoiceProperties {
+  Gender?: string;
+  DisplayName?: string;
+  LocalName?: string;
+  ShortName?: string;
+  FrontendVoiceType?: string;
+  AgeGroups?: string;
+  Personality?: string;
+  TailoredScenarios?: string;
+  VoiceModelKind?: string;
+  ReleaseScope?: string;
+  [key: string]: string | undefined;
+}
+
+export interface VoiceSample {
+  styleName: string;
+  audioFileEndpointWithSas: string;
+}
+
+export interface VoiceSamples {
+  languageSamples: any[];
+  roleSamples: any[];
+  styleSamples: VoiceSample[];
+}
+
+export interface VoiceTag {
+  name: string;
+  tags: string[];
+}
+
+export interface Voice {
+  id: string;
+  name: string;
+  shortName: string;
+  description: string;
+  locale: string;
+  properties: VoiceProperties;
+  categories: string[];
+  masterpieces: any[];
+  samples: VoiceSamples;
+  voiceType: string;
+  voiceTags: VoiceTag[];
+}
+
 // Size limits (in bytes)
 export const MAX_PLAIN_TEXT_LENGTH = 1 * 1024 * 1024;      // 1MB
 export const MAX_BASE64_TEXT_LENGTH = 8 * 1024 * 1024;     // 8MB

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AzureSettings } from '../types/azure';
 import { PodcastContentUploader } from './PodcastContentUploader';
 import { PodcastVoicePairSelector, getVoiceDetails } from './PodcastVoicePairSelector';
+import { PodcastOneHostVoiceSelector } from './PodcastOneHostVoiceSelector';
+import { PodcastTwoHostsVoiceSelector } from './PodcastTwoHostsVoiceSelector';
 import { ALL_TTS_REGIONS } from './NavigationSidebar';
 import { usePodcastGeneration } from '../hooks/usePodcastGeneration';
 import { PodcastVideoRenderer } from '../lib/podcast/videoRenderer';
@@ -13,6 +15,7 @@ import {
   PodcastLength,
   PodcastHistoryEntry,
   GenerationStatus,
+  Voice,
 } from '../types/podcast';
 
 interface VoicePair {
@@ -93,6 +96,11 @@ interface StoredConfig {
   length: PodcastLength;
   additionalInstructions: string;
   voicePair?: VoicePair;
+  genderPreference?: 'Male' | 'Female';
+  oneHostVoiceId?: string;
+  twoHostsVoiceId?: string;
+  twoHostsSpeaker1?: string;
+  twoHostsSpeaker2?: string;
 }
 
 function loadConfig(): Partial<StoredConfig> {
@@ -128,6 +136,16 @@ export function PodcastAgentPlayground({
   const [selectedVoicePair, setSelectedVoicePair] = useState<VoicePair | null>(
     savedConfig.voicePair || null
   );
+  // OneHost voice selection
+  const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
+  const [genderPreference, setGenderPreference] = useState<'Male' | 'Female' | undefined>(
+    savedConfig.genderPreference
+  );
+  // TwoHosts voice selection
+  const [twoHostsVoice, setTwoHostsVoice] = useState<Voice | null>(null);
+  const [twoHostsSpeaker1, setTwoHostsSpeaker1] = useState<string | null>(savedConfig.twoHostsSpeaker1 || null);
+  const [twoHostsSpeaker2, setTwoHostsSpeaker2] = useState<string | null>(savedConfig.twoHostsSpeaker2 || null);
+  
   const [style, setStyle] = useState<PodcastStyle>(savedConfig.style || 'Default');
   const [length, setLength] = useState<PodcastLength>(savedConfig.length || 'Medium');
   const [additionalInstructions, setAdditionalInstructions] = useState(
@@ -167,12 +185,22 @@ export function PodcastAgentPlayground({
       length,
       additionalInstructions,
       voicePair: selectedVoicePair || undefined,
+      genderPreference,
+      oneHostVoiceId: selectedVoice?.id,
+      twoHostsVoiceId: twoHostsVoice?.id,
+      twoHostsSpeaker1: twoHostsSpeaker1 || undefined,
+      twoHostsSpeaker2: twoHostsSpeaker2 || undefined,
     });
-  }, [locale, hostType, style, length, additionalInstructions, selectedVoicePair]);
+  }, [locale, hostType, style, length, additionalInstructions, selectedVoicePair, genderPreference, selectedVoice, twoHostsVoice, twoHostsSpeaker1, twoHostsSpeaker2]);
 
-  // Reset voice pair when locale or host type changes
+  // Reset voice selections when locale or host type changes
   useEffect(() => {
     setSelectedVoicePair(null);
+    setSelectedVoice(null);
+    setGenderPreference(undefined);
+    setTwoHostsVoice(null);
+    setTwoHostsSpeaker1(null);
+    setTwoHostsSpeaker2(null);
   }, [locale, hostType]);
 
   const handleStartGeneration = useCallback(async () => {
@@ -186,12 +214,25 @@ export function PodcastAgentPlayground({
       additionalInstructions: additionalInstructions.trim() || undefined,
     };
 
-    const voiceDetails = hostType === 'TwoHosts' ? getVoiceDetails(selectedVoicePair, locale) : null;
-    const voiceName = voiceDetails?.voiceName;
-    const speakerNames = voiceDetails?.speakerNames;
+    let voiceName: string | undefined;
+    let speakerNames: string | undefined;
 
-    await startGeneration(contentSource, config, voiceName, speakerNames, addToHistory);
-  }, [contentSource, locale, hostType, style, length, additionalInstructions, selectedVoicePair, startGeneration, addToHistory]);
+    if (hostType === 'TwoHosts') {
+      // Use new voice selector if available, otherwise fall back to old voice pair
+      if (twoHostsVoice && twoHostsSpeaker1 && twoHostsSpeaker2) {
+        voiceName = twoHostsVoice.shortName;
+        speakerNames = `${twoHostsSpeaker1},${twoHostsSpeaker2}`;
+      } else if (selectedVoicePair) {
+        const voiceDetails = getVoiceDetails(selectedVoicePair, locale);
+        voiceName = voiceDetails?.voiceName;
+        speakerNames = voiceDetails?.speakerNames;
+      }
+    } else if (hostType === 'OneHost' && selectedVoice) {
+      voiceName = selectedVoice.shortName;
+    }
+
+    await startGeneration(contentSource, config, voiceName, speakerNames, genderPreference, addToHistory);
+  }, [contentSource, locale, hostType, style, length, additionalInstructions, selectedVoicePair, selectedVoice, twoHostsVoice, twoHostsSpeaker1, twoHostsSpeaker2, genderPreference, startGeneration, addToHistory]);
 
   const handleReset = useCallback(() => {
     reset();
@@ -291,12 +332,19 @@ export function PodcastAgentPlayground({
   // 2. Custom URLs starting with http:// or https:// (e.g., "https://localhost:44311/api")
   const isCustomUrl = settings.region.startsWith('http://') || settings.region.startsWith('https://');
   const isRegionSupported = isCustomUrl || settings.region.includes('-') || SUPPORTED_REGIONS.includes(settings.region.toLowerCase());
+  
+  // Check if TwoHosts requirements are met (either old voice pair or new voice+speakers)
+  const isTwoHostsReady = hostType === 'TwoHosts' && (
+    selectedVoicePair !== null ||
+    (twoHostsVoice !== null && twoHostsSpeaker1 !== null && twoHostsSpeaker2 !== null)
+  );
+  
   const canStart =
     isConfigured &&
     isRegionSupported &&
     !isProcessing &&
     contentSource !== null &&
-    (hostType === 'OneHost' || (hostType === 'TwoHosts' && selectedVoicePair !== null));
+    (hostType === 'OneHost' || isTwoHostsReady);
 
   if (!isConfigured) {
     return (
@@ -717,14 +765,94 @@ export function PodcastAgentPlayground({
               </div>
             </div>
 
-            {/* Voice Pair Selector (only for TwoHosts) */}
+            {/* Voice Selector (only for TwoHosts) */}
             {hostType === 'TwoHosts' && (
-              <PodcastVoicePairSelector
+              <PodcastTwoHostsVoiceSelector
+                apiConfig={{
+                  apiKey: settings.apiKey,
+                  region: settings.region,
+                }}
                 locale={locale}
-                selectedPair={selectedVoicePair}
-                onPairChange={setSelectedVoicePair}
+                selectedVoice={twoHostsVoice}
+                selectedSpeaker1={twoHostsSpeaker1}
+                selectedSpeaker2={twoHostsSpeaker2}
+                onVoiceChange={setTwoHostsVoice}
+                onSpeakersChange={(speaker1, speaker2) => {
+                  setTwoHostsSpeaker1(speaker1);
+                  setTwoHostsSpeaker2(speaker2);
+                }}
                 disabled={isProcessing}
               />
+            )}
+
+            {/* Voice Selector (only for OneHost) */}
+            {hostType === 'OneHost' && (
+              <PodcastOneHostVoiceSelector
+                apiConfig={{
+                  apiKey: settings.apiKey,
+                  region: settings.region,
+                }}
+                locale={locale}
+                selectedVoice={selectedVoice}
+                onVoiceChange={(voice) => {
+                  setSelectedVoice(voice);
+                  // Clear gender preference when a specific voice is selected
+                  if (voice) {
+                    setGenderPreference(undefined);
+                  }
+                }}
+                disabled={isProcessing}
+              />
+            )}
+
+            {/* Note when voice is selected */}
+            {hostType === 'OneHost' && selectedVoice && (
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                <p className="text-xs text-gray-600">
+                  <span className="font-medium">Note:</span> Gender preference is not available when a specific voice is selected. 
+                  Select "Auto" above to use gender preference instead.
+                </p>
+              </div>
+            )}
+
+            {/* Gender Preference (only for OneHost when no voice is selected) */}
+            {hostType === 'OneHost' && !selectedVoice && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Gender Preference <span className="text-gray-500 font-normal">- Optional</span>
+                </label>
+                <p className="text-xs text-gray-500 -mt-1 mb-2">
+                  Guide automatic voice selection by gender
+                </p>
+                <div className="space-y-2">
+                  {[
+                    { value: undefined, label: 'Auto', description: 'System will choose automatically' },
+                    { value: 'Male' as const, label: 'Male', description: 'Prefer male voice' },
+                    { value: 'Female' as const, label: 'Female', description: 'Prefer female voice' },
+                  ].map((option) => (
+                    <label
+                      key={option.value || 'auto'}
+                      className={`flex items-start p-3 border rounded-md cursor-pointer transition-colors ${
+                        genderPreference === option.value
+                          ? 'border-purple-600 bg-purple-50'
+                          : 'border-gray-200 hover:border-purple-300'
+                      } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        checked={genderPreference === option.value}
+                        onChange={() => setGenderPreference(option.value)}
+                        disabled={isProcessing}
+                        className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500"
+                      />
+                      <div className="ml-3">
+                        <div className="text-sm font-medium text-gray-900">{option.label}</div>
+                        <div className="text-xs text-gray-500">{option.description}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Style */}

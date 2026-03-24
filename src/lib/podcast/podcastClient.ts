@@ -12,6 +12,7 @@ import {
   PodcastContentSource,
   PodcastContent,
   TempFile,
+  Voice,
   MAX_PLAIN_TEXT_LENGTH,
   MAX_BASE64_TEXT_LENGTH,
   MAX_CONTENT_FILE_SIZE,
@@ -442,4 +443,81 @@ export async function safeDeleteTempFile(
     // Log but don't throw - temp file cleanup is best-effort
     console.warn(`Failed to delete temp file ${tempFileId}:`, error);
   }
+}
+
+/**
+ * Get TTS base URL for voice queries
+ */
+function getTtsBaseUrl(region: string): string {
+  // Check if region is a custom URL (for local debugging)
+  if (region.startsWith('http://') || region.startsWith('https://')) {
+    // Remove trailing slash if present
+    const baseUrl = region.endsWith('/') ? region.slice(0, -1) : region;
+    // Append /texttospeech path for local
+    return `${baseUrl}/texttospeech/v3.0-beta1/vcg/voices`;
+  }
+  
+  // Standard Azure region format
+  return `https://${region}.api.cognitive.microsoft.com/texttospeech/acc/v3.0-beta1/vcg/voices`;
+}
+
+/**
+ * Query supported voices for podcast generation
+ * Filters by ApiScenarioKind=Podcast
+ * Voices with "multitalker" (case insensitive) in name are for TwoHosts
+ * Other voices are for OneHost
+ */
+export async function queryVoices(
+  config: PodcastApiConfig,
+  locale?: string
+): Promise<Voice[]> {
+  const url = getTtsBaseUrl(config.region);
+  
+  const headers: Record<string, string> = {
+    'Ocp-Apim-Subscription-Key': config.apiKey,
+    'Content-Type': 'application/json',
+  };
+
+  const body = {
+    ApiScenarioKind: 'Podcast',
+  };
+
+  console.log('Querying voices with scenario: Podcast', locale ? `for locale: ${locale}` : '');
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  const voices = await handleResponse<Voice[]>(response);
+  
+  // Filter by locale if provided
+  if (locale) {
+    return voices.filter(v => v.locale === locale);
+  }
+  
+  return voices;
+}
+
+/**
+ * Check if a voice is for TwoHosts mode (contains "multitalker" case-insensitive)
+ */
+export function isTwoHostsVoice(voice: Voice): boolean {
+  return voice.name.toLowerCase().includes('multitalker') || 
+         voice.shortName.toLowerCase().includes('multitalker');
+}
+
+/**
+ * Filter voices for OneHost mode
+ */
+export function getOneHostVoices(voices: Voice[]): Voice[] {
+  return voices.filter(v => !isTwoHostsVoice(v));
+}
+
+/**
+ * Filter voices for TwoHosts mode
+ */
+export function getTwoHostsVoices(voices: Voice[]): Voice[] {
+  return voices.filter(v => isTwoHostsVoice(v));
 }
