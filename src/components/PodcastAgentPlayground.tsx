@@ -97,6 +97,23 @@ const LENGTHS: { value: PodcastLength; label: string; description: string }[] = 
   { value: 'VeryLong', label: 'Very Long', description: '~15+ min' },
 ];
 
+const TEMPLATES: { value: string; label: string; description: string; maxChars: number; audience: string }[] = [
+  { 
+    value: 'Default', 
+    label: 'Default', 
+    description: 'Standard template with system-generated dialog structure. Best for most use cases.',
+    maxChars: 1000,
+    audience: 'Public Users'
+  },
+  { 
+    value: 'CustomizeDialogStructure', 
+    label: 'Custom Dialog Structure', 
+    description: 'Allows customization of conversation flow and dialog patterns. Provides more control over podcast structure while maintaining quality.',
+    maxChars: 10000,
+    audience: 'Advanced Users'
+  },
+];
+
 const CONFIG_STORAGE_KEY = 'podcast-agent-config';
 
 interface StoredConfig {
@@ -105,6 +122,7 @@ interface StoredConfig {
   style: PodcastStyle;
   length: PodcastLength;
   additionalInstructions: string;
+  template?: string;
   genderPreference?: 'Male' | 'Female';
   oneHostVoiceId?: string;
   twoHostsVoiceId?: string;
@@ -162,9 +180,12 @@ export function PodcastAgentPlayground({
   const [additionalInstructions, setAdditionalInstructions] = useState(
     savedConfig.additionalInstructions || ''
   );
+  const [template, setTemplate] = useState<string>(savedConfig.template || 'Default');
+  const [manualTemplate, setManualTemplate] = useState<string>('');
 
   // UI state
   const [showHistory, setShowHistory] = useState(false);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
   // Video generation state
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
@@ -195,13 +216,14 @@ export function PodcastAgentPlayground({
       style,
       length,
       additionalInstructions,
+      template,
       genderPreference,
       oneHostVoiceId: selectedVoice?.id,
       twoHostsVoiceId: twoHostsVoice?.id,
       twoHostsSpeaker1: twoHostsSpeaker1 || undefined,
       twoHostsSpeaker2: twoHostsSpeaker2 || undefined,
     });
-  }, [locale, hostType, style, length, additionalInstructions, genderPreference, selectedVoice, twoHostsVoice, twoHostsSpeaker1, twoHostsSpeaker2]);
+  }, [locale, hostType, style, length, additionalInstructions, template, genderPreference, selectedVoice, twoHostsVoice, twoHostsSpeaker1, twoHostsSpeaker2]);
 
   // Reset voice selections when locale or host type changes
   useEffect(() => {
@@ -235,12 +257,16 @@ export function PodcastAgentPlayground({
   const handleStartGeneration = useCallback(async () => {
     if (!contentSource) return;
 
+    // Determine which template to use: manual input or selected template
+    const effectiveTemplate = template === 'custom' ? manualTemplate : template;
+    
     const config: PodcastConfig = {
       locale,
       hostType,
       style,
       length,
       additionalInstructions: additionalInstructions.trim() || undefined,
+      template: effectiveTemplate !== 'Default' ? effectiveTemplate : undefined,  // Only include if not default
     };
 
     let voiceName: string | undefined;
@@ -269,7 +295,7 @@ export function PodcastAgentPlayground({
     }
 
     await startGeneration(contentSource, config, voiceName, speakerNames, genderPreference, addToHistory);
-  }, [contentSource, locale, hostType, style, length, additionalInstructions, selectedVoice, twoHostsVoice, twoHostsSpeaker1, twoHostsSpeaker2, manualOneHostVoiceName, manualTwoHostsVoiceName, manualSpeakerNames, genderPreference, startGeneration, addToHistory]);
+  }, [contentSource, locale, hostType, style, length, additionalInstructions, template, manualTemplate, selectedVoice, twoHostsVoice, twoHostsSpeaker1, twoHostsSpeaker2, manualOneHostVoiceName, manualTwoHostsVoiceName, manualSpeakerNames, genderPreference, startGeneration, addToHistory]);
 
   const handleReset = useCallback(() => {
     reset();
@@ -597,7 +623,9 @@ export function PodcastAgentPlayground({
                   </svg>
                   <div>
                     <h3 className="font-medium text-red-800">Generation Failed</h3>
-                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                    <p className="text-sm text-red-700 mt-1">
+                      {error || currentGeneration?.failureReason || 'Generation failed'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1006,15 +1034,135 @@ export function PodcastAgentPlayground({
               </label>
               <textarea
                 value={additionalInstructions}
-                onChange={(e) => setAdditionalInstructions(e.target.value)}
+                onChange={(e) => {
+                  const selectedTemplate = TEMPLATES.find(t => t.value === template);
+                  // Use 100,000 for custom templates, otherwise use the template's maxChars
+                  const maxLength = template === 'custom' ? 100000 : (selectedTemplate?.maxChars || 1000);
+                  if (e.target.value.length <= maxLength) {
+                    setAdditionalInstructions(e.target.value);
+                  }
+                }}
                 disabled={isProcessing}
                 placeholder="e.g., Focus on technical details, use casual tone, include examples..."
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
               />
               <div className="mt-1 text-xs text-gray-500">
-                {additionalInstructions.length} / 1000 characters
+                {additionalInstructions.length} / {template === 'custom' ? '100,000' : (TEMPLATES.find(t => t.value === template)?.maxChars.toLocaleString() || '1,000')} characters
               </div>
+            </div>
+
+            {/* Advanced Settings */}
+            <div className="pt-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                className="w-full flex items-center justify-between text-left"
+              >
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  <span className="text-sm font-medium text-gray-700">Advanced Settings</span>
+                </div>
+                <svg
+                  className={`w-4 h-4 text-gray-400 transform transition-transform ${
+                    showAdvancedSettings ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showAdvancedSettings && (
+                <div className="mt-4 space-y-4">
+                  {/* Dialog Generation Prompt Template */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Dialog Generation Prompt Template
+                    </label>
+                    <select
+                      value={template}
+                      onChange={(e) => {
+                        const newTemplate = e.target.value;
+                        setTemplate(newTemplate);
+                        
+                        if (newTemplate === 'custom') {
+                          // Clear manual input when selecting Custom
+                          setManualTemplate('');
+                        } else {
+                          // Truncate additionalInstructions if it exceeds the new template's limit
+                          const selectedTemplate = TEMPLATES.find(t => t.value === newTemplate);
+                          if (selectedTemplate && additionalInstructions.length > selectedTemplate.maxChars) {
+                            setAdditionalInstructions(additionalInstructions.slice(0, selectedTemplate.maxChars));
+                          }
+                        }
+                      }}
+                      disabled={isProcessing}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      {TEMPLATES.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label} ({t.audience})
+                        </option>
+                      ))}
+                      <option value="custom">Custom...</option>
+                    </select>
+                    
+                    {/* Manual Template Input - only show when Custom is selected */}
+                    {template === 'custom' && (
+                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md space-y-2">
+                        <label className="block text-sm font-medium text-amber-900">
+                          Enter Custom Template Name
+                        </label>
+                        <p className="text-xs text-amber-700">
+                          Specify a custom template name for specialized scenarios. Instruction length limit: 100,000 characters.
+                        </p>
+                        <input
+                          type="text"
+                          value={manualTemplate}
+                          onChange={(e) => setManualTemplate(e.target.value)}
+                          placeholder="e.g., MyCustomTemplate"
+                          disabled={isProcessing}
+                          autoFocus
+                          className="w-full px-3 py-2 border border-amber-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
+                        />
+                        {manualTemplate && (
+                          <div className="text-xs text-amber-700">
+                            ℹ️ Using custom template: <code className="font-mono font-semibold bg-amber-100 px-1 rounded">{manualTemplate}</code>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Template description - only show for predefined templates */}
+                    {template !== 'custom' && (
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <p className="text-xs text-blue-700">
+                          <strong>{TEMPLATES.find(t => t.value === template)?.label}:</strong>{' '}
+                          {TEMPLATES.find(t => t.value === template)?.description}
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Instruction length limit: {TEMPLATES.find(t => t.value === template)?.maxChars.toLocaleString()} characters
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

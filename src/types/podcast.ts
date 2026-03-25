@@ -36,9 +36,9 @@ export interface AdvancedConfig {
 
 export interface ScriptGeneration {
   additionalInstructions?: string;       // Custom instructions for script generation
-  template?: string;                    // Script template
-  length?: PodcastLength;               // Desired podcast length
-  style?: PodcastStyle;                 // Podcast style
+  template?: string;                     // Script generation template: 'Default' (1000 chars), 'CustomizeDialogStructure' (10000 chars), 'CustomizeFull' (100000 chars)
+  length?: PodcastLength;                // Desired podcast length
+  style?: PodcastStyle;                  // Podcast style
 }
 
 export interface CreateGenerationParams {
@@ -131,6 +131,7 @@ export interface PodcastConfig {
   style: PodcastStyle;
   length: PodcastLength;
   additionalInstructions?: string;
+  template?: string;  // Script generation template: 'Default', 'CustomizeDialogStructure', 'CustomizeFull'
 }
 
 export interface TempFile {

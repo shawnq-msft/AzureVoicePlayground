@@ -98,6 +98,7 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
           style: config.style,
           length: config.length,
           additionalInstructions: config.additionalInstructions || undefined,
+          template: config.template || undefined,
         },
         tts: (config.hostType === 'TwoHosts' && speakerNames) || 
              (config.hostType === 'OneHost' && (voiceName || genderPreference))

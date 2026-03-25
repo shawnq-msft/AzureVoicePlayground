@@ -416,6 +416,7 @@ export async function waitForGenerationComplete(
     if (generation.status === 'Failed') {
       const errorMsg = generation.failureReason || 'Generation failed';
       console.error('Generation failed:', errorMsg);
+      console.error('Full generation object:', generation);
       throw new Error(errorMsg);
     }
 
