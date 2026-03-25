@@ -218,22 +218,19 @@ export function PodcastTwoHostsVoiceSelector({
     );
   }
 
-  if (voices.length === 0) {
-    return (
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Voice (TwoHosts)</label>
-        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-          <p className="text-sm text-yellow-700">No multitalker voices available for {locale}</p>
-        </div>
-      </div>
-    );
-  }
-
   const speaker1Options = availableSpeakers;
   const speaker2Options = availableSpeakers.filter(s => s.name !== selectedSpeaker1);
 
   return (
     <div className="space-y-6">
+      {/* Warning when voice list is not available */}
+      {voices.length === 0 && (
+        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+          <p className="text-sm text-yellow-700">Voice list not available for this region.</p>
+          <p className="text-xs text-yellow-600 mt-1">You can still use Auto mode (no selection) or select "Custom..." to enter a voice name manually.</p>
+        </div>
+      )}
+      
       {/* Step 1: Multitalker Voice Selection */}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">

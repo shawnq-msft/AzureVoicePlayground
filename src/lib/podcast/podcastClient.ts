@@ -497,6 +497,91 @@ function getTtsBaseUrl(region: string): string {
 }
 
 /**
+ * Get base URL for ACC versions API
+ */
+function getAccVersionsUrl(region: string): string {
+  // Handle custom URL (for local debugging)
+  if (region.startsWith('http://') || region.startsWith('https://')) {
+    const baseUrl = region.endsWith('/') ? region.slice(0, -1) : region;
+    return `${baseUrl}/texttospeech/acc/v3.0-beta1/VoiceGeneralTask/versions`;
+  }
+  
+  // Standard Azure region format
+  return `https://${region}.api.cognitive.microsoft.com/texttospeech/acc/v3.0-beta1/VoiceGeneralTask/versions`;
+}
+
+/**
+ * Query ACC API version
+ * Returns version string like "1.3.7" or null if unavailable
+ */
+async function queryAccVersion(
+  config: PodcastApiConfig
+): Promise<string | null> {
+  try {
+    const url = getAccVersionsUrl(config.region);
+    console.log('Querying ACC API version from:', url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Ocp-Apim-Subscription-Key': config.apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(`ACC version query failed: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const data = await response.json();
+    console.log('[queryAccVersion] Response data:', data);
+    
+    // Extract version from apiVersion property
+    const version = data?.apiVersion;
+    console.log('[queryAccVersion] Extracted version:', version);
+    
+    if (!version) {
+      console.warn('[queryAccVersion] apiVersion not found in response');
+    }
+    
+    return version || null;
+  } catch (error) {
+    console.warn('Failed to query ACC API version:', error);
+    return null;
+  }
+}
+
+/**
+ * Compare version strings (e.g., "1.3.7" >= "1.3.7")
+ * Returns true if version1 >= version2
+ */
+function compareVersions(version1: string, version2: string): boolean {
+  const v1Parts = version1.split('.').map(Number);
+  const v2Parts = version2.split('.').map(Number);
+  
+  console.log(`[compareVersions] Comparing ${version1} (${v1Parts}) >= ${version2} (${v2Parts})`);
+  
+  for (let i = 0; i < Math.max(v1Parts.length, v2Parts.length); i++) {
+    const v1 = v1Parts[i] || 0;
+    const v2 = v2Parts[i] || 0;
+    
+    console.log(`[compareVersions] Part ${i}: ${v1} vs ${v2}`);
+    
+    if (v1 > v2) {
+      console.log(`[compareVersions] Result: true (${v1} > ${v2})`);
+      return true;
+    }
+    if (v1 < v2) {
+      console.log(`[compareVersions] Result: false (${v1} < ${v2})`);
+      return false;
+    }
+  }
+  
+  console.log(`[compareVersions] Result: true (equal)`);
+  return true; // Equal
+}
+
+/**
  * Query supported voices for podcast generation
  * Filters by ApiScenarioKind=Podcast
  * Voices with "multitalker" (case insensitive) in name are for TwoHosts
@@ -506,11 +591,37 @@ function getTtsBaseUrl(region: string): string {
  * The locale in a multitalker voice name (e.g., "en-US-multitalker") indicates
  * the speaker's origin locale, not the synthesis target language.
  * Therefore, multitalker voices are NOT filtered by the locale parameter.
+ * 
+ * Version Check: This API requires ACC version >= 1.3.7
  */
 export async function queryVoices(
   config: PodcastApiConfig,
   locale?: string
 ): Promise<Voice[]> {
+  // Check ACC API version first
+  const REQUIRED_VERSION = '1.3.7';
+  const currentVersion = await queryAccVersion(config);
+  
+  console.log('[queryVoices] Version check:', { currentVersion, REQUIRED_VERSION });
+  
+  if (!currentVersion) {
+    console.warn('Could not determine ACC API version. Voice list may not be available. Returning empty array to allow Auto mode or manual input.');
+    return [];
+  }
+  
+  const versionSufficient = compareVersions(currentVersion, REQUIRED_VERSION);
+  console.log(`[queryVoices] Version comparison: ${currentVersion} >= ${REQUIRED_VERSION} = ${versionSufficient}`);
+  
+  if (!versionSufficient) {
+    // Voice list API not available in this region/environment yet
+    // Return empty array to allow Auto mode or manual voice input
+    const warnMsg = `Voice list API requires ACC version ${REQUIRED_VERSION} or higher. Current version: ${currentVersion}. Voice dropdown will be empty, but you can still use Auto mode or enter voice names manually.`;
+    console.warn(warnMsg);
+    return [];
+  }
+  
+  console.log(`ACC version check passed: ${currentVersion} >= ${REQUIRED_VERSION}`);
+  
   const url = getTtsBaseUrl(config.region);
   
   const headers: Record<string, string> = {

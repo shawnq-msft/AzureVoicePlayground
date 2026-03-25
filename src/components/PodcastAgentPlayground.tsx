@@ -456,9 +456,6 @@ export function PodcastAgentPlayground({
                       Your current region: <strong>{settings.region}</strong>. Please change your region
                       in the sidebar settings.
                     </p>
-                    <p className="text-sm text-amber-700 mt-2">
-                      <strong>Note:</strong> For local debugging, you can also use a custom URL (e.g., <code className="bg-amber-100 px-1 rounded">https://localhost:44311/api</code>).
-                    </p>
                   </div>
                 </div>
               </div>
