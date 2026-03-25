@@ -6,13 +6,16 @@ import {
   getChatVoices,
   VIDEO_AVATARS,
   PHOTO_AVATARS,
+  PERSONAL_VOICE_MODELS,
   type VoiceLiveChatConfig,
   type ChatMessage,
   type AvatarType,
+  type VoiceType,
 } from '../lib/voiceLive/chatDefaults';
 import { VoiceLiveChatClient, type ChatState } from '../lib/voiceLive/chatClient';
 import { ChatAudioHandler } from '../lib/voiceLive/audio/chatAudioHandler';
 import { useFeatureFlags } from '../hooks/useFeatureFlags';
+import type { PersonalVoice } from '../types/personalVoice';
 
 // VAD type for the dynamically loaded library
 type MicVADInstance = {
@@ -89,6 +92,8 @@ export function VoiceLiveChatPlayground({ endpoint, apiKey }: VoiceLiveChatPlayg
     return localStorage.getItem('voicelive.show-latency') === 'true';
   });
   const [avatarStream, setAvatarStream] = useState<MediaStream | null>(null);
+  const [personalVoices, setPersonalVoices] = useState<PersonalVoice[]>([]);
+  const [loadingPersonalVoices, setLoadingPersonalVoices] = useState(false);
 
   const chatClientRef = useRef<VoiceLiveChatClient | null>(null);
   const audioHandlerRef = useRef<ChatAudioHandler | null>(null);
@@ -254,6 +259,18 @@ export function VoiceLiveChatPlayground({ endpoint, apiKey }: VoiceLiveChatPlayg
 
   async function handleConnect() {
     if (isConnected) return;
+
+    // Validate personal voice settings
+    if (config.voiceType === 'personal' && !config.personalVoiceSpeakerProfileId.trim()) {
+      setStatusText('Error: Speaker Profile ID is required for Personal Voice');
+      return;
+    }
+
+    // Validate custom avatar settings
+    if (config.avatar.enabled && config.avatar.customized && !config.avatar.customAvatarName?.trim()) {
+      setStatusText('Error: Custom avatar name is required when "Use Custom Avatar" is checked');
+      return;
+    }
 
     setStatusText('Connecting...');
     try {
@@ -627,20 +644,163 @@ export function VoiceLiveChatPlayground({ endpoint, apiKey }: VoiceLiveChatPlayg
 
           {/* Voice */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Voice</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Voice Type</label>
             <select
-              value={config.voice}
-              onChange={(e) => setConfig((c) => ({ ...c, voice: e.target.value }))}
+              value={config.voiceType}
+              onChange={(e) => setConfig((c) => ({ ...c, voiceType: e.target.value as VoiceType }))}
               disabled={isConnected}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             >
-              {chatVoices.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
-              ))}
+              <option value="standard">Standard</option>
+              <option value="personal">Personal Voice</option>
             </select>
           </div>
+
+          {config.voiceType === 'standard' ? (
+            /* Standard Voice Dropdown */
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Voice</label>
+              <select
+                value={config.voice}
+                onChange={(e) => setConfig((c) => ({ ...c, voice: e.target.value }))}
+                disabled={isConnected}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+              >
+                {chatVoices.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            /* Personal Voice Settings */
+            <div className="space-y-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Speaker Profile ID</label>
+                <input
+                  type="text"
+                  value={config.personalVoiceSpeakerProfileId}
+                  onChange={(e) => setConfig((c) => ({ ...c, personalVoiceSpeakerProfileId: e.target.value }))}
+                  disabled={isConnected}
+                  placeholder="Enter speaker profile ID"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Model</label>
+                <select
+                  value={config.personalVoiceModel}
+                  onChange={(e) => setConfig((c) => ({ ...c, personalVoiceModel: e.target.value }))}
+                  disabled={isConnected}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                >
+                  {PERSONAL_VOICE_MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setLoadingPersonalVoices(true);
+                    setPersonalVoices([]);
+                    try {
+                      if (!apiKey) {
+                        setStatusText('Error: Voice Live API key is required to browse personal voices.');
+                        return;
+                      }
+                      if (!endpoint) {
+                        setStatusText('Error: Voice Live endpoint is required to browse personal voices.');
+                        return;
+                      }
+
+                      // Use the Voice Live endpoint (custom domain) directly for the personal voice API
+                      // The endpoint is like https://{resource}.cognitiveservices.azure.com/
+                      const baseUrl = endpoint.replace(/\/+$/, '');
+                      const url = `${baseUrl}/customvoice/personalvoices?api-version=2024-02-01-preview`;
+                      console.log(`[Personal Voice] Fetching voices from: ${url}`);
+
+                      const response = await fetch(url, {
+                        method: 'GET',
+                        headers: { 'Ocp-Apim-Subscription-Key': apiKey },
+                      });
+
+                      if (!response.ok) {
+                        const errorText = await response.text();
+                        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                        try {
+                          const errorJson = JSON.parse(errorText);
+                          errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
+                        } catch {
+                          if (errorText) errorMessage = errorText;
+                        }
+                        throw new Error(errorMessage);
+                      }
+
+                      const data = await response.json();
+                      const voices: PersonalVoice[] = data.value || [];
+                      const succeeded = voices.filter((v) => v.status === 'Succeeded');
+                      setPersonalVoices(succeeded);
+                      if (succeeded.length === 0) {
+                        setStatusText('No personal voices found (with Succeeded status)');
+                      } else {
+                        setStatusText(`Found ${succeeded.length} personal voice(s)`);
+                      }
+                    } catch (e) {
+                      const msg = e instanceof Error ? e.message : String(e);
+                      console.error('[Personal Voice] Failed to fetch:', e);
+                      setStatusText(`Failed to fetch personal voices: ${msg}`);
+                    } finally {
+                      setLoadingPersonalVoices(false);
+                    }
+                  }}
+                  disabled={loadingPersonalVoices}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loadingPersonalVoices ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      Browse Personal Voices
+                    </>
+                  )}
+                </button>
+              </div>
+              {personalVoices.length > 0 && (
+                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white">
+                  {personalVoices.map((pv) => (
+                    <button
+                      key={pv.id}
+                      type="button"
+                      onClick={() => {
+                        setConfig((c) => ({ ...c, personalVoiceSpeakerProfileId: pv.speakerProfileId }));
+                        setPersonalVoices([]);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors ${
+                        config.personalVoiceSpeakerProfileId === pv.speakerProfileId ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                      }`}
+                    >
+                      <div className="font-medium">{pv.displayName || pv.id}</div>
+                      <div className="text-xs text-gray-500 truncate">{pv.speakerProfileId}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Recognition Language - only show for text models (non-realtime) */}
           {!config.model.includes('realtime') && (
@@ -746,18 +906,56 @@ export function VoiceLiveChatPlayground({ endpoint, apiKey }: VoiceLiveChatPlayg
                           type: e.target.value as AvatarType,
                           character: e.target.value === 'photo' ? PHOTO_AVATARS[0].id : VIDEO_AVATARS[0].character,
                           style: e.target.value === 'video' ? VIDEO_AVATARS[0].style : undefined,
+                          customized: false,
+                          customAvatarName: '',
                         },
                       }))
                     }
                     disabled={isConnected}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                   >
-                      <option value="video">Video Avatar</option>
-                      <option value="photo">Photo Avatar (VASA-1)</option>
-                    </select>
-                  </div>
+                    <option value="video">Video Avatar</option>
+                    <option value="photo">Photo Avatar (VASA-1)</option>
+                  </select>
+                </div>
 
-                  {/* Avatar Character */}
+                {/* Use Custom Avatar */}
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={config.avatar.customized}
+                    onChange={(e) =>
+                      setConfig((c) => ({
+                        ...c,
+                        avatar: { ...c.avatar, customized: e.target.checked, customAvatarName: e.target.checked ? c.avatar.customAvatarName : '' },
+                      }))
+                    }
+                    disabled={isConnected}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-xs font-medium text-gray-700">Use Custom Avatar</span>
+                </label>
+
+                {config.avatar.customized ? (
+                  /* Custom Avatar Name Input */
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Custom Avatar Name</label>
+                    <input
+                      type="text"
+                      value={config.avatar.customAvatarName || ''}
+                      onChange={(e) =>
+                        setConfig((c) => ({
+                          ...c,
+                          avatar: { ...c.avatar, customAvatarName: e.target.value },
+                        }))
+                      }
+                      disabled={isConnected}
+                      placeholder="Enter custom avatar name"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                    />
+                  </div>
+                ) : (
+                  /* Built-in Avatar Character Dropdown */
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">
                       {config.avatar.type === 'photo' ? 'Photo Avatar' : 'Video Avatar'}
@@ -800,8 +998,9 @@ export function VoiceLiveChatPlayground({ endpoint, apiKey }: VoiceLiveChatPlayg
                           ))}
                     </select>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            )}
           </div>
 
           {/* Connect/Disconnect Button */}

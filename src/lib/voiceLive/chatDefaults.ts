@@ -4,6 +4,8 @@
 
 export type AvatarType = 'none' | 'video' | 'photo';
 
+export type VoiceType = 'standard' | 'personal';
+
 export interface AvatarConfig {
   enabled: boolean;
   type: AvatarType;
@@ -19,6 +21,9 @@ export interface VoiceLiveChatConfig {
   model: string;
   instructions: string;
   voice: string;
+  voiceType: VoiceType;
+  personalVoiceSpeakerProfileId: string;
+  personalVoiceModel: string;
   recognitionLanguage: string;
   turnDetectionType: 'server_vad' | 'azure_semantic_vad';
   asrOnly: boolean;
@@ -34,6 +39,12 @@ export interface VoiceLiveChatConfig {
   };
 }
 
+export const PERSONAL_VOICE_MODELS = [
+  { id: 'DragonLatestNeural', name: 'Dragon (Latest)' },
+  { id: 'PhoenixLatestNeural', name: 'Phoenix (Latest)' },
+  { id: 'PhoenixV2Neural', name: 'Phoenix V2' },
+];
+
 export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
   enabled: false,
   type: 'video',
@@ -48,6 +59,9 @@ export const DEFAULT_CHAT_CONFIG: VoiceLiveChatConfig = {
   model: 'gpt-realtime',
   instructions: 'You are a helpful and friendly AI assistant. Be concise and natural in your responses.\n\nPlease only respond in English.\n\nBefore calling weather, say something to acknowledge in A FEW words.',
   voice: 'en-us-ava:DragonHDLatestNeural',
+  voiceType: 'standard',
+  personalVoiceSpeakerProfileId: '',
+  personalVoiceModel: 'DragonLatestNeural',
   recognitionLanguage: 'auto',
   turnDetectionType: 'server_vad',
   asrOnly: false,

@@ -242,9 +242,28 @@ export class VoiceLiveChatClient {
   }
 
   private buildSessionConfig(config: VoiceLiveChatConfig): RequestSession {
-    // OpenAI voices are simple names without hyphens or colons (alloy, shimmer, etc.)
-    // Azure voices contain hyphens or colons (en-US-AvaMultilingualNeural, en-us-ava:DragonHDLatestNeural)
-    const isOpenAIVoice = !config.voice.includes('-') && !config.voice.includes(':');
+    // Determine voice configuration based on voice type
+    let voiceConfig: string | { type: string; name: string; model?: string };
+
+    if (config.voiceType === 'personal') {
+      // Personal voice uses azure-personal type with speaker profile ID
+      voiceConfig = {
+        type: 'azure-personal',
+        name: config.personalVoiceSpeakerProfileId,
+        model: config.personalVoiceModel,
+      };
+    } else {
+      // Standard voice: OpenAI voices are simple names without hyphens or colons (alloy, shimmer, etc.)
+      // Azure voices contain hyphens or colons (en-US-AvaMultilingualNeural, en-us-ava:DragonHDLatestNeural)
+      const isOpenAIVoice = !config.voice.includes('-') && !config.voice.includes(':');
+      voiceConfig = isOpenAIVoice
+        ? config.voice
+        : {
+            name: config.voice,
+            type: 'azure-standard',
+          };
+    }
+
     const avatarSdkConfig = this.buildAvatarConfig(config.avatar);
     const modalities: string[] = ['text', 'audio'];
     if (avatarSdkConfig) {
@@ -290,12 +309,7 @@ export class VoiceLiveChatClient {
       modalities: modalities as any,
       model: config.model,
       instructions: config.instructions,
-      voice: isOpenAIVoice
-        ? config.voice
-        : {
-            name: config.voice,
-            type: 'azure-standard',
-          },
+      voice: voiceConfig as any,
       inputAudioFormat: 'pcm16',
       outputAudioFormat: 'pcm16',
       inputAudioTranscription: {
