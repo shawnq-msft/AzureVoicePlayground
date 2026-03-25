@@ -7,6 +7,8 @@ interface PodcastOneHostVoiceSelectorProps {
   locale: string;
   selectedVoice: Voice | null;
   onVoiceChange: (voice: Voice | null) => void;
+  manualVoiceName?: string;
+  onManualVoiceNameChange?: (voiceName: string) => void;
   disabled?: boolean;
 }
 
@@ -15,11 +17,26 @@ export function PodcastOneHostVoiceSelector({
   locale,
   selectedVoice,
   onVoiceChange,
+  manualVoiceName = '',
+  onManualVoiceNameChange,
   disabled = false,
 }: PodcastOneHostVoiceSelectorProps) {
   const [voices, setVoices] = useState<Voice[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dropdownValue, setDropdownValue] = useState<string>(''); // Track dropdown selection
+
+  // Sync dropdown value with selectedVoice or manual input
+  useEffect(() => {
+    if (manualVoiceName) {
+      setDropdownValue('custom');
+    } else if (selectedVoice) {
+      setDropdownValue(selectedVoice.id);
+    } else if (dropdownValue !== 'custom') {
+      // Only reset if not currently on custom (to prevent clearing when user explicitly selects Custom)
+      setDropdownValue('');
+    }
+  }, [selectedVoice, manualVoiceName]);
 
   // Fetch voices when locale changes
   useEffect(() => {
@@ -35,6 +52,7 @@ export function PodcastOneHostVoiceSelector({
         // Reset selected voice if it's not in the new list
         if (selectedVoice && !oneHostVoices.find(v => v.id === selectedVoice.id)) {
           onVoiceChange(null);
+          setDropdownValue('');
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load voices';
@@ -99,33 +117,80 @@ export function PodcastOneHostVoiceSelector({
   }
 
   return (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">
-        Voice (OneHost) <span className="text-gray-500 font-normal">- Optional</span>
-      </label>
-      <p className="text-xs text-gray-500 -mt-1 mb-2">
-        Choose a specific voice or use gender preference below
-      </p>
-      <select
-        value={selectedVoice?.id || ''}
-        onChange={(e) => {
-          const voice = voices.find(v => v.id === e.target.value) || null;
-          onVoiceChange(voice);
-        }}
-        disabled={disabled}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-      >
-        <option value="">Auto (Use gender preference if set)</option>
-        {voices.map((voice) => {
-          const gender = voice.properties.Gender || 'Unknown';
-          const displayName = voice.properties.DisplayName || voice.shortName;
-          return (
-            <option key={voice.id} value={voice.id}>
-              {displayName} ({gender}) - {voice.shortName}
-            </option>
-          );
-        })}
-      </select>
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          Voice (OneHost) <span className="text-gray-500 font-normal">- Optional</span>
+        </label>
+        <p className="text-xs text-gray-500 -mt-1 mb-2">
+          Choose a specific voice or use gender preference below
+        </p>
+        <select
+          value={dropdownValue}
+          onChange={(e) => {
+            const value = e.target.value;
+            setDropdownValue(value);
+            
+            if (value === 'custom') {
+              // Clear voice selection and manual input when selecting Custom
+              onVoiceChange(null);
+              if (onManualVoiceNameChange) {
+                onManualVoiceNameChange('');
+              }
+            } else {
+              // Find and set the voice
+              const voice = voices.find(v => v.id === value) || null;
+              onVoiceChange(voice);
+              // Clear manual input when selecting from dropdown
+              if (onManualVoiceNameChange) {
+                onManualVoiceNameChange('');
+              }
+            }
+          }}
+          disabled={disabled}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+        >
+          <option value="">Auto (Use gender preference if set)</option>
+          {voices.map((voice) => {
+            const gender = voice.properties.Gender || 'Unknown';
+            const displayName = voice.properties.DisplayName || voice.shortName;
+            return (
+              <option key={voice.id} value={voice.id}>
+                {displayName} ({gender}) - {voice.shortName}
+              </option>
+            );
+          })}
+          <option value="custom">Custom...</option>
+        </select>
+      </div>
+      
+      {/* Manual Voice Name Input - only show when Custom is selected */}
+      {onManualVoiceNameChange && dropdownValue === 'custom' && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Enter Voice Name
+          </label>
+          <p className="text-xs text-gray-500 -mt-1 mb-2">
+            Provide the voice name or short name directly (e.g., "en-US-AvaNeural")
+          </p>
+          <input
+            type="text"
+            value={manualVoiceName}
+            onChange={(e) => {
+              onManualVoiceNameChange(e.target.value);
+            }}
+            placeholder="e.g., en-US-AvaNeural"
+            disabled={disabled}
+            autoFocus
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
+          />
+          {manualVoiceName && (
+            <div className="p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+              ℹ️ Using specified voice: <code className="font-mono font-semibold">{manualVoiceName}</code>
+            </div>
+          )}
+        </div>
+      )}
       
       {selectedVoice && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">

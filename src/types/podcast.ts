@@ -56,6 +56,7 @@ export interface CreateGenerationParams {
 export interface PodcastOutput {
   audioFileUrl?: string;
   reportFileUrl?: string;
+  intermediateZipFileUrl?: string;  // Available when keepIntermediateZipFile is enabled
 }
 
 export interface Generation {
@@ -155,7 +156,8 @@ export interface VoiceProperties {
   TailoredScenarios?: string;
   VoiceModelKind?: string;
   ReleaseScope?: string;
-  [key: string]: string | undefined;
+  isHiddenFromAccPortal?: boolean;  // Voice hidden from ACC portal
+  [key: string]: string | boolean | undefined;
 }
 
 export interface VoiceSample {
@@ -194,21 +196,33 @@ export const MAX_BASE64_TEXT_LENGTH = 8 * 1024 * 1024;     // 8MB
 export const MAX_CONTENT_FILE_SIZE = 50 * 1024 * 1024;     // 50MB
 
 // Supported locales
+// supportsTwoHosts flag based on IsPodcastTwoHostsSupported attribute in Language.cs
 export const PODCAST_LOCALES = [
-  { code: 'en-US', name: 'English (US)' },
-  { code: 'en-GB', name: 'English (UK)' },
-  { code: 'en-AU', name: 'English (Australia)' },
-  { code: 'zh-CN', name: 'Chinese (Simplified)' },
-  { code: 'zh-TW', name: 'Chinese (Traditional)' },
-  { code: 'ja-JP', name: 'Japanese' },
-  { code: 'ko-KR', name: 'Korean' },
-  { code: 'de-DE', name: 'German' },
-  { code: 'fr-FR', name: 'French' },
-  { code: 'es-ES', name: 'Spanish (Spain)' },
-  { code: 'it-IT', name: 'Italian' },
-  { code: 'pt-BR', name: 'Portuguese (Brazil)' },
-  { code: 'ru-RU', name: 'Russian' },
-  { code: 'ar-AE', name: 'Arabic (UAE)' },
+  { code: 'en-US', name: 'English (US)', supportsTwoHosts: true },
+  { code: 'en-GB', name: 'English (UK)', supportsTwoHosts: true },
+  { code: 'en-AU', name: 'English (Australia)', supportsTwoHosts: true },
+  { code: 'zh-CN', name: 'Chinese (Simplified)', supportsTwoHosts: true },
+  { code: 'zh-TW', name: 'Chinese (Traditional)', supportsTwoHosts: true },
+  { code: 'ja-JP', name: 'Japanese', supportsTwoHosts: true },
+  { code: 'ko-KR', name: 'Korean', supportsTwoHosts: true },
+  { code: 'de-DE', name: 'German', supportsTwoHosts: true },
+  { code: 'fr-FR', name: 'French', supportsTwoHosts: true },
+  { code: 'es-ES', name: 'Spanish (Spain)', supportsTwoHosts: true },
+  { code: 'it-IT', name: 'Italian', supportsTwoHosts: true },
+  { code: 'pt-BR', name: 'Portuguese (Brazil)', supportsTwoHosts: true },
+  { code: 'ru-RU', name: 'Russian', supportsTwoHosts: true },
+  { code: 'ar-AE', name: 'Arabic (UAE)', supportsTwoHosts: true },
+  // Chinese regional dialects (OneHost only)
+  { code: 'zh-CN-anhui', name: 'Chinese (Anhui)', supportsTwoHosts: false },
+  { code: 'zh-CN-guangxi', name: 'Chinese (Guangxi)', supportsTwoHosts: false },
+  { code: 'zh-CN-henan', name: 'Chinese (Henan)', supportsTwoHosts: false },
+  { code: 'zh-CN-hunan', name: 'Chinese (Hunan)', supportsTwoHosts: false },
+  { code: 'zh-CN-gansu', name: 'Chinese (Gansu)', supportsTwoHosts: false },
+  { code: 'zh-CN-liaoning', name: 'Chinese (Liaoning)', supportsTwoHosts: false },
+  { code: 'zh-CN-shaanxi', name: 'Chinese (Shaanxi)', supportsTwoHosts: false },
+  { code: 'zh-CN-shanxi', name: 'Chinese (Shanxi)', supportsTwoHosts: false },
+  { code: 'zh-CN-shandong', name: 'Chinese (Shandong)', supportsTwoHosts: false },
+  { code: 'zh-CN-sichuan', name: 'Chinese (Sichuan)', supportsTwoHosts: false },
 ];
 
 // Supported regions for Podcast API

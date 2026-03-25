@@ -14,6 +14,7 @@ import {
   prepareContentWithTracking,
   safeDeleteTempFile,
   createGenerationId,
+  hasFeature,
 } from '../lib/podcast/podcastClient';
 
 export interface UsePodcastGenerationOptions {
@@ -61,7 +62,11 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
       const generationId = createGenerationId();
 
       // Step 1: Prepare content payload with temp file tracking
-      const { content, tempFileId: createdTempFileId } = await prepareContentWithTracking(apiConfig, contentSource);
+      const { content, tempFileId: createdTempFileId } = await prepareContentWithTracking(
+        apiConfig, 
+        contentSource,
+        (message) => setProgress({ step: 1, totalSteps: 5, message })
+      );
       tempFileId = createdTempFileId;
 
       if (tempFileId) {
@@ -78,6 +83,10 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
       // Step 2: Create generation
       setProgress({ step: 2, totalSteps: 5, message: 'Creating generation...' });
       setStatus('creating');
+
+      // Check if PodcastIntermediateZip feature is available
+      const hasPodcastIntermediateZip = await hasFeature(apiConfig, 'PodcastIntermediateZip');
+      console.log('PodcastIntermediateZip feature available:', hasPodcastIntermediateZip);
 
       const createParams = {
         generationId,
@@ -96,6 +105,11 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
               voiceName: voiceName || undefined,
               multiTalkerVoiceSpeakerNames: speakerNames,
               genderPreference,
+            }
+          : undefined,
+        advancedConfig: hasPodcastIntermediateZip
+          ? {
+              keepIntermediateZipFile: true,
             }
           : undefined,
       };

@@ -48,17 +48,44 @@ async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let errorMessage = `API Error: ${response.status} ${response.statusText}`;
     try {
-      const errorBody = await response.json();
-      console.error('Podcast API Error Response:', errorBody);
-      if (errorBody.error?.message) {
-        errorMessage = errorBody.error.message;
-      } else if (errorBody.message) {
-        errorMessage = errorBody.message;
-      } else if (errorBody.error?.code) {
-        errorMessage = `${errorBody.error.code}: ${JSON.stringify(errorBody.error)}`;
+      // Try to read response as text first
+      const responseText = await response.text();
+      
+      if (!responseText) {
+        // Empty response body, use default error message
+        throw new Error(errorMessage);
       }
-    } catch {
-      // Use default error message
+      
+      // Special handling for 400 Bad Request - parse and show error.innererror.message
+      if (response.status === 400) {
+        try {
+          const errorBody = JSON.parse(responseText);
+          console.error('Podcast API 400 Error Response:', errorBody);
+          
+          // Try to extract error.innererror.message
+          if (errorBody.error?.innererror?.message) {
+            errorMessage = errorBody.error.innererror.message;
+          } else if (errorBody.error?.message) {
+            errorMessage = errorBody.error.message;
+          } else if (errorBody.message) {
+            errorMessage = errorBody.message;
+          } else {
+            // Show full JSON if we can't find a specific message
+            errorMessage = responseText;
+          }
+        } catch {
+          // Not JSON, use the raw text
+          console.error('Podcast API 400 Error Response (text):', responseText);
+          errorMessage = responseText;
+        }
+      } else {
+        // For other status codes, show the full response text without parsing
+        console.error(`Podcast API ${response.status} Error Response:`, responseText);
+        errorMessage = responseText;
+      }
+    } catch (readError) {
+      console.error('Failed to read error response:', readError);
+      // Use default error message if we can't read the response
     }
     throw new Error(errorMessage);
   }
@@ -99,7 +126,8 @@ export async function fileToBase64(file: File): Promise<string> {
  */
 export async function prepareContentPayload(
   config: PodcastApiConfig,
-  source: PodcastContentSource
+  source: PodcastContentSource,
+  onProgress?: (message: string) => void
 ): Promise<PodcastContent> {
   console.log('Preparing content payload...');
 
@@ -119,6 +147,9 @@ export async function prepareContentPayload(
     } else if (textBytes <= MAX_CONTENT_FILE_SIZE) {
       // For text > 1MB, use temp file upload (base64 is only for PDF format)
       console.log(`Uploading as temp file (${textBytes} bytes, >1MB, <=50MB)`);
+      if (onProgress) {
+        onProgress(`Uploading content (${(textBytes / 1024).toFixed(0)} KB)...`);
+      }
       const textBlob = new Blob([source.text || ''], { type: 'text/plain' });
       const textFile = new File([textBlob], 'content.txt', { type: 'text/plain' });
       const tempFileId = createTempFileId();
@@ -163,6 +194,9 @@ export async function prepareContentPayload(
     } else if (source.file.size <= MAX_CONTENT_FILE_SIZE) {
       // Upload as temp file for files where base64 > 8MB but file size <= 50MB
       console.log(`Uploading file as temp file (file size: ${source.file.size} bytes, >8MB base64, <=50MB)`);
+      if (onProgress) {
+        onProgress(`Uploading file ${source.file.name} (${(source.file.size / 1024 / 1024).toFixed(1)} MB)...`);
+      }
       const tempFileId = createTempFileId();
       await uploadTempFile(config, source.file, tempFileId, 120); // 2 hour expiry
       return {
@@ -360,7 +394,7 @@ export async function waitForGenerationComplete(
   generationId: string,
   onProgress?: (generation: Generation) => void,
   maxWaitMs: number = 30 * 60 * 1000, // 30 minutes
-  pollIntervalMs: number = 3000 // 3 seconds
+  pollIntervalMs: number = 10000 // 10 seconds
 ): Promise<Generation> {
   const startTime = Date.now();
 
@@ -415,9 +449,10 @@ export function createTempFileId(): string {
  */
 export async function prepareContentWithTracking(
   config: PodcastApiConfig,
-  source: PodcastContentSource
+  source: PodcastContentSource,
+  onProgress?: (message: string) => void
 ): Promise<{ content: PodcastContent; tempFileId?: string }> {
-  const content = await prepareContentPayload(config, source);
+  const content = await prepareContentPayload(config, source, onProgress);
   return {
     content,
     tempFileId: content.tempFileId,
@@ -466,6 +501,11 @@ function getTtsBaseUrl(region: string): string {
  * Filters by ApiScenarioKind=Podcast
  * Voices with "multitalker" (case insensitive) in name are for TwoHosts
  * Other voices are for OneHost
+ * 
+ * Note: MultiTalker voices support ALL TwoHosts-compatible target languages.
+ * The locale in a multitalker voice name (e.g., "en-US-multitalker") indicates
+ * the speaker's origin locale, not the synthesis target language.
+ * Therefore, multitalker voices are NOT filtered by the locale parameter.
  */
 export async function queryVoices(
   config: PodcastApiConfig,
@@ -493,15 +533,74 @@ export async function queryVoices(
   const voices = await handleResponse<Voice[]>(response);
   
   // Filter by locale if provided
+  // Note: MultiTalker voices are NOT filtered by locale because they support
+  // all TwoHosts-compatible target languages. The locale in their name indicates
+  // the speaker's origin, not the synthesis target language.
   if (locale) {
-    return voices.filter(v => v.locale === locale);
+    return voices.filter(v => {
+      const isMultiTalker = isTwoHostsVoice(v);
+      // Include voice if it's a multitalker (supports all locales) OR matches the requested locale
+      return isMultiTalker || v.locale === locale;
+    });
   }
   
   return voices;
 }
 
 /**
+ * Query available features for the speech resource
+ * API: GET https://{region}.api.cognitive.microsoft.com/texttospeech/v3.0-beta1/features
+ */
+export async function queryFeatures(
+  config: PodcastApiConfig
+): Promise<string[]> {
+  // Build the features API URL
+  let featuresUrl: string;
+  
+  if (config.region.startsWith('http://') || config.region.startsWith('https://')) {
+    // Custom URL (for local debugging)
+    const baseUrl = config.region.endsWith('/') ? config.region.slice(0, -1) : config.region;
+    featuresUrl = `${baseUrl}/texttospeech/v3.0-beta1/features`;
+  } else {
+    // Standard Azure region format
+    featuresUrl = `https://${config.region}.api.cognitive.microsoft.com/texttospeech/v3.0-beta1/features`;
+  }
+
+  console.log('Querying features from:', featuresUrl);
+
+  const response = await fetch(featuresUrl, {
+    method: 'GET',
+    headers: {
+      'Ocp-Apim-Subscription-Key': config.apiKey,
+    },
+  });
+
+  const features = await handleResponse<string[]>(response);
+  console.log('Available features:', features);
+  
+  return features;
+}
+
+/**
+ * Check if a specific feature is enabled for the speech resource
+ */
+export async function hasFeature(
+  config: PodcastApiConfig,
+  featureName: string
+): Promise<boolean> {
+  try {
+    const features = await queryFeatures(config);
+    return features.includes(featureName);
+  } catch (error) {
+    console.warn(`Failed to check feature ${featureName}:`, error);
+    return false;
+  }
+}
+
+/**
  * Check if a voice is for TwoHosts mode (contains "multitalker" case-insensitive)
+ * MultiTalker voices support ALL TwoHosts-compatible target languages.
+ * The locale in the voice name indicates the speaker's origin locale, not the synthesis target.
  */
 export function isTwoHostsVoice(voice: Voice): boolean {
   return voice.name.toLowerCase().includes('multitalker') || 
@@ -509,15 +608,46 @@ export function isTwoHostsVoice(voice: Voice): boolean {
 }
 
 /**
+ * Check if voice should be hidden from ACC portal
+ */
+function isVoiceHidden(voice: Voice): boolean {
+  // Check if isHiddenFromAccPortal property is set to true
+  return voice.properties.isHiddenFromAccPortal === true;
+}
+
+/**
+ * Check if voice is in private preview
+ */
+function isPrivatePreview(voice: Voice): boolean {
+  return voice.properties.ReleaseScope === 'PrivatePreview';
+}
+
+/**
+ * Check if voice has speaker tags (femaleSpeakers or maleSpeakers)
+ */
+function hasSpeakerTags(voice: Voice): boolean {
+  if (!voice.voiceTags || voice.voiceTags.length === 0) {
+    return false;
+  }
+  
+  return voice.voiceTags.some(tag => 
+    tag.name === 'femaleSpeakers' || tag.name === 'maleSpeakers'
+  );
+}
+
+/**
  * Filter voices for OneHost mode
+ * Excludes multitalker voices, hidden voices, and private preview voices
  */
 export function getOneHostVoices(voices: Voice[]): Voice[] {
-  return voices.filter(v => !isTwoHostsVoice(v));
+  return voices.filter(v => !isTwoHostsVoice(v) && !isVoiceHidden(v) && !isPrivatePreview(v));
 }
 
 /**
  * Filter voices for TwoHosts mode
+ * Includes only multitalker voices that are not hidden, not private preview, and have speaker tags
+ * Note: MultiTalker voices support ALL TwoHosts-compatible target languages regardless of their name's locale prefix
  */
 export function getTwoHostsVoices(voices: Voice[]): Voice[] {
-  return voices.filter(v => isTwoHostsVoice(v));
+  return voices.filter(v => isTwoHostsVoice(v) && !isVoiceHidden(v) && !isPrivatePreview(v) && hasSpeakerTags(v));
 }

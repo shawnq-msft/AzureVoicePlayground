@@ -16,6 +16,10 @@ interface PodcastTwoHostsVoiceSelectorProps {
   selectedSpeaker2: string | null;
   onVoiceChange: (voice: Voice | null) => void;
   onSpeakersChange: (speaker1: string | null, speaker2: string | null) => void;
+  manualVoiceName?: string;
+  manualSpeakerNames?: string;
+  onManualVoiceNameChange?: (voiceName: string) => void;
+  onManualSpeakerNamesChange?: (speakerNames: string) => void;
   disabled?: boolean;
 }
 
@@ -27,14 +31,34 @@ export function PodcastTwoHostsVoiceSelector({
   selectedSpeaker2,
   onVoiceChange,
   onSpeakersChange,
+  manualVoiceName = '',
+  manualSpeakerNames = '',
+  onManualVoiceNameChange,
+  onManualSpeakerNamesChange,
   disabled = false,
 }: PodcastTwoHostsVoiceSelectorProps) {
   const [voices, setVoices] = useState<Voice[]>([]);
   const [allVoices, setAllVoices] = useState<Voice[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dropdownValue, setDropdownValue] = useState<string>(''); // Track dropdown selection
+
+  // Sync dropdown value with selectedVoice or manual input
+  useEffect(() => {
+    if (manualVoiceName) {
+      setDropdownValue('custom');
+    } else if (selectedVoice) {
+      setDropdownValue(selectedVoice.id);
+    } else if (dropdownValue !== 'custom') {
+      // Only reset if not currently on custom (to prevent clearing when user explicitly selects Custom)
+      setDropdownValue('');
+    }
+  }, [selectedVoice, manualVoiceName]);
 
   // Fetch voices when locale changes
+  // Note: MultiTalker voices support ALL TwoHosts-compatible target languages.
+  // The queryVoices function will return all multitalker voices regardless of locale,
+  // because the locale in their name indicates speaker origin, not synthesis target.
   useEffect(() => {
     const fetchVoices = async () => {
       setLoading(true);
@@ -50,6 +74,7 @@ export function PodcastTwoHostsVoiceSelector({
         if (selectedVoice && !twoHostsVoices.find(v => v.id === selectedVoice.id)) {
           onVoiceChange(null);
           onSpeakersChange(null, null);
+          setDropdownValue('');
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load voices';
@@ -63,7 +88,7 @@ export function PodcastTwoHostsVoiceSelector({
     if (apiConfig.apiKey && apiConfig.region) {
       fetchVoices();
     }
-  }, [locale, apiConfig.apiKey, apiConfig.region, selectedVoice, onVoiceChange, onSpeakersChange]);
+  }, [locale, apiConfig.apiKey, apiConfig.region]);
 
   // Extract locale from multitalker voice name
   const extractLocaleFromVoiceName = (voiceName: string): string => {
@@ -208,18 +233,46 @@ export function PodcastTwoHostsVoiceSelector({
   const speaker2Options = availableSpeakers.filter(s => s.name !== selectedSpeaker1);
 
   return (
-    <div className="space-y-4">
-      {/* Multitalker Voice Selection */}
+    <div className="space-y-6">
+      {/* Step 1: Multitalker Voice Selection */}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">
-          Multitalker Voice <span className="text-gray-500 font-normal">- Optional</span>
+          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-semibold mr-2">
+            1
+          </span>
+          Select Multitalker Voice <span className="text-gray-500 font-normal">- Optional</span>
         </label>
-        <p className="text-xs text-gray-500 -mt-1 mb-2">
-          Choose a multitalker voice model, then select two speakers
+        <p className="text-xs text-gray-500 ml-8 -mt-1 mb-2">
+          Choose a multitalker voice model or leave as Auto
         </p>
         <select
-          value={selectedVoice?.id || ''}
-          onChange={(e) => handleVoiceChange(e.target.value)}
+          value={dropdownValue}
+          onChange={(e) => {
+            const value = e.target.value;
+            setDropdownValue(value);
+            
+            if (value === 'custom') {
+              // Clear voice and speaker selections when selecting Custom
+              onVoiceChange(null);
+              onSpeakersChange(null, null);
+              if (onManualVoiceNameChange) {
+                onManualVoiceNameChange('');
+              }
+              if (onManualSpeakerNamesChange) {
+                onManualSpeakerNamesChange('');
+              }
+            } else {
+              // Find and set the voice
+              handleVoiceChange(value);
+              // Clear manual input when selecting from dropdown
+              if (onManualVoiceNameChange) {
+                onManualVoiceNameChange('');
+              }
+              if (onManualSpeakerNamesChange) {
+                onManualSpeakerNamesChange('');
+              }
+            }
+          }}
           disabled={disabled}
           className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
         >
@@ -232,24 +285,97 @@ export function PodcastTwoHostsVoiceSelector({
               </option>
             );
           })}
+          <option value="custom">Custom...</option>
         </select>
+        
+        {/* Show next step hint when voice is selected */}
+        {selectedVoice && dropdownValue !== 'custom' && (
+          <div className="ml-8 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+            ✓ Voice selected: {selectedVoice.properties.DisplayName || selectedVoice.shortName}
+            <br />
+            → Now select two speakers below
+          </div>
+        )}
       </div>
+      
+      {/* Manual Voice and Speaker Input - only show when Custom is selected */}
+      {onManualVoiceNameChange && onManualSpeakerNamesChange && dropdownValue === 'custom' && (
+        <div className="space-y-4 p-4 bg-amber-50 border-2 border-amber-300 rounded-md">
+          <h3 className="text-sm font-medium text-amber-900">
+            Enter Voice Details
+          </h3>
+          <p className="text-xs text-amber-700 -mt-2">
+            Provide the multitalker voice name or short name directly, along with speaker names
+          </p>
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Multitalker Voice Name
+            </label>
+            <input
+              type="text"
+              value={manualVoiceName}
+              onChange={(e) => {
+                onManualVoiceNameChange(e.target.value);
+              }}
+              placeholder="e.g., en-US-multitalker-ava-andrew:DragonHDLatestNeural"
+              disabled={disabled}
+              autoFocus
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Speaker Names (comma-separated)
+            </label>
+            <input
+              type="text"
+              value={manualSpeakerNames}
+              onChange={(e) => onManualSpeakerNamesChange(e.target.value)}
+              placeholder="e.g., ava,andrew"
+              disabled={disabled || !manualVoiceName}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
+            />
+            <p className="text-xs text-gray-500">
+              Enter exactly two speaker names separated by a comma
+            </p>
+          </div>
+          
+          {manualVoiceName && manualSpeakerNames && (
+            <div className="p-2 bg-amber-100 border border-amber-300 rounded text-xs text-amber-800">
+              ℹ️ Using manual input:
+              <br />
+              <span className="font-semibold">Voice:</span> <code className="font-mono">{manualVoiceName}</code>
+              <br />
+              <span className="font-semibold">Speakers:</span> <code className="font-mono">{manualSpeakerNames}</code>
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Speaker Selection - only show if a voice is selected */}
+      {/* Step 2: Speaker Selection - only show if a voice is selected */}
       {selectedVoice && availableSpeakers.length > 0 && (
-        <div className="space-y-4 p-4 bg-purple-50 border border-purple-200 rounded-md">
-          <h3 className="text-sm font-medium text-purple-900">Select Two Speakers</h3>
+        <div className="space-y-4 p-4 bg-purple-50 border-2 border-purple-300 rounded-md">
+          <h3 className="text-sm font-medium text-purple-900">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-semibold mr-2">
+              2
+            </span>
+            Select Two Speakers for the Conversation
+          </h3>
           
           {/* Speaker 1 */}
           <div className="space-y-2">
-            <label className="block text-xs font-medium text-gray-700">Speaker 1</label>
+            <label className="block text-sm font-medium text-gray-700">
+              First Speaker (Host 1)
+            </label>
             <select
               value={selectedSpeaker1 || ''}
               onChange={(e) => handleSpeaker1Change(e.target.value)}
               disabled={disabled}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
-              <option value="">Select speaker...</option>
+              <option value="">Select first speaker...</option>
               {speaker1Options.map((speaker) => (
                 <option key={speaker.name} value={speaker.name}>
                   {speaker.name} ({speaker.gender})
@@ -272,14 +398,16 @@ export function PodcastTwoHostsVoiceSelector({
 
           {/* Speaker 2 */}
           <div className="space-y-2">
-            <label className="block text-xs font-medium text-gray-700">Speaker 2</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Second Speaker (Host 2)
+            </label>
             <select
               value={selectedSpeaker2 || ''}
               onChange={(e) => handleSpeaker2Change(e.target.value)}
               disabled={disabled || !selectedSpeaker1}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
-              <option value="">Select speaker...</option>
+              <option value="">Select second speaker...</option>
               {speaker2Options.map((speaker) => (
                 <option key={speaker.name} value={speaker.name}>
                   {speaker.name} ({speaker.gender})

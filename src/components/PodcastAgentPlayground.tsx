@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AzureSettings } from '../types/azure';
 import { PodcastContentUploader } from './PodcastContentUploader';
-import { PodcastVoicePairSelector, getVoiceDetails } from './PodcastVoicePairSelector';
 import { PodcastOneHostVoiceSelector } from './PodcastOneHostVoiceSelector';
 import { PodcastTwoHostsVoiceSelector } from './PodcastTwoHostsVoiceSelector';
 import { ALL_TTS_REGIONS } from './NavigationSidebar';
@@ -17,12 +16,6 @@ import {
   GenerationStatus,
   Voice,
 } from '../types/podcast';
-
-interface VoicePair {
-  female: string;
-  male: string;
-  display: string;
-}
 
 interface PodcastAgentPlaygroundProps {
   settings: AzureSettings;
@@ -48,16 +41,33 @@ const SUPPORTED_REGIONS = [
 ];
 
 // Common locales for podcast generation
+// supportsTwoHosts flag based on IsPodcastTwoHostsSupported attribute in Language.cs
 const PODCAST_LOCALES = [
-  { code: 'en-US', label: 'English (US)' },
-  { code: 'zh-CN', label: 'Chinese (Simplified)' },
-  { code: 'ja-JP', label: 'Japanese' },
-  { code: 'ko-KR', label: 'Korean' },
-  { code: 'es-ES', label: 'Spanish (Spain)' },
-  { code: 'fr-FR', label: 'French (France)' },
-  { code: 'de-DE', label: 'German' },
-  { code: 'it-IT', label: 'Italian' },
-  { code: 'pt-BR', label: 'Portuguese (Brazil)' },
+  { code: 'en-US', label: 'English (US)', supportsTwoHosts: true },
+  { code: 'en-GB', label: 'English (UK)', supportsTwoHosts: true },
+  { code: 'en-AU', label: 'English (Australia)', supportsTwoHosts: true },
+  { code: 'de-DE', label: 'German (Germany)', supportsTwoHosts: true },
+  { code: 'es-ES', label: 'Spanish (Spain)', supportsTwoHosts: true },
+  { code: 'fr-FR', label: 'French (France)', supportsTwoHosts: true },
+  { code: 'it-IT', label: 'Italian (Italy)', supportsTwoHosts: true },
+  { code: 'pt-BR', label: 'Portuguese (Brazil)', supportsTwoHosts: true },
+  { code: 'ru-RU', label: 'Russian (Russia)', supportsTwoHosts: true },
+  { code: 'ja-JP', label: 'Japanese (Japan)', supportsTwoHosts: true },
+  { code: 'ko-KR', label: 'Korean (Korea)', supportsTwoHosts: true },
+  { code: 'zh-CN', label: 'Chinese (Simplified)', supportsTwoHosts: true },
+  { code: 'zh-TW', label: 'Chinese (Traditional)', supportsTwoHosts: true },
+  { code: 'ar-AE', label: 'Arabic (UAE)', supportsTwoHosts: true },
+  // Chinese regional dialects (OneHost only)
+  { code: 'zh-CN-anhui', label: 'Chinese (Anhui)', supportsTwoHosts: false },
+  { code: 'zh-CN-guangxi', label: 'Chinese (Guangxi)', supportsTwoHosts: false },
+  { code: 'zh-CN-henan', label: 'Chinese (Henan)', supportsTwoHosts: false },
+  { code: 'zh-CN-hunan', label: 'Chinese (Hunan)', supportsTwoHosts: false },
+  { code: 'zh-CN-gansu', label: 'Chinese (Gansu)', supportsTwoHosts: false },
+  { code: 'zh-CN-liaoning', label: 'Chinese (Liaoning)', supportsTwoHosts: false },
+  { code: 'zh-CN-shaanxi', label: 'Chinese (Shaanxi)', supportsTwoHosts: false },
+  { code: 'zh-CN-shanxi', label: 'Chinese (Shanxi)', supportsTwoHosts: false },
+  { code: 'zh-CN-shandong', label: 'Chinese (Shandong)', supportsTwoHosts: false },
+  { code: 'zh-CN-sichuan', label: 'Chinese (Sichuan)', supportsTwoHosts: false },
 ];
 
 const HOST_TYPES: { value: HostType; label: string; description: string }[] = [
@@ -95,7 +105,6 @@ interface StoredConfig {
   style: PodcastStyle;
   length: PodcastLength;
   additionalInstructions: string;
-  voicePair?: VoicePair;
   genderPreference?: 'Male' | 'Female';
   oneHostVoiceId?: string;
   twoHostsVoiceId?: string;
@@ -133,9 +142,6 @@ export function PodcastAgentPlayground({
   // Config state
   const [locale, setLocale] = useState(savedConfig.locale || 'en-US');
   const [hostType, setHostType] = useState<HostType>(savedConfig.hostType || 'TwoHosts');
-  const [selectedVoicePair, setSelectedVoicePair] = useState<VoicePair | null>(
-    savedConfig.voicePair || null
-  );
   // OneHost voice selection
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
   const [genderPreference, setGenderPreference] = useState<'Male' | 'Female' | undefined>(
@@ -145,6 +151,11 @@ export function PodcastAgentPlayground({
   const [twoHostsVoice, setTwoHostsVoice] = useState<Voice | null>(null);
   const [twoHostsSpeaker1, setTwoHostsSpeaker1] = useState<string | null>(savedConfig.twoHostsSpeaker1 || null);
   const [twoHostsSpeaker2, setTwoHostsSpeaker2] = useState<string | null>(savedConfig.twoHostsSpeaker2 || null);
+  
+  // Manual voice input (for hidden/unlisted voices)
+  const [manualOneHostVoiceName, setManualOneHostVoiceName] = useState<string>('');
+  const [manualTwoHostsVoiceName, setManualTwoHostsVoiceName] = useState<string>('');
+  const [manualSpeakerNames, setManualSpeakerNames] = useState<string>('');
   
   const [style, setStyle] = useState<PodcastStyle>(savedConfig.style || 'Default');
   const [length, setLength] = useState<PodcastLength>(savedConfig.length || 'Medium');
@@ -184,24 +195,42 @@ export function PodcastAgentPlayground({
       style,
       length,
       additionalInstructions,
-      voicePair: selectedVoicePair || undefined,
       genderPreference,
       oneHostVoiceId: selectedVoice?.id,
       twoHostsVoiceId: twoHostsVoice?.id,
       twoHostsSpeaker1: twoHostsSpeaker1 || undefined,
       twoHostsSpeaker2: twoHostsSpeaker2 || undefined,
     });
-  }, [locale, hostType, style, length, additionalInstructions, selectedVoicePair, genderPreference, selectedVoice, twoHostsVoice, twoHostsSpeaker1, twoHostsSpeaker2]);
+  }, [locale, hostType, style, length, additionalInstructions, genderPreference, selectedVoice, twoHostsVoice, twoHostsSpeaker1, twoHostsSpeaker2]);
 
   // Reset voice selections when locale or host type changes
   useEffect(() => {
-    setSelectedVoicePair(null);
     setSelectedVoice(null);
     setGenderPreference(undefined);
     setTwoHostsVoice(null);
     setTwoHostsSpeaker1(null);
     setTwoHostsSpeaker2(null);
+    setManualOneHostVoiceName('');
+    setManualTwoHostsVoiceName('');
+    setManualSpeakerNames('');
   }, [locale, hostType]);
+
+  // Get available locales based on host type
+  const availableLocales = hostType === 'TwoHosts'
+    ? PODCAST_LOCALES.filter(l => l.supportsTwoHosts)
+    : PODCAST_LOCALES;
+
+  // Reset locale if current locale doesn't support the selected host type
+  useEffect(() => {
+    const currentLocale = PODCAST_LOCALES.find(l => l.code === locale);
+    if (hostType === 'TwoHosts' && currentLocale && !currentLocale.supportsTwoHosts) {
+      // Reset to first available locale that supports TwoHosts
+      const firstTwoHostsLocale = PODCAST_LOCALES.find(l => l.supportsTwoHosts);
+      if (firstTwoHostsLocale) {
+        setLocale(firstTwoHostsLocale.code);
+      }
+    }
+  }, [hostType, locale]);
 
   const handleStartGeneration = useCallback(async () => {
     if (!contentSource) return;
@@ -218,21 +247,29 @@ export function PodcastAgentPlayground({
     let speakerNames: string | undefined;
 
     if (hostType === 'TwoHosts') {
-      // Use new voice selector if available, otherwise fall back to old voice pair
-      if (twoHostsVoice && twoHostsSpeaker1 && twoHostsSpeaker2) {
+      // Priority 1: Manual input (for hidden/unlisted voices)
+      if (manualTwoHostsVoiceName && manualSpeakerNames) {
+        voiceName = manualTwoHostsVoiceName;
+        speakerNames = manualSpeakerNames;
+      }
+      // Priority 2: New voice selector
+      else if (twoHostsVoice && twoHostsSpeaker1 && twoHostsSpeaker2) {
         voiceName = twoHostsVoice.shortName;
         speakerNames = `${twoHostsSpeaker1},${twoHostsSpeaker2}`;
-      } else if (selectedVoicePair) {
-        const voiceDetails = getVoiceDetails(selectedVoicePair, locale);
-        voiceName = voiceDetails?.voiceName;
-        speakerNames = voiceDetails?.speakerNames;
       }
-    } else if (hostType === 'OneHost' && selectedVoice) {
-      voiceName = selectedVoice.shortName;
+    } else if (hostType === 'OneHost') {
+      // Priority 1: Manual input (for hidden/unlisted voices)
+      if (manualOneHostVoiceName) {
+        voiceName = manualOneHostVoiceName;
+      }
+      // Priority 2: Selected voice from dropdown
+      else if (selectedVoice) {
+        voiceName = selectedVoice.shortName;
+      }
     }
 
     await startGeneration(contentSource, config, voiceName, speakerNames, genderPreference, addToHistory);
-  }, [contentSource, locale, hostType, style, length, additionalInstructions, selectedVoicePair, selectedVoice, twoHostsVoice, twoHostsSpeaker1, twoHostsSpeaker2, genderPreference, startGeneration, addToHistory]);
+  }, [contentSource, locale, hostType, style, length, additionalInstructions, selectedVoice, twoHostsVoice, twoHostsSpeaker1, twoHostsSpeaker2, manualOneHostVoiceName, manualTwoHostsVoiceName, manualSpeakerNames, genderPreference, startGeneration, addToHistory]);
 
   const handleReset = useCallback(() => {
     reset();
@@ -333,10 +370,18 @@ export function PodcastAgentPlayground({
   const isCustomUrl = settings.region.startsWith('http://') || settings.region.startsWith('https://');
   const isRegionSupported = isCustomUrl || settings.region.includes('-') || SUPPORTED_REGIONS.includes(settings.region.toLowerCase());
   
-  // Check if TwoHosts requirements are met (either old voice pair or new voice+speakers)
+  // Check if TwoHosts requirements are met
+  // TwoHosts is ready when NOT in invalid partial state:
+  //    - Auto mode (nothing selected): valid
+  //    - Voice selected with both speakers: valid
+  //    - Manual voice + speaker names: valid
+  //    - Voice selected WITHOUT speakers: INVALID (partial state)
+  //    - Manual voice WITHOUT speaker names: INVALID (partial state)
   const isTwoHostsReady = hostType === 'TwoHosts' && (
-    selectedVoicePair !== null ||
-    (twoHostsVoice !== null && twoHostsSpeaker1 !== null && twoHostsSpeaker2 !== null)
+    // Check: if voice is selected, speakers must be selected too
+    (twoHostsVoice === null || (twoHostsSpeaker1 !== null && twoHostsSpeaker2 !== null)) &&
+    // Check: if manual voice is entered, speaker names must be entered too
+    (!manualTwoHostsVoiceName || manualSpeakerNames)
   );
   
   const canStart =
@@ -569,7 +614,7 @@ export function PodcastAgentPlayground({
                   <audio controls className="w-full" src={currentGeneration.output.audioFileUrl}>
                     Your browser does not support the audio element.
                   </audio>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <a
                       href={currentGeneration.output.audioFileUrl}
                       download
@@ -592,10 +637,58 @@ export function PodcastAgentPlayground({
                       </svg>
                       <span>Download Audio</span>
                     </a>
+                    {currentGeneration.output.reportFileUrl && (
+                      <a
+                        href={currentGeneration.output.reportFileUrl}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                        <span>Download Report</span>
+                      </a>
+                    )}
+                    {currentGeneration.output.intermediateZipFileUrl && (
+                      <a
+                        href={currentGeneration.output.intermediateZipFileUrl}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                          />
+                        </svg>
+                        <span>Download Intermediate Files</span>
+                      </a>
+                    )}
                     <button
                       onClick={handleGenerateVideo}
                       disabled={isGeneratingVideo}
-                      className="inline-flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+                      className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
                     >
                       <svg
                         className="w-4 h-4"
@@ -727,12 +820,25 @@ export function PodcastAgentPlayground({
                 disabled={isProcessing}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
-                {PODCAST_LOCALES.map((l) => (
+                {availableLocales.map((l) => (
                   <option key={l.code} value={l.code}>
-                    {l.label}
+                    {l.supportsTwoHosts ? '👥' : '👤'} {l.label}
                   </option>
                 ))}
               </select>
+              <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                <div className="flex items-center gap-1">
+                  <span>👥 Supports OneHost and TwoHosts</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>👤 Supports OneHost only</span>
+                </div>
+                {hostType === 'TwoHosts' && availableLocales.length < PODCAST_LOCALES.length && (
+                  <p className="mt-1 text-amber-600 font-medium">
+                    Note: Only languages with TwoHosts support are shown
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Host Type */}
@@ -781,6 +887,10 @@ export function PodcastAgentPlayground({
                   setTwoHostsSpeaker1(speaker1);
                   setTwoHostsSpeaker2(speaker2);
                 }}
+                manualVoiceName={manualTwoHostsVoiceName}
+                manualSpeakerNames={manualSpeakerNames}
+                onManualVoiceNameChange={setManualTwoHostsVoiceName}
+                onManualSpeakerNamesChange={setManualSpeakerNames}
                 disabled={isProcessing}
               />
             )}
@@ -801,22 +911,24 @@ export function PodcastAgentPlayground({
                     setGenderPreference(undefined);
                   }
                 }}
+                manualVoiceName={manualOneHostVoiceName}
+                onManualVoiceNameChange={setManualOneHostVoiceName}
                 disabled={isProcessing}
               />
             )}
 
             {/* Note when voice is selected */}
-            {hostType === 'OneHost' && selectedVoice && (
+            {hostType === 'OneHost' && (selectedVoice || manualOneHostVoiceName) && (
               <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
                 <p className="text-xs text-gray-600">
                   <span className="font-medium">Note:</span> Gender preference is not available when a specific voice is selected. 
-                  Select "Auto" above to use gender preference instead.
+                  {manualOneHostVoiceName ? ' Clear the manual input' : ' Select "Auto"'} to use gender preference instead.
                 </p>
               </div>
             )}
 
             {/* Gender Preference (only for OneHost when no voice is selected) */}
-            {hostType === 'OneHost' && !selectedVoice && (
+            {hostType === 'OneHost' && !selectedVoice && !manualOneHostVoiceName && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Gender Preference <span className="text-gray-500 font-normal">- Optional</span>
