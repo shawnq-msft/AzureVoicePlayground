@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Voice, PodcastApiConfig } from '../types/podcast';
 import { queryVoices, getTwoHostsVoices } from '../lib/podcast/podcastClient';
+import { GENDER_ICONS } from '../constants/icons';
 
 interface Speaker {
   name: string;
@@ -37,6 +38,8 @@ export function PodcastTwoHostsVoiceSelector({
   onManualSpeakerNamesChange,
   disabled = false,
 }: PodcastTwoHostsVoiceSelectorProps) {
+
+
   const [voices, setVoices] = useState<Voice[]>([]);
   const [allVoices, setAllVoices] = useState<Voice[]>([]);
   const [loading, setLoading] = useState(false);
@@ -373,11 +376,14 @@ export function PodcastTwoHostsVoiceSelector({
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">Select first speaker...</option>
-              {speaker1Options.map((speaker) => (
-                <option key={speaker.name} value={speaker.name}>
-                  {speaker.name} ({speaker.gender})
-                </option>
-              ))}
+              {speaker1Options.map((speaker) => {
+                const genderIcon = GENDER_ICONS[speaker.gender];
+                return (
+                  <option key={speaker.name} value={speaker.name}>
+                    {genderIcon} {speaker.name} ({speaker.gender})
+                  </option>
+                );
+              })}
             </select>
             
             {selectedSpeaker1 && speaker1Options.find(s => s.name === selectedSpeaker1)?.audioSampleUrl && (
@@ -405,11 +411,14 @@ export function PodcastTwoHostsVoiceSelector({
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">Select second speaker...</option>
-              {speaker2Options.map((speaker) => (
-                <option key={speaker.name} value={speaker.name}>
-                  {speaker.name} ({speaker.gender})
-                </option>
-              ))}
+              {speaker2Options.map((speaker) => {
+                const genderIcon = GENDER_ICONS[speaker.gender];
+                return (
+                  <option key={speaker.name} value={speaker.name}>
+                    {genderIcon} {speaker.name} ({speaker.gender})
+                  </option>
+                );
+              })}
             </select>
             
             {selectedSpeaker2 && speaker2Options.find(s => s.name === selectedSpeaker2)?.audioSampleUrl && (

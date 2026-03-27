@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Voice, PodcastApiConfig } from '../types/podcast';
 import { queryVoices, getOneHostVoices } from '../lib/podcast/podcastClient';
+import { GENDER_ICONS } from '../constants/icons';
 
 interface PodcastOneHostVoiceSelectorProps {
   apiConfig: PodcastApiConfig;
@@ -150,10 +151,11 @@ export function PodcastOneHostVoiceSelector({
           <option value="">Auto (Use gender preference if set)</option>
           {voices.map((voice) => {
             const gender = voice.properties.Gender || 'Unknown';
+            const genderIcon = GENDER_ICONS[gender as keyof typeof GENDER_ICONS] || GENDER_ICONS.Unknown;
             const displayName = voice.properties.DisplayName || voice.shortName;
             return (
               <option key={voice.id} value={voice.id}>
-                {displayName} ({gender}) - {voice.shortName}
+                {genderIcon} {displayName} ({gender}) - {voice.shortName}
               </option>
             );
           })}

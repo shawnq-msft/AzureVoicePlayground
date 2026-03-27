@@ -387,41 +387,58 @@ export async function deleteGeneration(
 }
 
 /**
- * Wait for generation to complete with polling
+ * Wait for generation to complete with polling using operation status
+ * New workflow:
+ * 1. Poll operation status using the operation URL
+ * 2. When operation is terminated (Succeeded or Failed), query the generation by ID for full details
  */
 export async function waitForGenerationComplete(
   config: PodcastApiConfig,
   generationId: string,
+  operationLocation: string,
   onProgress?: (generation: Generation) => void,
   maxWaitMs: number = 30 * 60 * 1000, // 30 minutes
   pollIntervalMs: number = 10000 // 10 seconds
 ): Promise<Generation> {
   const startTime = Date.now();
 
+  console.log(`Starting operation polling for generation ${generationId}`);
+  console.log(`Operation URL: ${operationLocation}`);
+
   while (Date.now() - startTime < maxWaitMs) {
-    // Fetch current generation status
-    const generation = await getGeneration(config, generationId);
+    // Poll operation status
+    const operation = await pollOperation(operationLocation, config.apiKey);
 
-    // Call progress callback if provided
-    if (onProgress) {
-      onProgress(generation);
+    console.log(`Operation ${operation.id} status: ${operation.status}`);
+
+    // Check if operation is terminated
+    if (operation.status === 'Succeeded' || operation.status === 'Failed') {
+      console.log(`Operation terminated with status: ${operation.status}`);
+      
+      // Fetch full generation details now that operation is complete
+      const generation = await getGeneration(config, generationId);
+
+      // Call progress callback with final generation state
+      if (onProgress) {
+        onProgress(generation);
+      }
+
+      // Check generation status
+      if (generation.status === 'Succeeded') {
+        console.log('Generation succeeded:', generationId);
+        return generation;
+      }
+
+      if (generation.status === 'Failed') {
+        const errorMsg = generation.failureReason || operation.error?.message || 'Generation failed';
+        console.error('Generation failed:', errorMsg);
+        console.error('Full generation object:', generation);
+        throw new Error(errorMsg);
+      }
+
+      // If operation succeeded but generation status is not terminal, continue polling
+      console.log(`Operation succeeded but generation status is ${generation.status}, continuing to poll...`);
     }
-
-    // Check for terminal states
-    if (generation.status === 'Succeeded') {
-      console.log('Generation succeeded:', generationId);
-      return generation;
-    }
-
-    if (generation.status === 'Failed') {
-      const errorMsg = generation.failureReason || 'Generation failed';
-      console.error('Generation failed:', errorMsg);
-      console.error('Full generation object:', generation);
-      throw new Error(errorMsg);
-    }
-
-    // Log progress
-    console.log(`Generation ${generationId} status: ${generation.status}`);
 
     // Wait before next poll
     await new Promise(resolve => setTimeout(resolve, pollIntervalMs));

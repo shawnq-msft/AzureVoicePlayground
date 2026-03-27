@@ -120,7 +120,9 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
       console.log('Speaker names passed to API:', speakerNames);
       console.log('Gender preference passed to API:', genderPreference);
 
-      const { generation } = await createGeneration(apiConfig, createParams);
+      const { generation, operationLocation } = await createGeneration(apiConfig, createParams);
+
+      console.log('Generation created, operationLocation:', operationLocation);
 
       if (cancelRef.current) {
         setStatus('cancelled');
@@ -129,13 +131,14 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
         return;
       }
 
-      // Step 3-4: Poll for completion
+      // Step 3-4: Poll for completion using operation status
       setProgress({ step: 3, totalSteps: 5, message: 'Generating script...' });
       setStatus('processing');
 
       const completedGeneration = await waitForGenerationComplete(
         apiConfig,
         generationId,
+        operationLocation,
         (gen) => {
           if (cancelRef.current) {
             throw new Error('Cancelled by user');
@@ -151,7 +154,7 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
           setCurrentGeneration(gen);
         },
         30 * 60 * 1000, // 30 min max
-        3000 // 3 second intervals
+        10000 // 10 second intervals
       );
 
       if (cancelRef.current) {
