@@ -161,14 +161,25 @@ export interface VoiceProperties {
   [key: string]: string | boolean | undefined;
 }
 
-export interface VoiceSample {
-  styleName: string;
+export interface SampleBase {
   audioFileEndpointWithSas: string;
 }
 
+export interface VoiceSample extends SampleBase {
+  styleName: string;
+}
+
+export interface LanguageSample extends SampleBase {
+  locale: string;
+}
+
+export interface RoleSample extends SampleBase {
+  roleName: string;
+}
+
 export interface VoiceSamples {
-  languageSamples: any[];
-  roleSamples: any[];
+  languageSamples: LanguageSample[];
+  roleSamples: RoleSample[];
   styleSamples: VoiceSample[];
 }
 
@@ -185,7 +196,7 @@ export interface Voice {
   locale: string;
   properties: VoiceProperties;
   categories: string[];
-  masterpieces: any[];
+  masterpieces: unknown[];
   samples: VoiceSamples;
   voiceType: string;
   voiceTags: VoiceTag[];

@@ -28,6 +28,8 @@ export function PodcastOneHostVoiceSelector({
   const [dropdownValue, setDropdownValue] = useState<string>(''); // Track dropdown selection
 
   // Sync dropdown value with selectedVoice or manual input
+  // Note: dropdownValue is intentionally omitted from deps to avoid infinite loop
+  // (setDropdownValue inside the effect would retrigger if dropdownValue was a dependency)
   useEffect(() => {
     if (manualVoiceName) {
       setDropdownValue('custom');

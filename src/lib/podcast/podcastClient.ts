@@ -129,24 +129,18 @@ export async function prepareContentPayload(
   source: PodcastContentSource,
   onProgress?: (message: string) => void
 ): Promise<PodcastContent> {
-  console.log('Preparing content payload...');
-
   if (source.text) {
     const textLength = (source.text || '').length;
     const textBytes = new Blob([source.text || '']).size;
 
-    console.log(`Text content: ${textLength} chars, ${textBytes} bytes`);
-
     if (textLength <= MAX_PLAIN_TEXT_LENGTH) {
       // Use text directly for content <= 1MB
-      console.log('Using inline text (<=1MB)');
       return {
         text: source.text,
         fileFormat: 'Txt',
       };
     } else if (textBytes <= MAX_CONTENT_FILE_SIZE) {
       // For text > 1MB, use temp file upload (base64 is only for PDF format)
-      console.log(`Uploading as temp file (${textBytes} bytes, >1MB, <=50MB)`);
       if (onProgress) {
         onProgress(`Uploading content (${(textBytes / 1024).toFixed(0)} KB)...`);
       }
@@ -168,7 +162,6 @@ export async function prepareContentPayload(
     const urlLower = source.url!.toLowerCase();
     const isPdf = urlLower.endsWith('.pdf') || urlLower.includes('.pdf?');
 
-    console.log(`Using URL: ${source.url}, Format: ${isPdf ? 'Pdf' : 'Txt'}`);
     return {
       url: source.url,
       fileFormat: isPdf ? 'Pdf' : 'Txt',
@@ -179,21 +172,17 @@ export async function prepareContentPayload(
     const isPdf = source.file.type === 'application/pdf' || source.file.name.toLowerCase().endsWith('.pdf');
     const fileFormat = isPdf ? 'Pdf' : 'Txt';
 
-    console.log(`File upload: ${source.file.name}, Size: ${source.file.size} bytes, Format: ${fileFormat}`);
-
     // Convert to base64 first to check actual encoded size
     const base64Text = await fileToBase64(source.file);
     
     if (base64Text.length <= MAX_BASE64_TEXT_LENGTH) {
       // Use base64 for files where base64 size <= 8MB
-      console.log(`Using base64Text for file (base64 size: ${base64Text.length} bytes, <=8MB)`);
       return {
         base64Text,
         fileFormat,
       };
     } else if (source.file.size <= MAX_CONTENT_FILE_SIZE) {
       // Upload as temp file for files where base64 > 8MB but file size <= 50MB
-      console.log(`Uploading file as temp file (file size: ${source.file.size} bytes, >8MB base64, <=50MB)`);
       if (onProgress) {
         onProgress(`Uploading file ${source.file.name} (${(source.file.size / 1024 / 1024).toFixed(1)} MB)...`);
       }
@@ -229,8 +218,6 @@ export async function uploadTempFile(
   // Backend expects ExpiresAfterInMins (PascalCase) as form field
   formData.append('ExpiresAfterInMins', expiresAfterInMins.toString());
 
-  console.log(`Uploading temp file: ${file.name} (${(file.size / 1024).toFixed(2)} KB), ID: ${tempFileId}, Expires: ${expiresAfterInMins} mins`);
-
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -241,7 +228,6 @@ export async function uploadTempFile(
   });
 
   const tempFile = await handleResponse<TempFile>(response);
-  console.log(`Temp file uploaded successfully. ID: ${tempFile.id}, Expires: ${tempFile.expiresDateTime}`);
   return tempFile;
 }
 
@@ -319,9 +305,6 @@ export async function createGeneration(
     body.advancedConfig = params.advancedConfig;
   }
 
-  console.log('Creating podcast generation:', params.generationId);
-  console.log('Request body:', JSON.stringify(body, null, 2));
-
   const response = await fetch(url, {
     method: 'PUT',
     headers: getHeaders(config.apiKey, operationId),
@@ -333,7 +316,6 @@ export async function createGeneration(
   // Get operation location from header
   const operationLocation = response.headers.get('Operation-Location') || '';
 
-  console.log(`Generation created: ${generation.id}, Status: ${generation.status}`);
   return { generation, operationLocation };
 }
 
@@ -402,19 +384,12 @@ export async function waitForGenerationComplete(
 ): Promise<Generation> {
   const startTime = Date.now();
 
-  console.log(`Starting operation polling for generation ${generationId}`);
-  console.log(`Operation URL: ${operationLocation}`);
-
   while (Date.now() - startTime < maxWaitMs) {
     // Poll operation status
     const operation = await pollOperation(operationLocation, config.apiKey);
 
-    console.log(`Operation ${operation.id} status: ${operation.status}`);
-
     // Check if operation is terminated
     if (operation.status === 'Succeeded' || operation.status === 'Failed') {
-      console.log(`Operation terminated with status: ${operation.status}`);
-      
       // Fetch full generation details now that operation is complete
       const generation = await getGeneration(config, generationId);
 
@@ -425,7 +400,6 @@ export async function waitForGenerationComplete(
 
       // Check generation status
       if (generation.status === 'Succeeded') {
-        console.log('Generation succeeded:', generationId);
         return generation;
       }
 
@@ -437,7 +411,6 @@ export async function waitForGenerationComplete(
       }
 
       // If operation succeeded but generation status is not terminal, continue polling
-      console.log(`Operation succeeded but generation status is ${generation.status}, continuing to poll...`);
     }
 
     // Wait before next poll
@@ -489,9 +462,7 @@ export async function safeDeleteTempFile(
   }
 
   try {
-    console.log(`Cleaning up temp file: ${tempFileId}`);
     await deleteTempFile(config, tempFileId);
-    console.log(`Temp file deleted successfully: ${tempFileId}`);
   } catch (error) {
     // Log but don't throw - temp file cleanup is best-effort
     console.warn(`Failed to delete temp file ${tempFileId}:`, error);
@@ -537,7 +508,6 @@ async function queryAccVersion(
 ): Promise<string | null> {
   try {
     const url = getAccVersionsUrl(config.region);
-    console.log('Querying ACC API version from:', url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -552,11 +522,9 @@ async function queryAccVersion(
     }
 
     const data = await response.json();
-    console.log('[queryAccVersion] Response data:', data);
     
     // Extract version from apiVersion property
     const version = data?.apiVersion;
-    console.log('[queryAccVersion] Extracted version:', version);
     
     if (!version) {
       console.warn('[queryAccVersion] apiVersion not found in response');
@@ -577,25 +545,18 @@ function compareVersions(version1: string, version2: string): boolean {
   const v1Parts = version1.split('.').map(Number);
   const v2Parts = version2.split('.').map(Number);
   
-  console.log(`[compareVersions] Comparing ${version1} (${v1Parts}) >= ${version2} (${v2Parts})`);
-  
   for (let i = 0; i < Math.max(v1Parts.length, v2Parts.length); i++) {
     const v1 = v1Parts[i] || 0;
     const v2 = v2Parts[i] || 0;
     
-    console.log(`[compareVersions] Part ${i}: ${v1} vs ${v2}`);
-    
     if (v1 > v2) {
-      console.log(`[compareVersions] Result: true (${v1} > ${v2})`);
       return true;
     }
     if (v1 < v2) {
-      console.log(`[compareVersions] Result: false (${v1} < ${v2})`);
       return false;
     }
   }
   
-  console.log(`[compareVersions] Result: true (equal)`);
   return true; // Equal
 }
 
@@ -620,15 +581,12 @@ export async function queryVoices(
   const REQUIRED_VERSION = '1.3.7';
   const currentVersion = await queryAccVersion(config);
   
-  console.log('[queryVoices] Version check:', { currentVersion, REQUIRED_VERSION });
-  
   if (!currentVersion) {
     console.warn('Could not determine ACC API version. Voice list may not be available. Returning empty array to allow Auto mode or manual input.');
     return [];
   }
   
   const versionSufficient = compareVersions(currentVersion, REQUIRED_VERSION);
-  console.log(`[queryVoices] Version comparison: ${currentVersion} >= ${REQUIRED_VERSION} = ${versionSufficient}`);
   
   if (!versionSufficient) {
     // Voice list API not available in this region/environment yet
@@ -637,8 +595,6 @@ export async function queryVoices(
     console.warn(warnMsg);
     return [];
   }
-  
-  console.log(`ACC version check passed: ${currentVersion} >= ${REQUIRED_VERSION}`);
   
   const url = getTtsBaseUrl(config.region);
   
@@ -650,8 +606,6 @@ export async function queryVoices(
   const body = {
     ApiScenarioKind: 'Podcast',
   };
-
-  console.log('Querying voices with scenario: Podcast', locale ? `for locale: ${locale}` : '');
 
   const response = await fetch(url, {
     method: 'POST',
@@ -677,37 +631,76 @@ export async function queryVoices(
 }
 
 /**
+ * Cache for features query results, keyed by "region:apiKey"
+ * Features are unlikely to change during a session, so we cache to avoid redundant API calls
+ */
+const featuresCache = new Map<string, Promise<string[]>>();
+
+/**
+ * Create a cache key for features query
+ */
+function getFeaturesCacheKey(config: PodcastApiConfig): string {
+  return `${config.region}:${config.apiKey}`;
+}
+
+/**
+ * Clear the features cache (useful if credentials change or for testing)
+ */
+export function clearFeaturesCache(): void {
+  featuresCache.clear();
+}
+
+/**
  * Query available features for the speech resource
  * API: GET https://{region}.api.cognitive.microsoft.com/texttospeech/v3.0-beta1/features
+ * Results are cached per region/apiKey to avoid redundant API calls
  */
 export async function queryFeatures(
   config: PodcastApiConfig
 ): Promise<string[]> {
-  // Build the features API URL
-  let featuresUrl: string;
+  const cacheKey = getFeaturesCacheKey(config);
   
-  if (config.region.startsWith('http://') || config.region.startsWith('https://')) {
-    // Custom URL (for local debugging)
-    const baseUrl = config.region.endsWith('/') ? config.region.slice(0, -1) : config.region;
-    featuresUrl = `${baseUrl}/texttospeech/v3.0-beta1/features`;
-  } else {
-    // Standard Azure region format
-    featuresUrl = `https://${config.region}.api.cognitive.microsoft.com/texttospeech/v3.0-beta1/features`;
+  // Check cache first
+  const cachedResult = featuresCache.get(cacheKey);
+  if (cachedResult) {
+    return cachedResult;
   }
 
-  console.log('Querying features from:', featuresUrl);
+  // Create the fetch promise
+  const fetchPromise = (async () => {
+    // Build the features API URL
+    let featuresUrl: string;
+    
+    if (config.region.startsWith('http://') || config.region.startsWith('https://')) {
+      // Custom URL (for local debugging)
+      const baseUrl = config.region.endsWith('/') ? config.region.slice(0, -1) : config.region;
+      featuresUrl = `${baseUrl}/texttospeech/v3.0-beta1/features`;
+    } else {
+      // Standard Azure region format
+      featuresUrl = `https://${config.region}.api.cognitive.microsoft.com/texttospeech/v3.0-beta1/features`;
+    }
 
-  const response = await fetch(featuresUrl, {
-    method: 'GET',
-    headers: {
-      'Ocp-Apim-Subscription-Key': config.apiKey,
-    },
-  });
+    const response = await fetch(featuresUrl, {
+      method: 'GET',
+      headers: {
+        'Ocp-Apim-Subscription-Key': config.apiKey,
+      },
+    });
 
-  const features = await handleResponse<string[]>(response);
-  console.log('Available features:', features);
+    const features = await handleResponse<string[]>(response);
+    return features;
+  })();
+
+  // Cache the promise (not just the result) to handle concurrent calls
+  featuresCache.set(cacheKey, fetchPromise);
   
-  return features;
+  try {
+    return await fetchPromise;
+  } catch (error) {
+    // Remove from cache if fetch failed so next call can retry
+    featuresCache.delete(cacheKey);
+    throw error;
+  }
 }
 
 /**

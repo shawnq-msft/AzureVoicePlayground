@@ -15,6 +15,7 @@ import {
   PodcastHistoryEntry,
   GenerationStatus,
   Voice,
+  PODCAST_LOCALES,
 } from '../types/podcast';
 
 interface PodcastAgentPlaygroundProps {
@@ -40,35 +41,7 @@ const SUPPORTED_REGIONS = [
   'westus3',
 ];
 
-// Common locales for podcast generation
-// supportsTwoHosts flag based on IsPodcastTwoHostsSupported attribute in Language.cs
-const PODCAST_LOCALES = [
-  { code: 'en-US', label: 'English (US)', supportsTwoHosts: true },
-  { code: 'en-GB', label: 'English (UK)', supportsTwoHosts: true },
-  { code: 'en-AU', label: 'English (Australia)', supportsTwoHosts: true },
-  { code: 'de-DE', label: 'German (Germany)', supportsTwoHosts: true },
-  { code: 'es-ES', label: 'Spanish (Spain)', supportsTwoHosts: true },
-  { code: 'fr-FR', label: 'French (France)', supportsTwoHosts: true },
-  { code: 'it-IT', label: 'Italian (Italy)', supportsTwoHosts: true },
-  { code: 'pt-BR', label: 'Portuguese (Brazil)', supportsTwoHosts: true },
-  { code: 'ru-RU', label: 'Russian (Russia)', supportsTwoHosts: true },
-  { code: 'ja-JP', label: 'Japanese (Japan)', supportsTwoHosts: true },
-  { code: 'ko-KR', label: 'Korean (Korea)', supportsTwoHosts: true },
-  { code: 'zh-CN', label: 'Chinese (Simplified)', supportsTwoHosts: true },
-  { code: 'zh-TW', label: 'Chinese (Traditional)', supportsTwoHosts: true },
-  { code: 'ar-AE', label: 'Arabic (UAE)', supportsTwoHosts: true },
-  // Chinese regional dialects (OneHost only)
-  { code: 'zh-CN-anhui', label: 'Chinese (Anhui)', supportsTwoHosts: false },
-  { code: 'zh-CN-guangxi', label: 'Chinese (Guangxi)', supportsTwoHosts: false },
-  { code: 'zh-CN-henan', label: 'Chinese (Henan)', supportsTwoHosts: false },
-  { code: 'zh-CN-hunan', label: 'Chinese (Hunan)', supportsTwoHosts: false },
-  { code: 'zh-CN-gansu', label: 'Chinese (Gansu)', supportsTwoHosts: false },
-  { code: 'zh-CN-liaoning', label: 'Chinese (Liaoning)', supportsTwoHosts: false },
-  { code: 'zh-CN-shaanxi', label: 'Chinese (Shaanxi)', supportsTwoHosts: false },
-  { code: 'zh-CN-shanxi', label: 'Chinese (Shanxi)', supportsTwoHosts: false },
-  { code: 'zh-CN-shandong', label: 'Chinese (Shandong)', supportsTwoHosts: false },
-  { code: 'zh-CN-sichuan', label: 'Chinese (Sichuan)', supportsTwoHosts: false },
-];
+
 
 const HOST_TYPES: { value: HostType; label: string; description: string }[] = [
   {
@@ -391,10 +364,11 @@ export function PodcastAgentPlayground({
 
   const isProcessing = ['uploading', 'creating', 'processing'].includes(status);
   // Skip region validation for:
-  // 1. Custom regions containing "-" (e.g., TIP environments like "eastus-tip")
-  // 2. Custom URLs starting with http:// or https:// (e.g., "https://localhost:44311/api")
-  const isCustomUrl = settings.region.startsWith('http://') || settings.region.startsWith('https://');
-  const isRegionSupported = isCustomUrl || settings.region.includes('-') || SUPPORTED_REGIONS.includes(settings.region.toLowerCase());
+  // 1. TIP environments ending with "tip" (e.g., "*-tip")
+  // 2. Local development URLs starting with "https://localhost"
+  const isTipEnvironment = settings.region.endsWith('tip');
+  const isLocalhost = settings.region.startsWith('https://localhost');
+  const isRegionSupported = isTipEnvironment || isLocalhost || SUPPORTED_REGIONS.includes(settings.region.toLowerCase());
   
   // Check if TwoHosts requirements are met
   // TwoHosts is ready when NOT in invalid partial state:
@@ -863,7 +837,7 @@ export function PodcastAgentPlayground({
               >
                 {availableLocales.map((l) => (
                   <option key={l.code} value={l.code}>
-                    {l.supportsTwoHosts ? '👥' : '👤'} {l.label}
+                    {l.supportsTwoHosts ? '👥' : '👤'} {l.name}
                   </option>
                 ))}
               </select>
