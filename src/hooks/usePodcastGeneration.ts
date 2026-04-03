@@ -132,7 +132,7 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
       }
 
       // Step 3-4: Poll for completion using operation status
-      setProgress({ step: 3, totalSteps: 5, message: 'Generating script...' });
+      setProgress({ step: 3, totalSteps: 5, message: 'Generating podcast...' });
       setStatus('processing');
 
       const completedGeneration = await waitForGenerationComplete(
