@@ -10,7 +10,7 @@ interface NavigationSidebarProps {
   geminiLiveEnabled?: boolean;
 }
 
-const ALL_TTS_REGIONS = [
+export const ALL_TTS_REGIONS = [
   // Americas
   { value: 'brazilsouth', label: 'Brazil South' },
   { value: 'canadacentral', label: 'Canada Central' },
@@ -400,8 +400,16 @@ export function NavigationSidebar({
             <div className="space-y-2 px-2">
               <label className="block text-xs font-medium text-gray-400">Region</label>
               <select
-                value={settings.region}
-                onChange={(e) => onSettingsChange({ region: e.target.value })}
+                value={ALL_TTS_REGIONS.some(r => r.value === settings.region) ? settings.region : 'custom'}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'custom') {
+                    // Set to empty string or a custom placeholder to trigger the input field
+                    onSettingsChange({ region: '' });
+                  } else {
+                    onSettingsChange({ region: value });
+                  }
+                }}
                 className="w-full px-2 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
                 {ALL_TTS_REGIONS.map((region) => (
@@ -409,7 +417,18 @@ export function NavigationSidebar({
                     {region.label}
                   </option>
                 ))}
+                <option value="custom">Custom...</option>
               </select>
+              {!ALL_TTS_REGIONS.some(r => r.value === settings.region) && (
+                <input
+                  type="text"
+                  value={settings.region}
+                  onChange={(e) => onSettingsChange({ region: e.target.value })}
+                  placeholder="e.g., eastus, westeurope, etc."
+                  autoFocus
+                  className="w-full px-2 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                />
+              )}
             </div>
 
             {/* Security Warning */}

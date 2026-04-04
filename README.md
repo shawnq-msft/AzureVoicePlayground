@@ -200,6 +200,24 @@ src/
 └── App.tsx                  # Main app with routing
 ```
 
+## Documentation
+
+📚 **[Product API Documentation](./public/docs/products/README.md)**
+
+Comprehensive API documentation for products available in the Azure Voice Playground:
+
+- **[Podcast API](./public/docs/products/podcast/README.md)** - Generate AI-powered podcast content
+  - [API Overview & Workflow](./public/docs/products/podcast/README.md) - Complete guide with Mermaid diagrams
+  - [Temporary Files API](./public/docs/products/podcast/temp-files.md) - Upload source content
+  - [Generations API](./public/docs/products/podcast/generations.md) - Create and manage podcasts
+  - [Operations API](./public/docs/products/podcast/operations.md) - Monitor processing status
+
+Each API reference includes:
+- Detailed endpoint documentation
+- Request/response examples in multiple languages (cURL, PowerShell, JavaScript)
+- Best practices and error handling
+- Complete workflow diagrams
+
 ## License
 
 MIT

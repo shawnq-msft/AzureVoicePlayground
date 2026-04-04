@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { PodcastContentSource, MAX_PLAIN_TEXT_LENGTH, MAX_CONTENT_FILE_SIZE } from '../types/podcast';
+import { PodcastContentSource, MAX_CONTENT_FILE_SIZE, MAX_PLAIN_TEXT_LENGTH } from '../types/podcast';
 
 interface PodcastContentUploaderProps {
   onContentChange: (source: PodcastContentSource | null) => void;
@@ -7,6 +7,9 @@ interface PodcastContentUploaderProps {
 }
 
 type InputTab = 'text' | 'url' | 'file';
+
+// UI performance limit: 6M characters (~6MB text)
+const MAX_UI_CHAR_COUNT = 6 * 1024 * 1024;
 
 export function PodcastContentUploader({ onContentChange, disabled = false }: PodcastContentUploaderProps) {
   const [activeTab, setActiveTab] = useState<InputTab>('text');
@@ -27,14 +30,46 @@ export function PodcastContentUploader({ onContentChange, disabled = false }: Po
     }
 
     // Validate based on source type
-    if (source.type === 'text' && source.text) {
-      if (source.text.length > MAX_PLAIN_TEXT_LENGTH) {
-        setError(`Text is too long. Maximum ${(MAX_PLAIN_TEXT_LENGTH / 1024 / 1024).toFixed(0)}MB allowed.`);
+    if (source.text) {
+      const textLength = source.text.length;
+      
+      // First check: character count limit for UI performance
+      if (textLength > MAX_UI_CHAR_COUNT) {
+        const actualMChar = (textLength / 1024 / 1024).toFixed(1);
+        const maxMChar = (MAX_UI_CHAR_COUNT / 1024 / 1024).toFixed(0);
+        setError(
+          `Text is too long. Current: ${actualMChar}M characters exceeds the ${maxMChar}M character limit for UI performance. ` +
+          `For larger content, use file upload or URL instead.`
+        );
         return;
       }
+      
+      // Second check: if text length <= MAX_PLAIN_TEXT_LENGTH, it passes
+      if (textLength <= MAX_PLAIN_TEXT_LENGTH) {
+        // Text is within inline limit, no further validation needed
+        onContentChange(source);
+        return;
+      }
+      
+      // Third check: text > MAX_PLAIN_TEXT_LENGTH, check if file size <= MAX_CONTENT_FILE_SIZE
+      // If exceeds 8MB, it will be uploaded via temp file API automatically
+      const textBlob = new Blob([source.text], { type: 'text/plain' });
+      const textBytes = textBlob.size;
+      
+      if (textBytes > MAX_CONTENT_FILE_SIZE) {
+        const actualMB = (textBytes / 1024 / 1024).toFixed(1);
+        const maxMB = (MAX_CONTENT_FILE_SIZE / 1024 / 1024).toFixed(0);
+        setError(
+          `Text is too large. Current size: ${actualMB}MB exceeds maximum allowed size of ${maxMB}MB. ` +
+          `For larger content, use URL instead.`
+        );
+        return;
+      }
+      
+      // Text passes: size within MAX_CONTENT_FILE_SIZE
     }
 
-    if (source.type === 'file' && source.file) {
+    if (source.file) {
       if (source.file.size > MAX_CONTENT_FILE_SIZE) {
         setError(`File is too large. Maximum ${(MAX_CONTENT_FILE_SIZE / 1024 / 1024).toFixed(0)}MB allowed.`);
         return;
@@ -47,7 +82,7 @@ export function PodcastContentUploader({ onContentChange, disabled = false }: Po
       }
     }
 
-    if (source.type === 'url' && source.url) {
+    if (source.url) {
       try {
         new URL(source.url);
       } catch {
@@ -62,7 +97,7 @@ export function PodcastContentUploader({ onContentChange, disabled = false }: Po
   const handleTextChange = (text: string) => {
     setTextInput(text);
     if (text.trim()) {
-      validateAndSetContent({ type: 'text', text: text.trim() });
+      validateAndSetContent({ text: text.trim() });
     } else {
       validateAndSetContent(null);
     }
@@ -71,7 +106,7 @@ export function PodcastContentUploader({ onContentChange, disabled = false }: Po
   const handleUrlChange = (url: string) => {
     setUrlInput(url);
     if (url.trim()) {
-      validateAndSetContent({ type: 'url', url: url.trim() });
+      validateAndSetContent({ url: url.trim() });
     } else {
       validateAndSetContent(null);
     }
@@ -79,7 +114,7 @@ export function PodcastContentUploader({ onContentChange, disabled = false }: Po
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
-    validateAndSetContent({ type: 'file', file, fileName: file.name });
+    validateAndSetContent({ file, fileName: file.name });
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,11 +227,22 @@ export function PodcastContentUploader({ onContentChange, disabled = false }: Po
               value={textInput}
               onChange={(e) => handleTextChange(e.target.value)}
               disabled={disabled}
-              placeholder="Paste your text content here (up to 1MB)..."
+              maxLength={MAX_UI_CHAR_COUNT}
+              placeholder="Paste your text content here (up to 50MB)..."
               className="w-full h-48 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
             />
             <div className="mt-1 text-xs text-gray-500">
-              {textInput.length.toLocaleString()} / {MAX_PLAIN_TEXT_LENGTH.toLocaleString()} characters
+              {textInput.length.toLocaleString()} / {MAX_UI_CHAR_COUNT.toLocaleString()} characters
+              {textInput.length > 0 && (
+                <>
+                  {' '}({(new Blob([textInput]).size / 1024).toFixed(1)} KB)
+                  {new Blob([textInput]).size > MAX_PLAIN_TEXT_LENGTH && (
+                    <span className="ml-2 text-amber-600">
+                      → Will use temp file upload
+                    </span>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}

@@ -12,11 +12,24 @@ import {
   PodcastContentSource,
   PodcastContent,
   TempFile,
+  Voice,
+  MAX_PLAIN_TEXT_LENGTH,
+  MAX_BASE64_TEXT_LENGTH,
+  MAX_CONTENT_FILE_SIZE,
 } from '../../types/podcast';
 
 const API_VERSION = '2026-01-01-preview';
 
 function getBaseUrl(region: string): string {
+  // Check if region is a custom URL (for local debugging)
+  if (region.startsWith('http://') || region.startsWith('https://')) {
+    // Remove trailing slash if present
+    const baseUrl = region.endsWith('/') ? region.slice(0, -1) : region;
+    // Append /podcast to the custom URL
+    return `${baseUrl}/podcast`;
+  }
+  
+  // Standard Azure region format
   return `https://${region}.api.cognitive.microsoft.com/podcast`;
 }
 
@@ -35,17 +48,44 @@ async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let errorMessage = `API Error: ${response.status} ${response.statusText}`;
     try {
-      const errorBody = await response.json();
-      console.error('Podcast API Error Response:', errorBody);
-      if (errorBody.error?.message) {
-        errorMessage = errorBody.error.message;
-      } else if (errorBody.message) {
-        errorMessage = errorBody.message;
-      } else if (errorBody.error?.code) {
-        errorMessage = `${errorBody.error.code}: ${JSON.stringify(errorBody.error)}`;
+      // Try to read response as text first
+      const responseText = await response.text();
+      
+      if (!responseText) {
+        // Empty response body, use default error message
+        throw new Error(errorMessage);
       }
-    } catch {
-      // Use default error message
+      
+      // Special handling for 400 Bad Request - parse and show error.innererror.message
+      if (response.status === 400) {
+        try {
+          const errorBody = JSON.parse(responseText);
+          console.error('Podcast API 400 Error Response:', errorBody);
+          
+          // Try to extract error.innererror.message
+          if (errorBody.error?.innererror?.message) {
+            errorMessage = errorBody.error.innererror.message;
+          } else if (errorBody.error?.message) {
+            errorMessage = errorBody.error.message;
+          } else if (errorBody.message) {
+            errorMessage = errorBody.message;
+          } else {
+            // Show full JSON if we can't find a specific message
+            errorMessage = responseText;
+          }
+        } catch {
+          // Not JSON, use the raw text
+          console.error('Podcast API 400 Error Response (text):', responseText);
+          errorMessage = responseText;
+        }
+      } else {
+        // For other status codes, show the full response text without parsing
+        console.error(`Podcast API ${response.status} Error Response:`, responseText);
+        errorMessage = responseText;
+      }
+    } catch (readError) {
+      console.error('Failed to read error response:', readError);
+      // Use default error message if we can't read the response
     }
     throw new Error(errorMessage);
   }
@@ -60,7 +100,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 /**
  * Convert a File object to base64 string
  */
-async function fileToBase64(file: File): Promise<string> {
+export async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -76,40 +116,85 @@ async function fileToBase64(file: File): Promise<string> {
 
 /**
  * Prepare content payload based on source type
+ * Strategy:
+ * - Text <= 1MB: uses 'text' property (inline)
+ * - Text > 1MB: uploads as temp file, uses 'tempFileId' property
+ * - File: converts to base64, if base64 size <= 8MB: uses 'base64Text' property
+ * - File: if base64 > 8MB but file size <= 50MB: uploads as temp file, uses 'tempFileId' property
+ * - URL: uses 'url' property with detected file format
+ * Note: base64Text is only for file uploads (especially PDFs), not for text input
  */
 export async function prepareContentPayload(
-  source: PodcastContentSource
+  config: PodcastApiConfig,
+  source: PodcastContentSource,
+  onProgress?: (message: string) => void
 ): Promise<PodcastContent> {
-  if (source.type === 'text') {
-    return {
-      kind: 'PlainText',
-      text: source.text,
-      fileFormat: 'Txt',
-    };
+  if (source.text) {
+    const textLength = (source.text || '').length;
+    const textBytes = new Blob([source.text || '']).size;
+
+    if (textLength <= MAX_PLAIN_TEXT_LENGTH) {
+      // Use text directly for content <= 1MB
+      return {
+        text: source.text,
+        fileFormat: 'Txt',
+      };
+    } else if (textBytes <= MAX_CONTENT_FILE_SIZE) {
+      // For text > 1MB, use temp file upload (base64 is only for PDF format)
+      if (onProgress) {
+        onProgress(`Uploading content (${(textBytes / 1024).toFixed(0)} KB)...`);
+      }
+      const textBlob = new Blob([source.text || ''], { type: 'text/plain' });
+      const textFile = new File([textBlob], 'content.txt', { type: 'text/plain' });
+      const tempFileId = createTempFileId();
+      await uploadTempFile(config, textFile, tempFileId, 120); // 2 hour expiry
+      return {
+        tempFileId,
+        fileFormat: 'Txt',
+      };
+    } else {
+      throw new Error(`Text content is too large (${(textBytes / 1024 / 1024).toFixed(1)}MB). Maximum allowed size is ${(MAX_CONTENT_FILE_SIZE / 1024 / 1024).toFixed(0)}MB.`);
+    }
   }
 
-  if (source.type === 'url') {
+  if (source.url) {
     // Detect file format from URL
     const urlLower = source.url!.toLowerCase();
     const isPdf = urlLower.endsWith('.pdf') || urlLower.includes('.pdf?');
 
     return {
-      kind: 'AzureStorageBlobPublicUrl',
       url: source.url,
       fileFormat: isPdf ? 'Pdf' : 'Txt',
     };
   }
 
-  if (source.type === 'file' && source.file) {
-    // Convert file to base64
-    const base64Text = await fileToBase64(source.file);
+  if (source.file) {
     const isPdf = source.file.type === 'application/pdf' || source.file.name.toLowerCase().endsWith('.pdf');
+    const fileFormat = isPdf ? 'Pdf' : 'Txt';
 
-    return {
-      kind: 'FileBase64',
-      base64Text,
-      fileFormat: isPdf ? 'Pdf' : 'Txt',
-    };
+    // Convert to base64 first to check actual encoded size
+    const base64Text = await fileToBase64(source.file);
+    
+    if (base64Text.length <= MAX_BASE64_TEXT_LENGTH) {
+      // Use base64 for files where base64 size <= 8MB
+      return {
+        base64Text,
+        fileFormat,
+      };
+    } else if (source.file.size <= MAX_CONTENT_FILE_SIZE) {
+      // Upload as temp file for files where base64 > 8MB but file size <= 50MB
+      if (onProgress) {
+        onProgress(`Uploading file ${source.file.name} (${(source.file.size / 1024 / 1024).toFixed(1)} MB)...`);
+      }
+      const tempFileId = createTempFileId();
+      await uploadTempFile(config, source.file, tempFileId, 120); // 2 hour expiry
+      return {
+        tempFileId,
+        fileFormat,
+      };
+    } else {
+      throw new Error(`File size exceeds maximum limit of ${(MAX_CONTENT_FILE_SIZE / 1024 / 1024).toFixed(0)}MB`);
+    }
   }
 
   throw new Error('Invalid content source');
@@ -117,6 +202,8 @@ export async function prepareContentPayload(
 
 /**
  * Upload a temporary file using multipart/form-data
+ * API: POST /api/podcast/tempfiles/{tempFileId}
+ * Content-Type: multipart/form-data
  */
 export async function uploadTempFile(
   config: PodcastApiConfig,
@@ -128,17 +215,20 @@ export async function uploadTempFile(
 
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('expiresAfterInMins', expiresAfterInMins.toString());
+  // Backend expects ExpiresAfterInMins (PascalCase) as form field
+  formData.append('ExpiresAfterInMins', expiresAfterInMins.toString());
 
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Ocp-Apim-Subscription-Key': config.apiKey,
+      // Note: Do NOT set Content-Type header - browser will set it automatically with boundary
     },
     body: formData,
   });
 
-  return handleResponse<TempFile>(response);
+  const tempFile = await handleResponse<TempFile>(response);
+  return tempFile;
 }
 
 /**
@@ -177,6 +267,8 @@ export async function deleteTempFile(
 
 /**
  * Create a podcast generation
+ * API: PUT /api/podcast/generations/{generationId}
+ * Content-Type: application/json
  */
 export async function createGeneration(
   config: PodcastApiConfig,
@@ -186,7 +278,7 @@ export async function createGeneration(
 
   const operationId = crypto.randomUUID();
 
-  // Build request body with only defined fields
+  // Build request body matching backend PodcastGeneration DTO structure
   const body: Record<string, unknown> = {
     locale: params.locale,
     host: params.host,
@@ -197,6 +289,10 @@ export async function createGeneration(
     body.displayName = params.displayName;
   }
 
+  if (params.description !== undefined) {
+    body.description = params.description;
+  }
+
   if (params.scriptGeneration !== undefined) {
     body.scriptGeneration = params.scriptGeneration;
   }
@@ -205,8 +301,9 @@ export async function createGeneration(
     body.tts = params.tts;
   }
 
-  console.log('Creating podcast generation:', params.generationId);
-  console.log('Request body:', JSON.stringify(body, null, 2));
+  if (params.advancedConfig !== undefined) {
+    body.advancedConfig = params.advancedConfig;
+  }
 
   const response = await fetch(url, {
     method: 'PUT',
@@ -272,40 +369,49 @@ export async function deleteGeneration(
 }
 
 /**
- * Wait for generation to complete with polling
+ * Wait for generation to complete with polling using operation status
+ * New workflow:
+ * 1. Poll operation status using the operation URL
+ * 2. When operation is terminated (Succeeded or Failed), query the generation by ID for full details
  */
 export async function waitForGenerationComplete(
   config: PodcastApiConfig,
   generationId: string,
+  operationLocation: string,
   onProgress?: (generation: Generation) => void,
   maxWaitMs: number = 30 * 60 * 1000, // 30 minutes
-  pollIntervalMs: number = 3000 // 3 seconds
+  pollIntervalMs: number = 10000 // 10 seconds
 ): Promise<Generation> {
   const startTime = Date.now();
 
   while (Date.now() - startTime < maxWaitMs) {
-    // Fetch current generation status
-    const generation = await getGeneration(config, generationId);
+    // Poll operation status
+    const operation = await pollOperation(operationLocation, config.apiKey);
 
-    // Call progress callback if provided
-    if (onProgress) {
-      onProgress(generation);
+    // Check if operation is terminated
+    if (operation.status === 'Succeeded' || operation.status === 'Failed') {
+      // Fetch full generation details now that operation is complete
+      const generation = await getGeneration(config, generationId);
+
+      // Call progress callback with final generation state
+      if (onProgress) {
+        onProgress(generation);
+      }
+
+      // Check generation status
+      if (generation.status === 'Succeeded') {
+        return generation;
+      }
+
+      if (generation.status === 'Failed') {
+        const errorMsg = generation.failureReason || operation.error?.message || 'Generation failed';
+        console.error('Generation failed:', errorMsg);
+        console.error('Full generation object:', generation);
+        throw new Error(errorMsg);
+      }
+
+      // If operation succeeded but generation status is not terminal, continue polling
     }
-
-    // Check for terminal states
-    if (generation.status === 'Succeeded') {
-      console.log('Generation succeeded:', generationId);
-      return generation;
-    }
-
-    if (generation.status === 'Failed') {
-      const errorMsg = generation.failureReason || 'Generation failed';
-      console.error('Generation failed:', errorMsg);
-      throw new Error(errorMsg);
-    }
-
-    // Log progress
-    console.log(`Generation ${generationId} status: ${generation.status}`);
 
     // Wait before next poll
     await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
@@ -326,4 +432,344 @@ export function createGenerationId(): string {
  */
 export function createTempFileId(): string {
   return crypto.randomUUID();
+}
+
+/**
+ * Enhanced content preparation with temp file tracking
+ * Returns both the content payload and the temp file ID if one was created
+ */
+export async function prepareContentWithTracking(
+  config: PodcastApiConfig,
+  source: PodcastContentSource,
+  onProgress?: (message: string) => void
+): Promise<{ content: PodcastContent; tempFileId?: string }> {
+  const content = await prepareContentPayload(config, source, onProgress);
+  return {
+    content,
+    tempFileId: content.tempFileId,
+  };
+}
+
+/**
+ * Safely delete temp file with error handling
+ */
+export async function safeDeleteTempFile(
+  config: PodcastApiConfig,
+  tempFileId: string | undefined
+): Promise<void> {
+  if (!tempFileId) {
+    return;
+  }
+
+  try {
+    await deleteTempFile(config, tempFileId);
+  } catch (error) {
+    // Log but don't throw - temp file cleanup is best-effort
+    console.warn(`Failed to delete temp file ${tempFileId}:`, error);
+  }
+}
+
+/**
+ * Get TTS base URL for voice queries
+ */
+function getTtsBaseUrl(region: string): string {
+  // Check if region is a custom URL (for local debugging)
+  if (region.startsWith('http://') || region.startsWith('https://')) {
+    // Remove trailing slash if present
+    const baseUrl = region.endsWith('/') ? region.slice(0, -1) : region;
+    // Append /texttospeech path for local
+    return `${baseUrl}/texttospeech/v3.0-beta1/vcg/voices`;
+  }
+  
+  // Standard Azure region format
+  return `https://${region}.api.cognitive.microsoft.com/texttospeech/acc/v3.0-beta1/vcg/voices`;
+}
+
+/**
+ * Get base URL for ACC versions API
+ */
+function getAccVersionsUrl(region: string): string {
+  // Handle custom URL (for local debugging)
+  if (region.startsWith('http://') || region.startsWith('https://')) {
+    const baseUrl = region.endsWith('/') ? region.slice(0, -1) : region;
+    return `${baseUrl}/texttospeech/acc/v3.0-beta1/VoiceGeneralTask/versions`;
+  }
+  
+  // Standard Azure region format
+  return `https://${region}.api.cognitive.microsoft.com/texttospeech/acc/v3.0-beta1/VoiceGeneralTask/versions`;
+}
+
+/**
+ * Query ACC API version
+ * Returns version string like "1.3.7" or null if unavailable
+ */
+async function queryAccVersion(
+  config: PodcastApiConfig
+): Promise<string | null> {
+  try {
+    const url = getAccVersionsUrl(config.region);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Ocp-Apim-Subscription-Key': config.apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(`ACC version query failed: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    // Extract version from apiVersion property
+    const version = data?.apiVersion;
+    
+    if (!version) {
+      console.warn('[queryAccVersion] apiVersion not found in response');
+    }
+    
+    return version || null;
+  } catch (error) {
+    console.warn('Failed to query ACC API version:', error);
+    return null;
+  }
+}
+
+/**
+ * Compare version strings (e.g., "1.3.7" >= "1.3.7")
+ * Returns true if version1 >= version2
+ */
+function compareVersions(version1: string, version2: string): boolean {
+  const v1Parts = version1.split('.').map(Number);
+  const v2Parts = version2.split('.').map(Number);
+  
+  for (let i = 0; i < Math.max(v1Parts.length, v2Parts.length); i++) {
+    const v1 = v1Parts[i] || 0;
+    const v2 = v2Parts[i] || 0;
+    
+    if (v1 > v2) {
+      return true;
+    }
+    if (v1 < v2) {
+      return false;
+    }
+  }
+  
+  return true; // Equal
+}
+
+/**
+ * Query supported voices for podcast generation
+ * Filters by ApiScenarioKind=Podcast
+ * Voices with "multitalker" (case insensitive) in name are for TwoHosts
+ * Other voices are for OneHost
+ * 
+ * Note: MultiTalker voices support ALL TwoHosts-compatible target languages.
+ * The locale in a multitalker voice name (e.g., "en-US-multitalker") indicates
+ * the speaker's origin locale, not the synthesis target language.
+ * Therefore, multitalker voices are NOT filtered by the locale parameter.
+ * 
+ * Version Check: This API requires ACC version >= 1.3.7
+ */
+export async function queryVoices(
+  config: PodcastApiConfig,
+  locale?: string
+): Promise<Voice[]> {
+  // Check ACC API version first
+  const REQUIRED_VERSION = '1.3.7';
+  const currentVersion = await queryAccVersion(config);
+  
+  if (!currentVersion) {
+    console.warn('Could not determine ACC API version. Voice list may not be available. Returning empty array to allow Auto mode or manual input.');
+    return [];
+  }
+  
+  const versionSufficient = compareVersions(currentVersion, REQUIRED_VERSION);
+  
+  if (!versionSufficient) {
+    // Voice list API not available in this region/environment yet
+    // Return empty array to allow Auto mode or manual voice input
+    const warnMsg = `Voice list API requires ACC version ${REQUIRED_VERSION} or higher. Current version: ${currentVersion}. Voice dropdown will be empty, but you can still use Auto mode or enter voice names manually.`;
+    console.warn(warnMsg);
+    return [];
+  }
+  
+  const url = getTtsBaseUrl(config.region);
+  
+  const headers: Record<string, string> = {
+    'Ocp-Apim-Subscription-Key': config.apiKey,
+    'Content-Type': 'application/json',
+  };
+
+  const body = {
+    ApiScenarioKind: 'Podcast',
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  const voices = await handleResponse<Voice[]>(response);
+  
+  // Filter by locale if provided
+  // Note: MultiTalker voices are NOT filtered by locale because they support
+  // all TwoHosts-compatible target languages. The locale in their name indicates
+  // the speaker's origin, not the synthesis target language.
+  if (locale) {
+    return voices.filter(v => {
+      const isMultiTalker = isTwoHostsVoice(v);
+      // Include voice if it's a multitalker (supports all locales) OR matches the requested locale
+      return isMultiTalker || v.locale === locale;
+    });
+  }
+  
+  return voices;
+}
+
+/**
+ * Cache for features query results, keyed by "region:apiKey"
+ * Features are unlikely to change during a session, so we cache to avoid redundant API calls
+ */
+const featuresCache = new Map<string, Promise<string[]>>();
+
+/**
+ * Create a cache key for features query
+ */
+function getFeaturesCacheKey(config: PodcastApiConfig): string {
+  return `${config.region}:${config.apiKey}`;
+}
+
+/**
+ * Clear the features cache (useful if credentials change or for testing)
+ */
+export function clearFeaturesCache(): void {
+  featuresCache.clear();
+}
+
+/**
+ * Query available features for the speech resource
+ * API: GET https://{region}.api.cognitive.microsoft.com/texttospeech/v3.0-beta1/features
+ * Results are cached per region/apiKey to avoid redundant API calls
+ */
+export async function queryFeatures(
+  config: PodcastApiConfig
+): Promise<string[]> {
+  const cacheKey = getFeaturesCacheKey(config);
+  
+  // Check cache first
+  const cachedResult = featuresCache.get(cacheKey);
+  if (cachedResult) {
+    return cachedResult;
+  }
+
+  // Create the fetch promise
+  const fetchPromise = (async () => {
+    // Build the features API URL
+    let featuresUrl: string;
+    
+    if (config.region.startsWith('http://') || config.region.startsWith('https://')) {
+      // Custom URL (for local debugging)
+      const baseUrl = config.region.endsWith('/') ? config.region.slice(0, -1) : config.region;
+      featuresUrl = `${baseUrl}/texttospeech/v3.0-beta1/features`;
+    } else {
+      // Standard Azure region format
+      featuresUrl = `https://${config.region}.api.cognitive.microsoft.com/texttospeech/v3.0-beta1/features`;
+    }
+
+    const response = await fetch(featuresUrl, {
+      method: 'GET',
+      headers: {
+        'Ocp-Apim-Subscription-Key': config.apiKey,
+      },
+    });
+
+    const features = await handleResponse<string[]>(response);
+    return features;
+  })();
+
+  // Cache the promise (not just the result) to handle concurrent calls
+  featuresCache.set(cacheKey, fetchPromise);
+  
+  try {
+    return await fetchPromise;
+  } catch (error) {
+    // Remove from cache if fetch failed so next call can retry
+    featuresCache.delete(cacheKey);
+    throw error;
+  }
+}
+
+/**
+ * Check if a specific feature is enabled for the speech resource
+ */
+export async function hasFeature(
+  config: PodcastApiConfig,
+  featureName: string
+): Promise<boolean> {
+  try {
+    const features = await queryFeatures(config);
+    return features.includes(featureName);
+  } catch (error) {
+    console.warn(`Failed to check feature ${featureName}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Check if a voice is for TwoHosts mode (contains "multitalker" case-insensitive)
+ * MultiTalker voices support ALL TwoHosts-compatible target languages.
+ * The locale in the voice name indicates the speaker's origin locale, not the synthesis target.
+ */
+export function isTwoHostsVoice(voice: Voice): boolean {
+  return voice.name.toLowerCase().includes('multitalker') || 
+         voice.shortName.toLowerCase().includes('multitalker');
+}
+
+/**
+ * Check if voice should be hidden from ACC portal
+ */
+function isVoiceHidden(voice: Voice): boolean {
+  // Check if isHiddenFromAccPortal property is set to true
+  return voice.properties.isHiddenFromAccPortal === true;
+}
+
+/**
+ * Check if voice is in private preview
+ */
+function isPrivatePreview(voice: Voice): boolean {
+  return voice.properties.ReleaseScope === 'PrivatePreview';
+}
+
+/**
+ * Check if voice has speaker tags (femaleSpeakers or maleSpeakers)
+ */
+function hasSpeakerTags(voice: Voice): boolean {
+  if (!voice.voiceTags || voice.voiceTags.length === 0) {
+    return false;
+  }
+  
+  return voice.voiceTags.some(tag => 
+    tag.name === 'femaleSpeakers' || tag.name === 'maleSpeakers'
+  );
+}
+
+/**
+ * Filter voices for OneHost mode
+ * Excludes multitalker voices, hidden voices, and private preview voices
+ */
+export function getOneHostVoices(voices: Voice[]): Voice[] {
+  return voices.filter(v => !isTwoHostsVoice(v) && !isVoiceHidden(v) && !isPrivatePreview(v));
+}
+
+/**
+ * Filter voices for TwoHosts mode
+ * Includes only multitalker voices that are not hidden, not private preview, and have speaker tags
+ * Note: MultiTalker voices support ALL TwoHosts-compatible target languages regardless of their name's locale prefix
+ */
+export function getTwoHostsVoices(voices: Voice[]): Voice[] {
+  return voices.filter(v => isTwoHostsVoice(v) && !isVoiceHidden(v) && !isPrivatePreview(v) && hasSpeakerTags(v));
 }

@@ -11,8 +11,10 @@ import {
 import {
   createGeneration,
   waitForGenerationComplete,
-  prepareContentPayload,
+  prepareContentWithTracking,
+  safeDeleteTempFile,
   createGenerationId,
+  hasFeature,
 } from '../lib/podcast/podcastClient';
 
 export interface UsePodcastGenerationOptions {
@@ -42,8 +44,11 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
     config: PodcastConfig,
     voiceName?: string,
     speakerNames?: string,
+    genderPreference?: 'Male' | 'Female',
     addToHistory?: (entry: Omit<PodcastHistoryEntry, 'id'>) => void
   ) => {
+    let tempFileId: string | undefined;
+
     try {
       // Reset state
       setError(null);
@@ -56,17 +61,32 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
       const apiConfig = getApiConfig();
       const generationId = createGenerationId();
 
-      // Step 1: Prepare content payload
-      const content = await prepareContentPayload(contentSource);
+      // Step 1: Prepare content payload with temp file tracking
+      const { content, tempFileId: createdTempFileId } = await prepareContentWithTracking(
+        apiConfig, 
+        contentSource,
+        (message) => setProgress({ step: 1, totalSteps: 5, message })
+      );
+      tempFileId = createdTempFileId;
+
+      if (tempFileId) {
+        console.log(`Temp file created: ${tempFileId}`);
+      }
 
       if (cancelRef.current) {
         setStatus('cancelled');
+        // Cleanup temp file if created
+        await safeDeleteTempFile(apiConfig, tempFileId);
         return;
       }
 
       // Step 2: Create generation
       setProgress({ step: 2, totalSteps: 5, message: 'Creating generation...' });
       setStatus('creating');
+
+      // Check if PodcastIntermediateZip feature is available
+      const hasPodcastIntermediateZip = await hasFeature(apiConfig, 'PodcastIntermediateZip');
+      console.log('PodcastIntermediateZip feature available:', hasPodcastIntermediateZip);
 
       const createParams = {
         generationId,
@@ -78,64 +98,85 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
           style: config.style,
           length: config.length,
           additionalInstructions: config.additionalInstructions || undefined,
+          template: config.template || undefined,
         },
-        tts: config.hostType === 'TwoHosts' && speakerNames
+        tts: (config.hostType === 'TwoHosts' && speakerNames) || 
+             (config.hostType === 'OneHost' && (voiceName || genderPreference))
           ? {
               voiceName: voiceName || undefined,
               multiTalkerVoiceSpeakerNames: speakerNames,
+              genderPreference,
+            }
+          : undefined,
+        advancedConfig: hasPodcastIntermediateZip
+          ? {
+              keepIntermediateZipFile: true,
             }
           : undefined,
       };
 
       console.log('Creating generation with params:', createParams);
+      console.log('Voice name passed to API:', voiceName);
       console.log('Speaker names passed to API:', speakerNames);
+      console.log('Gender preference passed to API:', genderPreference);
 
-      const { generation } = await createGeneration(apiConfig, createParams);
+      const { generation, operationLocation } = await createGeneration(apiConfig, createParams);
+
+      console.log('Generation created, operationLocation:', operationLocation);
 
       if (cancelRef.current) {
         setStatus('cancelled');
+        // Cleanup temp file if created
+        await safeDeleteTempFile(apiConfig, tempFileId);
         return;
       }
 
-      // Step 3-4: Poll for completion
-      setProgress({ step: 3, totalSteps: 5, message: 'Generating script...' });
+      // Step 3-4: Poll for completion using operation status
+      setProgress({ step: 3, totalSteps: 5, message: 'Generating podcast...' });
       setStatus('processing');
 
       const completedGeneration = await waitForGenerationComplete(
         apiConfig,
         generationId,
+        operationLocation,
         (gen) => {
           if (cancelRef.current) {
             throw new Error('Cancelled by user');
           }
 
           // Update progress based on generation status
-          if (gen.status === 'Running') {
-            setProgress({ step: 4, totalSteps: 5, message: 'Converting to audio...' });
+          if (gen.status === 'NotStarted') {
+            setProgress({ step: 3, totalSteps: 5, message: 'Waiting for generation to start...' });
+          } else if (gen.status === 'Running') {
+            setProgress({ step: 4, totalSteps: 5, message: 'Processing and generating audio...' });
           }
 
           setCurrentGeneration(gen);
         },
         30 * 60 * 1000, // 30 min max
-        3000 // 3 second intervals
+        10000 // 10 second intervals
       );
 
       if (cancelRef.current) {
         setStatus('cancelled');
+        // Cleanup temp file if created
+        await safeDeleteTempFile(apiConfig, tempFileId);
         return;
       }
 
-      // Step 5: Complete
+      // Step 5: Complete - Clean up temp file after successful generation
+      await safeDeleteTempFile(apiConfig, tempFileId);
+
       setProgress({ step: 5, totalSteps: 5, message: 'Completed!' });
       setStatus('completed');
       setCurrentGeneration(completedGeneration);
 
       // Add to history if callback provided
       if (addToHistory && completedGeneration.output?.audioFileUrl) {
-        const contentPreview = contentSource.type === 'text'
-          ? contentSource.text?.substring(0, 100) || ''
-          : contentSource.type === 'url'
-            ? contentSource.url || ''
+        const contentPreview = contentSource.text
+          ? contentSource.text.substring(0, 100)
+          : contentSource.url
+            ? contentSource.url
             : contentSource.file?.name || '';
 
         addToHistory({
@@ -158,6 +199,10 @@ export function usePodcastGeneration({ apiKey, region }: UsePodcastGenerationOpt
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       console.error('Podcast generation failed:', err);
+
+      // Cleanup temp file on error
+      const apiConfig = getApiConfig();
+      await safeDeleteTempFile(apiConfig, tempFileId);
 
       if (errorMessage.includes('Cancelled')) {
         setStatus('cancelled');

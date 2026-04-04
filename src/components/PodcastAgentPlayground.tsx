@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AzureSettings } from '../types/azure';
 import { PodcastContentUploader } from './PodcastContentUploader';
-import { PodcastVoicePairSelector, getVoiceDetails } from './PodcastVoicePairSelector';
+import { PodcastOneHostVoiceSelector } from './PodcastOneHostVoiceSelector';
+import { PodcastTwoHostsVoiceSelector } from './PodcastTwoHostsVoiceSelector';
+import { ALL_TTS_REGIONS } from './NavigationSidebar';
 import { usePodcastGeneration } from '../hooks/usePodcastGeneration';
 import { PodcastVideoRenderer } from '../lib/podcast/videoRenderer';
 import {
@@ -12,13 +14,9 @@ import {
   PodcastLength,
   PodcastHistoryEntry,
   GenerationStatus,
+  Voice,
+  PODCAST_LOCALES,
 } from '../types/podcast';
-
-interface VoicePair {
-  female: string;
-  male: string;
-  display: string;
-}
 
 interface PodcastAgentPlaygroundProps {
   settings: AzureSettings;
@@ -29,25 +27,21 @@ interface PodcastAgentPlaygroundProps {
   clearHistory: () => void;
 }
 
-// Podcast Agent supported regions (similar to Video Translation)
+// Podcast Agent supported regions
 const SUPPORTED_REGIONS = [
-  'eastus',
   'westeurope',
-  'southeastasia',
+  'centralus',
+  'eastus',
+  'eastus2',
+  'northcentralus',
+  'southcentralus',
+  'westcentralus',
+  'westus',
+  'westus2',
+  'westus3',
 ];
 
-// Common locales for podcast generation
-const PODCAST_LOCALES = [
-  { code: 'en-US', label: 'English (US)' },
-  { code: 'zh-CN', label: 'Chinese (Simplified)' },
-  { code: 'ja-JP', label: 'Japanese' },
-  { code: 'ko-KR', label: 'Korean' },
-  { code: 'es-ES', label: 'Spanish (Spain)' },
-  { code: 'fr-FR', label: 'French (France)' },
-  { code: 'de-DE', label: 'German' },
-  { code: 'it-IT', label: 'Italian' },
-  { code: 'pt-BR', label: 'Portuguese (Brazil)' },
-];
+
 
 const HOST_TYPES: { value: HostType; label: string; description: string }[] = [
   {
@@ -76,6 +70,23 @@ const LENGTHS: { value: PodcastLength; label: string; description: string }[] = 
   { value: 'VeryLong', label: 'Very Long', description: '~15+ min' },
 ];
 
+const TEMPLATES: { value: string; label: string; description: string; maxChars: number; audience: string }[] = [
+  { 
+    value: 'Default', 
+    label: 'Default', 
+    description: 'Standard template with system-generated dialog structure. Best for most use cases.',
+    maxChars: 1000,
+    audience: 'Public Users'
+  },
+  { 
+    value: 'CustomizeDialogStructure', 
+    label: 'Custom Dialog Structure', 
+    description: 'Allows customization of conversation flow and dialog patterns. Provides more control over podcast structure while maintaining quality.',
+    maxChars: 10000,
+    audience: 'Advanced Users'
+  },
+];
+
 const CONFIG_STORAGE_KEY = 'podcast-agent-config';
 
 interface StoredConfig {
@@ -84,7 +95,12 @@ interface StoredConfig {
   style: PodcastStyle;
   length: PodcastLength;
   additionalInstructions: string;
-  voicePair?: VoicePair;
+  template?: string;
+  genderPreference?: 'Male' | 'Female';
+  oneHostVoiceId?: string;
+  twoHostsVoiceId?: string;
+  twoHostsSpeaker1?: string;
+  twoHostsSpeaker2?: string;
 }
 
 function loadConfig(): Partial<StoredConfig> {
@@ -117,17 +133,32 @@ export function PodcastAgentPlayground({
   // Config state
   const [locale, setLocale] = useState(savedConfig.locale || 'en-US');
   const [hostType, setHostType] = useState<HostType>(savedConfig.hostType || 'TwoHosts');
-  const [selectedVoicePair, setSelectedVoicePair] = useState<VoicePair | null>(
-    savedConfig.voicePair || null
+  // OneHost voice selection
+  const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
+  const [genderPreference, setGenderPreference] = useState<'Male' | 'Female' | undefined>(
+    savedConfig.genderPreference
   );
+  // TwoHosts voice selection
+  const [twoHostsVoice, setTwoHostsVoice] = useState<Voice | null>(null);
+  const [twoHostsSpeaker1, setTwoHostsSpeaker1] = useState<string | null>(savedConfig.twoHostsSpeaker1 || null);
+  const [twoHostsSpeaker2, setTwoHostsSpeaker2] = useState<string | null>(savedConfig.twoHostsSpeaker2 || null);
+  
+  // Manual voice input (for hidden/unlisted voices)
+  const [manualOneHostVoiceName, setManualOneHostVoiceName] = useState<string>('');
+  const [manualTwoHostsVoiceName, setManualTwoHostsVoiceName] = useState<string>('');
+  const [manualSpeakerNames, setManualSpeakerNames] = useState<string>('');
+  
   const [style, setStyle] = useState<PodcastStyle>(savedConfig.style || 'Default');
   const [length, setLength] = useState<PodcastLength>(savedConfig.length || 'Medium');
   const [additionalInstructions, setAdditionalInstructions] = useState(
     savedConfig.additionalInstructions || ''
   );
+  const [template, setTemplate] = useState<string>(savedConfig.template || 'Default');
+  const [manualTemplate, setManualTemplate] = useState<string>('');
 
   // UI state
   const [showHistory, setShowHistory] = useState(false);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
   // Video generation state
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
@@ -158,32 +189,86 @@ export function PodcastAgentPlayground({
       style,
       length,
       additionalInstructions,
-      voicePair: selectedVoicePair || undefined,
+      template,
+      genderPreference,
+      oneHostVoiceId: selectedVoice?.id,
+      twoHostsVoiceId: twoHostsVoice?.id,
+      twoHostsSpeaker1: twoHostsSpeaker1 || undefined,
+      twoHostsSpeaker2: twoHostsSpeaker2 || undefined,
     });
-  }, [locale, hostType, style, length, additionalInstructions, selectedVoicePair]);
+  }, [locale, hostType, style, length, additionalInstructions, template, genderPreference, selectedVoice, twoHostsVoice, twoHostsSpeaker1, twoHostsSpeaker2]);
 
-  // Reset voice pair when locale or host type changes
+  // Reset voice selections when locale or host type changes
   useEffect(() => {
-    setSelectedVoicePair(null);
+    setSelectedVoice(null);
+    setGenderPreference(undefined);
+    setTwoHostsVoice(null);
+    setTwoHostsSpeaker1(null);
+    setTwoHostsSpeaker2(null);
+    setManualOneHostVoiceName('');
+    setManualTwoHostsVoiceName('');
+    setManualSpeakerNames('');
   }, [locale, hostType]);
+
+  // Get available locales based on host type
+  const availableLocales = hostType === 'TwoHosts'
+    ? PODCAST_LOCALES.filter(l => l.supportsTwoHosts)
+    : PODCAST_LOCALES;
+
+  // Reset locale if current locale doesn't support the selected host type
+  useEffect(() => {
+    const currentLocale = PODCAST_LOCALES.find(l => l.code === locale);
+    if (hostType === 'TwoHosts' && currentLocale && !currentLocale.supportsTwoHosts) {
+      // Reset to first available locale that supports TwoHosts
+      const firstTwoHostsLocale = PODCAST_LOCALES.find(l => l.supportsTwoHosts);
+      if (firstTwoHostsLocale) {
+        setLocale(firstTwoHostsLocale.code);
+      }
+    }
+  }, [hostType, locale]);
 
   const handleStartGeneration = useCallback(async () => {
     if (!contentSource) return;
 
+    // Determine which template to use: manual input or selected template
+    const effectiveTemplate = template === 'custom' ? manualTemplate : template;
+    
     const config: PodcastConfig = {
       locale,
       hostType,
       style,
       length,
       additionalInstructions: additionalInstructions.trim() || undefined,
+      template: effectiveTemplate !== 'Default' ? effectiveTemplate : undefined,  // Only include if not default
     };
 
-    const voiceDetails = hostType === 'TwoHosts' ? getVoiceDetails(selectedVoicePair, locale) : null;
-    const voiceName = voiceDetails?.voiceName;
-    const speakerNames = voiceDetails?.speakerNames;
+    let voiceName: string | undefined;
+    let speakerNames: string | undefined;
 
-    await startGeneration(contentSource, config, voiceName, speakerNames, addToHistory);
-  }, [contentSource, locale, hostType, style, length, additionalInstructions, selectedVoicePair, startGeneration, addToHistory]);
+    if (hostType === 'TwoHosts') {
+      // Priority 1: Manual input (for hidden/unlisted voices)
+      if (manualTwoHostsVoiceName && manualSpeakerNames) {
+        voiceName = manualTwoHostsVoiceName;
+        speakerNames = manualSpeakerNames;
+      }
+      // Priority 2: New voice selector
+      else if (twoHostsVoice && twoHostsSpeaker1 && twoHostsSpeaker2) {
+        voiceName = twoHostsVoice.shortName;
+        speakerNames = `${twoHostsSpeaker1},${twoHostsSpeaker2}`;
+      }
+    } else if (hostType === 'OneHost') {
+      // Priority 1: Manual input (for hidden/unlisted voices)
+      if (manualOneHostVoiceName) {
+        voiceName = manualOneHostVoiceName;
+      }
+      // Priority 2: Selected voice from dropdown
+      else if (selectedVoice) {
+        voiceName = selectedVoice.shortName;
+      }
+    }
+
+    await startGeneration(contentSource, config, voiceName, speakerNames, genderPreference, addToHistory);
+  }, [contentSource, locale, hostType, style, length, additionalInstructions, template, manualTemplate, selectedVoice, twoHostsVoice, twoHostsSpeaker1, twoHostsSpeaker2, manualOneHostVoiceName, manualTwoHostsVoiceName, manualSpeakerNames, genderPreference, startGeneration, addToHistory]);
 
   const handleReset = useCallback(() => {
     reset();
@@ -278,13 +363,33 @@ export function PodcastAgentPlayground({
   };
 
   const isProcessing = ['uploading', 'creating', 'processing'].includes(status);
-  const isRegionSupported = SUPPORTED_REGIONS.includes(settings.region.toLowerCase());
+  // Skip region validation for:
+  // 1. TIP environments ending with "tip" (e.g., "*-tip")
+  // 2. Local development URLs starting with "https://localhost"
+  const isTipEnvironment = settings.region.endsWith('tip');
+  const isLocalhost = settings.region.startsWith('https://localhost');
+  const isRegionSupported = isTipEnvironment || isLocalhost || SUPPORTED_REGIONS.includes(settings.region.toLowerCase());
+  
+  // Check if TwoHosts requirements are met
+  // TwoHosts is ready when NOT in invalid partial state:
+  //    - Auto mode (nothing selected): valid
+  //    - Voice selected with both speakers: valid
+  //    - Manual voice + speaker names: valid
+  //    - Voice selected WITHOUT speakers: INVALID (partial state)
+  //    - Manual voice WITHOUT speaker names: INVALID (partial state)
+  const isTwoHostsReady = hostType === 'TwoHosts' && (
+    // Check: if voice is selected, speakers must be selected too
+    (twoHostsVoice === null || (twoHostsSpeaker1 !== null && twoHostsSpeaker2 !== null)) &&
+    // Check: if manual voice is entered, speaker names must be entered too
+    (!manualTwoHostsVoiceName || manualSpeakerNames)
+  );
+  
   const canStart =
     isConfigured &&
     isRegionSupported &&
     !isProcessing &&
     contentSource !== null &&
-    (hostType === 'OneHost' || (hostType === 'TwoHosts' && selectedVoicePair !== null));
+    (hostType === 'OneHost' || isTwoHostsReady);
 
   if (!isConfigured) {
     return (
@@ -304,10 +409,26 @@ export function PodcastAgentPlayground({
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6">
-        <h1 className="text-2xl font-bold">Podcast Agent</h1>
-        <p className="text-purple-100 mt-1">
-          Generate AI podcasts from your content with natural conversational speech
-        </p>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold">Podcast Agent</h1>
+            <p className="text-purple-100 mt-1">
+              Generate AI podcasts from your content with natural conversational speech
+            </p>
+          </div>
+          <a
+            href="https://github.com/szhaomsft/AzureVoicePlayground/blob/main/public/docs/products/podcast/README.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors ml-4"
+            title="View API Documentation"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <span className="text-sm font-medium">API Docs</span>
+          </a>
+        </div>
       </div>
 
       {/* Main Content - Two Panel Layout */}
@@ -338,15 +459,14 @@ export function PodcastAgentPlayground({
                       Podcast Agent is currently only available in the following regions:
                     </p>
                     <ul className="text-sm text-amber-700 mt-2 list-disc list-inside">
-                      <li>
-                        <strong>East US</strong> (eastus)
-                      </li>
-                      <li>
-                        <strong>West Europe</strong> (westeurope)
-                      </li>
-                      <li>
-                        <strong>Southeast Asia</strong> (southeastasia)
-                      </li>
+                      {SUPPORTED_REGIONS.map((regionValue) => {
+                        const regionInfo = ALL_TTS_REGIONS.find(r => r.value === regionValue);
+                        return (
+                          <li key={regionValue}>
+                            {regionInfo ? `${regionInfo.label} (${regionValue})` : regionValue}
+                          </li>
+                        );
+                      })}
                     </ul>
                     <p className="text-sm text-amber-700 mt-2">
                       Your current region: <strong>{settings.region}</strong>. Please change your region
@@ -493,7 +613,9 @@ export function PodcastAgentPlayground({
                   </svg>
                   <div>
                     <h3 className="font-medium text-red-800">Generation Failed</h3>
-                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                    <p className="text-sm text-red-700 mt-1">
+                      {error || currentGeneration?.failureReason || 'Generation failed'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -507,7 +629,7 @@ export function PodcastAgentPlayground({
                   <audio controls className="w-full" src={currentGeneration.output.audioFileUrl}>
                     Your browser does not support the audio element.
                   </audio>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <a
                       href={currentGeneration.output.audioFileUrl}
                       download
@@ -530,10 +652,58 @@ export function PodcastAgentPlayground({
                       </svg>
                       <span>Download Audio</span>
                     </a>
+                    {currentGeneration.output.reportFileUrl && (
+                      <a
+                        href={currentGeneration.output.reportFileUrl}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                        <span>Download Report</span>
+                      </a>
+                    )}
+                    {currentGeneration.output.intermediateZipFileUrl && (
+                      <a
+                        href={currentGeneration.output.intermediateZipFileUrl}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                          />
+                        </svg>
+                        <span>Download Intermediate Files</span>
+                      </a>
+                    )}
                     <button
                       onClick={handleGenerateVideo}
                       disabled={isGeneratingVideo}
-                      className="inline-flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+                      className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
                     >
                       <svg
                         className="w-4 h-4"
@@ -665,12 +835,25 @@ export function PodcastAgentPlayground({
                 disabled={isProcessing}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
-                {PODCAST_LOCALES.map((l) => (
+                {availableLocales.map((l) => (
                   <option key={l.code} value={l.code}>
-                    {l.label}
+                    {l.supportsTwoHosts ? '👥' : '👤'} {l.name}
                   </option>
                 ))}
               </select>
+              <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                <div className="flex items-center gap-1">
+                  <span>👥 Supports OneHost and TwoHosts</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>👤 Supports OneHost only</span>
+                </div>
+                {hostType === 'TwoHosts' && availableLocales.length < PODCAST_LOCALES.length && (
+                  <p className="mt-1 text-amber-600 font-medium">
+                    Note: Only languages with TwoHosts support are shown
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Host Type */}
@@ -703,14 +886,100 @@ export function PodcastAgentPlayground({
               </div>
             </div>
 
-            {/* Voice Pair Selector (only for TwoHosts) */}
+            {/* Voice Selector (only for TwoHosts) */}
             {hostType === 'TwoHosts' && (
-              <PodcastVoicePairSelector
+              <PodcastTwoHostsVoiceSelector
+                apiConfig={{
+                  apiKey: settings.apiKey,
+                  region: settings.region,
+                }}
                 locale={locale}
-                selectedPair={selectedVoicePair}
-                onPairChange={setSelectedVoicePair}
+                selectedVoice={twoHostsVoice}
+                selectedSpeaker1={twoHostsSpeaker1}
+                selectedSpeaker2={twoHostsSpeaker2}
+                onVoiceChange={setTwoHostsVoice}
+                onSpeakersChange={(speaker1, speaker2) => {
+                  setTwoHostsSpeaker1(speaker1);
+                  setTwoHostsSpeaker2(speaker2);
+                }}
+                manualVoiceName={manualTwoHostsVoiceName}
+                manualSpeakerNames={manualSpeakerNames}
+                onManualVoiceNameChange={setManualTwoHostsVoiceName}
+                onManualSpeakerNamesChange={setManualSpeakerNames}
                 disabled={isProcessing}
               />
+            )}
+
+            {/* Voice Selector (only for OneHost) */}
+            {hostType === 'OneHost' && (
+              <PodcastOneHostVoiceSelector
+                apiConfig={{
+                  apiKey: settings.apiKey,
+                  region: settings.region,
+                }}
+                locale={locale}
+                selectedVoice={selectedVoice}
+                onVoiceChange={(voice) => {
+                  setSelectedVoice(voice);
+                  // Clear gender preference when a specific voice is selected
+                  if (voice) {
+                    setGenderPreference(undefined);
+                  }
+                }}
+                manualVoiceName={manualOneHostVoiceName}
+                onManualVoiceNameChange={setManualOneHostVoiceName}
+                disabled={isProcessing}
+              />
+            )}
+
+            {/* Note when voice is selected */}
+            {hostType === 'OneHost' && (selectedVoice || manualOneHostVoiceName) && (
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                <p className="text-xs text-gray-600">
+                  <span className="font-medium">Note:</span> Gender preference is not available when a specific voice is selected. 
+                  {manualOneHostVoiceName ? ' Clear the manual input' : ' Select "Auto"'} to use gender preference instead.
+                </p>
+              </div>
+            )}
+
+            {/* Gender Preference (only for OneHost when no voice is selected) */}
+            {hostType === 'OneHost' && !selectedVoice && !manualOneHostVoiceName && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Gender Preference <span className="text-gray-500 font-normal">- Optional</span>
+                </label>
+                <p className="text-xs text-gray-500 -mt-1 mb-2">
+                  Guide automatic voice selection by gender
+                </p>
+                <div className="space-y-2">
+                  {[
+                    { value: undefined, label: 'Auto', description: 'System will choose automatically' },
+                    { value: 'Male' as const, label: 'Male', description: 'Prefer male voice' },
+                    { value: 'Female' as const, label: 'Female', description: 'Prefer female voice' },
+                  ].map((option) => (
+                    <label
+                      key={option.value || 'auto'}
+                      className={`flex items-start p-3 border rounded-md cursor-pointer transition-colors ${
+                        genderPreference === option.value
+                          ? 'border-purple-600 bg-purple-50'
+                          : 'border-gray-200 hover:border-purple-300'
+                      } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        checked={genderPreference === option.value}
+                        onChange={() => setGenderPreference(option.value)}
+                        disabled={isProcessing}
+                        className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500"
+                      />
+                      <div className="ml-3">
+                        <div className="text-sm font-medium text-gray-900">{option.label}</div>
+                        <div className="text-xs text-gray-500">{option.description}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Style */}
@@ -755,15 +1024,135 @@ export function PodcastAgentPlayground({
               </label>
               <textarea
                 value={additionalInstructions}
-                onChange={(e) => setAdditionalInstructions(e.target.value)}
+                onChange={(e) => {
+                  const selectedTemplate = TEMPLATES.find(t => t.value === template);
+                  // Use 100,000 for custom templates, otherwise use the template's maxChars
+                  const maxLength = template === 'custom' ? 100000 : (selectedTemplate?.maxChars || 1000);
+                  if (e.target.value.length <= maxLength) {
+                    setAdditionalInstructions(e.target.value);
+                  }
+                }}
                 disabled={isProcessing}
                 placeholder="e.g., Focus on technical details, use casual tone, include examples..."
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
               />
               <div className="mt-1 text-xs text-gray-500">
-                {additionalInstructions.length} / 1000 characters
+                {additionalInstructions.length} / {template === 'custom' ? '100,000' : (TEMPLATES.find(t => t.value === template)?.maxChars.toLocaleString() || '1,000')} characters
               </div>
+            </div>
+
+            {/* Advanced Settings */}
+            <div className="pt-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                className="w-full flex items-center justify-between text-left"
+              >
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  <span className="text-sm font-medium text-gray-700">Advanced Settings</span>
+                </div>
+                <svg
+                  className={`w-4 h-4 text-gray-400 transform transition-transform ${
+                    showAdvancedSettings ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showAdvancedSettings && (
+                <div className="mt-4 space-y-4">
+                  {/* Dialog Generation Prompt Template */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Dialog Generation Prompt Template
+                    </label>
+                    <select
+                      value={template}
+                      onChange={(e) => {
+                        const newTemplate = e.target.value;
+                        setTemplate(newTemplate);
+                        
+                        if (newTemplate === 'custom') {
+                          // Clear manual input when selecting Custom
+                          setManualTemplate('');
+                        } else {
+                          // Truncate additionalInstructions if it exceeds the new template's limit
+                          const selectedTemplate = TEMPLATES.find(t => t.value === newTemplate);
+                          if (selectedTemplate && additionalInstructions.length > selectedTemplate.maxChars) {
+                            setAdditionalInstructions(additionalInstructions.slice(0, selectedTemplate.maxChars));
+                          }
+                        }
+                      }}
+                      disabled={isProcessing}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      {TEMPLATES.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label} ({t.audience})
+                        </option>
+                      ))}
+                      <option value="custom">Custom...</option>
+                    </select>
+                    
+                    {/* Manual Template Input - only show when Custom is selected */}
+                    {template === 'custom' && (
+                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md space-y-2">
+                        <label className="block text-sm font-medium text-amber-900">
+                          Enter Custom Template Name
+                        </label>
+                        <p className="text-xs text-amber-700">
+                          Specify a custom template name for specialized scenarios. Instruction length limit: 100,000 characters.
+                        </p>
+                        <input
+                          type="text"
+                          value={manualTemplate}
+                          onChange={(e) => setManualTemplate(e.target.value)}
+                          placeholder="e.g., MyCustomTemplate"
+                          disabled={isProcessing}
+                          autoFocus
+                          className="w-full px-3 py-2 border border-amber-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
+                        />
+                        {manualTemplate && (
+                          <div className="text-xs text-amber-700">
+                            ℹ️ Using custom template: <code className="font-mono font-semibold bg-amber-100 px-1 rounded">{manualTemplate}</code>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Template description - only show for predefined templates */}
+                    {template !== 'custom' && (
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <p className="text-xs text-blue-700">
+                          <strong>{TEMPLATES.find(t => t.value === template)?.label}:</strong>{' '}
+                          {TEMPLATES.find(t => t.value === template)?.description}
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Instruction length limit: {TEMPLATES.find(t => t.value === template)?.maxChars.toLocaleString()} characters
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
