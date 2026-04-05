@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { getAllLanguages, searchLanguages, STTLanguage, AUTO_DETECT } from '../utils/sttLanguages';
 import { STTModel } from '../types/stt';
 import { LLM_SPEECH_LANGUAGES } from '../hooks/useLLMSpeech';
+import { MAI_TRANSCRIBE_LANGUAGES } from '../hooks/useMAITranscribe';
 
 interface LanguageSelectorProps {
   selectedLanguage: string;
@@ -18,6 +19,13 @@ const llmSpeechLanguagesAsSTT: STTLanguage[] = LLM_SPEECH_LANGUAGES.map(lang => 
   nativeName: lang.nativeName,
 }));
 
+// Convert MAI-Transcribe languages to STTLanguage format
+const maiTranscribeLanguagesAsSTT: STTLanguage[] = MAI_TRANSCRIBE_LANGUAGES.map(lang => ({
+  code: lang.code,
+  name: lang.name,
+  nativeName: lang.nativeName,
+}));
+
 export function LanguageSelector({ selectedLanguage, onLanguageChange, selectedModel }: LanguageSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -26,6 +34,10 @@ export function LanguageSelector({ selectedLanguage, onLanguageChange, selectedM
     if (selectedModel === 'llm-speech') {
       // LLM Speech has its own language list (auto-detect is supported)
       return [AUTO_DETECT, ...llmSpeechLanguagesAsSTT];
+    }
+    if (selectedModel === 'mai-transcribe') {
+      // MAI-Transcribe-1 has its own language list (auto-detect is supported)
+      return [AUTO_DETECT, ...maiTranscribeLanguagesAsSTT];
     }
     const modelType = selectedModel === 'fast-transcription' ? 'fast-transcription' : 'realtime';
     return getAllLanguages(modelType);

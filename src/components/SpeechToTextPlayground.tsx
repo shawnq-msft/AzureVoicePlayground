@@ -7,6 +7,7 @@ import { useRealtimeSTT } from '../hooks/useRealtimeSTT';
 import { useFastTranscription } from '../hooks/useFastTranscription';
 import { useWhisperTranscription } from '../hooks/useWhisperTranscription';
 import { useLLMSpeech } from '../hooks/useLLMSpeech';
+import { useMAITranscribe } from '../hooks/useMAITranscribe';
 import { STTModelSelector } from './STTModelSelector';
 import { LanguageSelector } from './LanguageSelector';
 import { TranscriptDisplay } from './TranscriptDisplay';
@@ -48,6 +49,7 @@ export function SpeechToTextPlayground({
   const fastTranscription = useFastTranscription(settings);
   const whisperTranscription = useWhisperTranscription(settings);
   const llmSpeech = useLLMSpeech(settings);
+  const maiTranscribe = useMAITranscribe(settings);
 
   // Get the current active hook based on selected model
   const getCurrentHook = () => {
@@ -58,6 +60,8 @@ export function SpeechToTextPlayground({
         return fastTranscription;
       case 'llm-speech':
         return llmSpeech;
+      case 'mai-transcribe':
+        return maiTranscribe;
       case 'whisper':
         return whisperTranscription;
     }
@@ -83,6 +87,11 @@ export function SpeechToTextPlayground({
           return {
             text: llmSpeech.transcript.fullText,
             segments: llmSpeech.transcript.segments
+          };
+        } else if (selectedModel === 'mai-transcribe' && maiTranscribe.transcript) {
+          return {
+            text: maiTranscribe.transcript.fullText,
+            segments: maiTranscribe.transcript.segments
           };
         } else if (selectedModel === 'whisper' && whisperTranscription.transcript) {
           return {
@@ -153,6 +162,8 @@ export function SpeechToTextPlayground({
           maxSpeakers,
           prompt: llmPrompt.trim() ? llmPrompt.split('\n').filter(line => line.trim()) : undefined
         });
+      } else if (selectedModel === 'mai-transcribe') {
+        await maiTranscribe.transcribe(audioSource, selectedLanguage);
       } else if (selectedModel === 'whisper') {
         await whisperTranscription.transcribe(audioSource, selectedLanguage);
       }
@@ -197,6 +208,14 @@ export function SpeechToTextPlayground({
         interimText: undefined,
         isStreaming: false,
         detectedLanguage: llmSpeech.transcript.language
+      };
+    } else if (selectedModel === 'mai-transcribe' && maiTranscribe.transcript) {
+      return {
+        segments: maiTranscribe.transcript.segments,
+        fullText: maiTranscribe.transcript.fullText,
+        interimText: undefined,
+        isStreaming: false,
+        detectedLanguage: maiTranscribe.transcript.language
       };
     } else if (selectedModel === 'whisper' && whisperTranscription.transcript) {
       return {
@@ -324,7 +343,7 @@ export function SpeechToTextPlayground({
               isStreaming={displayData.isStreaming}
               audioSource={audioSource}
               detectedLanguage={displayData.detectedLanguage}
-              showConfidence={selectedModel !== 'llm-speech'}
+              showConfidence={selectedModel !== 'llm-speech' && selectedModel !== 'mai-transcribe'}
             />
 
             {/* Export Options */}

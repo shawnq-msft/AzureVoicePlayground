@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { STTModel } from '../types/stt';
 import { FAST_TRANSCRIPTION_LANGUAGES, REALTIME_LANGUAGES } from '../utils/sttLanguages';
 import { LLM_SPEECH_LANGUAGES } from '../hooks/useLLMSpeech';
+import { MAI_TRANSCRIBE_LANGUAGES } from '../hooks/useMAITranscribe';
 
 // Regions supporting Fast Transcription
 // https://learn.microsoft.com/en-us/azure/ai-services/speech-service/regions?tabs=stt
@@ -71,6 +72,14 @@ const MODELS: ModelInfo[] = [
     useCases: 'High-accuracy transcription & translation',
     features: ['LLM-enhanced', 'Prompt tuning', 'Translation', 'Diarization', `${LLM_SPEECH_LANGUAGES.length} locales`]
   },
+  {
+    id: 'mai-transcribe',
+    name: 'MAI-Transcribe-1 (Preview)',
+    description: 'High accuracy & efficiency by Microsoft AI',
+    icon: '🎯',
+    useCases: 'High-accuracy transcription with broad language support',
+    features: ['High accuracy', 'High efficiency', 'Max 300 MB', `${MAI_TRANSCRIBE_LANGUAGES.length} languages`]
+  },
   // Whisper temporarily hidden - requires Azure Blob Storage for audio URLs
   // {
   //   id: 'whisper',
@@ -92,6 +101,7 @@ function isModelSupportedInRegion(modelId: STTModel, region: string): boolean {
     case 'fast-transcription':
       return FAST_TRANSCRIPTION_REGIONS.includes(regionLower);
     case 'llm-speech':
+    case 'mai-transcribe':
       return LLM_SPEECH_REGIONS.includes(regionLower);
     case 'whisper':
       return true; // Whisper has its own region handling

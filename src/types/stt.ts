@@ -1,6 +1,6 @@
 // Speech-to-Text model types and settings
 
-export type STTModel = 'realtime' | 'fast-transcription' | 'llm-speech' | 'whisper';
+export type STTModel = 'realtime' | 'fast-transcription' | 'llm-speech' | 'mai-transcribe' | 'whisper';
 export type STTState = 'idle' | 'processing' | 'streaming' | 'completed' | 'error';
 export type ExportFormat = 'txt' | 'srt' | 'vtt';
 
