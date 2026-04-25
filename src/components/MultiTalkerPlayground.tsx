@@ -29,7 +29,7 @@ Andrew: That's Model Quality. Top-tier STT, TTS, and Avatars. If the voice sound
 Ada: What about the folks building it?
 Andrew: Developer Experience (DX) is huge. It has to be seamless to deploy. And finally, COGS. The economics have to work at scale, or it's just not sustainable for a real business.
 Ada: It's a lot to balance, but that's how you get from a "demo" to something, uh, actually magic.
-Andrew: Precisely. It's all about being… um, reliable every single day.`;
+Andrew: ha ha ha, Precisely. It's all about being… um, reliable every single day.`;
 
 export function MultiTalkerPlayground({
   settings,
@@ -129,7 +129,7 @@ ${capitalizedSpeaker2}: That's Model Quality. Top-tier STT, TTS, and Avatars. If
 ${capitalizedSpeaker1}: What about the folks building it?
 ${capitalizedSpeaker2}: Developer Experience (DX) is huge. It has to be seamless to deploy. And finally, COGS. The economics have to work at scale, or it's just not sustainable for a real business.
 ${capitalizedSpeaker1}: It's a lot to balance, but that's how you get from a "demo" to something, uh, actually magic.
-${capitalizedSpeaker2}: Precisely. It's all about being… um, reliable every single day.`;
+${capitalizedSpeaker2}: ha ha ha, Precisely. It's all about being… um, reliable every single day.`;
       setText(newText);
     }
   };
