@@ -29,16 +29,16 @@ yunhan: 下次见!`,
     locale: 'en-US',
     language: 'English (US)',
     speakers: ['speaker1', 'speaker2'],
-    script: `speaker1: Welcome to Tech Talk! I'm your host, and today we're diving into artificial intelligence.
-speaker2: Thanks for having me! AI is such a fascinating topic these days.
-speaker1: Absolutely! Can you explain what makes modern AI so powerful?
-speaker2: Of course! The key is deep learning, which allows computers to learn patterns from massive amounts of data.
-speaker1: That sounds incredible. What are some practical applications?
-speaker2: We see AI everywhere now - voice assistants, recommendation systems, autonomous vehicles, and more.
-speaker1: Amazing! What do you think the future holds for AI?
-speaker2: I believe we'll see even more integration into daily life, making technology more intuitive and helpful.
-speaker1: Thank you for sharing your insights!
-speaker2: My pleasure! Thanks for having me on the show.`,
+    script: `speaker1: Welcome back! We're talking about making voice a "first-class citizen" for AI agents—it's, uh, way more than just adding a microphone button.
+speaker2: Exactly. It has to be easy to enable and, um, truly enterprise-ready. If it doesn't perform at scale—like handling thousands of calls—it's just a toy.
+speaker1: So what are the, uh, the pillars for making that happen?
+speaker2: There are five. First is Platform Enablement—the "plumbing." Then Latency, because even a tiny lag kills the vibe. You need it to feel… instantaneous.
+speaker1: And the "human" side of it?
+speaker2: That's Model Quality. Top-tier STT, TTS, and Avatars. If the voice sounds robotic or the face doesn't match the words, you lose the user.
+speaker1: What about the folks building it?
+speaker2: Developer Experience (DX) is huge. It has to be seamless to deploy. And finally, COGS. The economics have to work at scale, or it's just not sustainable for a real business.
+speaker1: It's a lot to balance, but that's how you get from a "demo" to something, uh, actually magic.
+speaker2: ha ha ha, Precisely. It's all about being… um, reliable every single day.`,
   },
   {
     locale: 'ja-JP',
