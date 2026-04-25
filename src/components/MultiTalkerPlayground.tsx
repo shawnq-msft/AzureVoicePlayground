@@ -20,12 +20,20 @@ interface MultiTalkerPlaygroundProps {
   clearHistory: () => void;
 }
 
-const SAMPLE_TEXT = `Ava: Welcome to Tech Talk! I'm your host, and today we're diving into artificial intelligence.
-Andrew: Thanks for having me! AI is such a fascinating topic these days.
-Ava: Absolutely! Can you explain what makes modern AI so powerful?
-Andrew: Of course! The key is deep learning, which allows computers to learn patterns from massive amounts of data.
-Ava: That sounds incredible. What are some practical applications?
-Andrew: We see AI everywhere now - voice assistants, recommendation systems, autonomous vehicles, and more.`;
+const SAMPLE_TEXT = `Ada: Welcome back! Today we're talking about what it actually takes to make voice a "first-class citizen" in the world of AI agents. It's not just about adding a microphone icon anymore—it's about making the experience, uh, totally seamless.
+Andrew: Exactly. To really move the needle, a platform has to be—first and foremost—easy to enable. But for the big players, it also has to be best-in-class and, um, completely enterprise-ready. You can't have a system that's "performant" for one person but then, uh, chokes when you scale it to thousands of concurrent calls.
+Ada: Right, because the stakes are so much higher at that level. So, what are the actual… I don't know, the "building blocks" that make that happen?
+Andrew: We look at it through five key pillars. First is Platform Enablement. That's the, uh, the underlying "plumbing" that lets the agent actually live and breathe in a complex environment.
+Ada: And I'm guessing Latency is right at the top of that list too?
+Andrew: Oh, it's huge. In voice, latency is the ultimate "vibe killer." If there's even a slight lag, the conversation starts to feel like a, um, a walkie-talkie chat from the 90s. You need that near-instant response to keep it natural.
+Ada: Which leads right into Model Quality, right? The "face and voice" of the thing?
+Andrew: Precisely. You're looking at STT for rock-solid understanding, TTS for a voice that doesn't sound like a robot, and high-fidelity Avatars to keep users engaged. If any of those are "off," the whole illusion of a helpful assistant just… disappears.
+Ada: That makes sense. But what about the people actually building these agents?
+Andrew: That's where Developer Experience (DX) comes in. If it's a nightmare to code or deploy, nobody's going to use it. You want developers to feel like they have superpowers, not like they're fighting the platform.
+Ada: And then there's the, uh, the "boring" but necessary part—the money.
+Andrew: Exactly. COGS—the cost of goods sold. To make this work for a real business at scale, the economics have to be sustainable. You can't just throw infinite compute at the problem. It's about being smart with how you, uh, balance all those pieces together.
+Ada: It sounds like a massive engineering challenge, but when it works, it's like magic.
+Andrew: It really is. It's about moving from "cool tech demo" to a tool that a company can actually, um, rely on every single day.`;
 
 export function MultiTalkerPlayground({
   settings,
@@ -116,12 +124,20 @@ export function MultiTalkerPlayground({
       const capitalizedSpeaker1 = speaker1.charAt(0).toUpperCase() + speaker1.slice(1);
       const capitalizedSpeaker2 = speaker2.charAt(0).toUpperCase() + speaker2.slice(1);
 
-      const newText = `${capitalizedSpeaker1}: Welcome to Tech Talk! I'm your host, and today we're diving into artificial intelligence.
-${capitalizedSpeaker2}: Thanks for having me! AI is such a fascinating topic these days.
-${capitalizedSpeaker1}: Absolutely! Can you explain what makes modern AI so powerful?
-${capitalizedSpeaker2}: Of course! The key is deep learning, which allows computers to learn patterns from massive amounts of data.
-${capitalizedSpeaker1}: That sounds incredible. What are some practical applications?
-${capitalizedSpeaker2}: We see AI everywhere now - voice assistants, recommendation systems, autonomous vehicles, and more.`;
+      const newText = `${capitalizedSpeaker1}: Welcome back! Today we're talking about what it actually takes to make voice a "first-class citizen" in the world of AI agents. It's not just about adding a microphone icon anymore—it's about making the experience, uh, totally seamless.
+${capitalizedSpeaker2}: Exactly. To really move the needle, a platform has to be—first and foremost—easy to enable. But for the big players, it also has to be best-in-class and, um, completely enterprise-ready. You can't have a system that's "performant" for one person but then, uh, chokes when you scale it to thousands of concurrent calls.
+${capitalizedSpeaker1}: Right, because the stakes are so much higher at that level. So, what are the actual… I don't know, the "building blocks" that make that happen?
+${capitalizedSpeaker2}: We look at it through five key pillars. First is Platform Enablement. That's the, uh, the underlying "plumbing" that lets the agent actually live and breathe in a complex environment.
+${capitalizedSpeaker1}: And I'm guessing Latency is right at the top of that list too?
+${capitalizedSpeaker2}: Oh, it's huge. In voice, latency is the ultimate "vibe killer." If there's even a slight lag, the conversation starts to feel like a, um, a walkie-talkie chat from the 90s. You need that near-instant response to keep it natural.
+${capitalizedSpeaker1}: Which leads right into Model Quality, right? The "face and voice" of the thing?
+${capitalizedSpeaker2}: Precisely. You're looking at STT for rock-solid understanding, TTS for a voice that doesn't sound like a robot, and high-fidelity Avatars to keep users engaged. If any of those are "off," the whole illusion of a helpful assistant just… disappears.
+${capitalizedSpeaker1}: That makes sense. But what about the people actually building these agents?
+${capitalizedSpeaker2}: That's where Developer Experience (DX) comes in. If it's a nightmare to code or deploy, nobody's going to use it. You want developers to feel like they have superpowers, not like they're fighting the platform.
+${capitalizedSpeaker1}: And then there's the, uh, the "boring" but necessary part—the money.
+${capitalizedSpeaker2}: Exactly. COGS—the cost of goods sold. To make this work for a real business at scale, the economics have to be sustainable. You can't just throw infinite compute at the problem. It's about being smart with how you, uh, balance all those pieces together.
+${capitalizedSpeaker1}: It sounds like a massive engineering challenge, but when it works, it's like magic.
+${capitalizedSpeaker2}: It really is. It's about moving from "cool tech demo" to a tool that a company can actually, um, rely on every single day.`;
       setText(newText);
     }
   };

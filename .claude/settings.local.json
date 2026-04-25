@@ -23,10 +23,7 @@
       "Skill(commit-push-deploy)",
       "Bash(npm install @google/genai)",
       "WebSearch",
-      "Bash(gh pr list:*)",
-      "Bash(gh pr view:*)",
-      "Bash(gh pr diff:*)",
-      "Bash(cd:*)"
+      "Bash(git pull:*)"
     ]
   }
 }
