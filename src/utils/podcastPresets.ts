@@ -34,9 +34,9 @@ speaker2: Exactly. It has to be easy to enable and, um, truly enterprise-ready. 
 speaker1: So what are the, uh, the pillars for making that happen?
 speaker2: There are five. First is Platform Enablement—the "plumbing." Then Latency, because even a tiny lag kills the vibe. You need it to feel… instantaneous.
 speaker1: And the "human" side of it?
-speaker2: That's Model Quality. Top-tier STT, TTS, and Avatars. If the voice sounds robotic or the face doesn't match the words, you lose the user.
+speaker2: That's Model Quality. Top-tier LLM, Speech to speech, STT, TTS, and Avatars. If the voice sounds robotic or the face doesn't match the words, you lose the user.
 speaker1: What about the folks building it?
-speaker2: Developer Experience (DX) is huge. It has to be seamless to deploy. And finally, COGS. The economics have to work at scale, or it's just not sustainable for a real business.
+speaker2: Developer Experience is huge. It has to be seamless to deploy. And finally, COGS. The economics have to work at scale, or it's just not sustainable for a real business.
 speaker1: It's a lot to balance, but that's how you get from a "demo" to something, uh, actually magic.
 speaker2: ha ha ha, Precisely. It's all about being… um, reliable every single day.`,
   },
