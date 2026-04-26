@@ -212,7 +212,7 @@ export function AudioRecorder({
         </div>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         {!isRecording ? (
           <>
             <button
@@ -263,7 +263,7 @@ export function AudioRecorder({
         )}
 
         {/* Duration display */}
-        <div className="flex items-center gap-2 text-gray-600">
+        <div className="flex items-center gap-2 text-gray-600 sm:ml-auto">
           {isRecording && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
           <span className="font-mono text-lg">
             {formatDuration(duration)} / {formatDuration(maxDuration)}

@@ -18,6 +18,10 @@ import { VideoTranslationPlayground } from './components/VideoTranslationPlaygro
 import { PodcastAgentPlayground } from './components/PodcastAgentPlayground';
 import { GeminiLivePlayground } from './components/GeminiLivePlayground';
 
+type ThemeMode = 'light' | 'dark';
+
+const THEME_STORAGE_KEY = 'azure-voice-theme';
+
 // Valid playground modes for URL hash routing
 const VALID_MODES: PlaygroundMode[] = [
   'text-to-speech',
@@ -41,9 +45,27 @@ function getInitialModeFromHash(): PlaygroundMode {
   return 'text-to-speech';
 }
 
+function getInitialTheme(): ThemeMode {
+  if (typeof window === 'undefined') {
+    return 'dark';
+  }
+
+  try {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (storedTheme === 'light' || storedTheme === 'dark') {
+      return storedTheme;
+    }
+  } catch {
+    // Ignore localStorage access errors and fall back to system preference.
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 function App() {
   const { settings, updateSettings, isConfigured } = useSettings();
   const [activePlayground, setActivePlayground] = useState<PlaygroundMode>(getInitialModeFromHash);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialTheme);
 
   // Check for geminiLive feature flag in URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -66,12 +88,29 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  useEffect(() => {
+    const root = document.documentElement;
+
+    root.dataset.theme = themeMode;
+    root.classList.toggle('dark', themeMode === 'dark');
+
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+    } catch {
+      // Ignore localStorage write errors.
+    }
+  }, [themeMode]);
+
   // Lift history state to App level so it persists when switching playgrounds
   const ttsHistory = useHistoryStorage();
   const conversionHistory = useConversionHistoryStorage();
   const multiTalkerHistory = useMultiTalkerHistoryStorage();
   const sttHistory = useSTTHistoryStorage();
   const podcastHistory = usePodcastHistoryStorage();
+
+  const handleThemeToggle = () => {
+    setThemeMode((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'));
+  };
 
   const renderPlayground = () => {
     switch (activePlayground) {
@@ -169,18 +208,27 @@ function App() {
   };
 
   return (
-    <div className="h-screen flex overflow-hidden bg-white">
-      {/* Left Navigation Sidebar */}
-      <NavigationSidebar
-        activeMode={activePlayground}
-        onModeChange={setActivePlayground}
-        settings={settings}
-        onSettingsChange={updateSettings}
-        geminiLiveEnabled={geminiLiveEnabled}
-      />
+    <div className="theme-shell">
+      <div className="theme-shell__halo theme-shell__halo--primary" />
+      <div className="theme-shell__halo theme-shell__halo--secondary" />
+      <div className="theme-shell__halo theme-shell__halo--tertiary" />
+      <div className="theme-shell__noise" />
 
-      {/* Main Playground Area */}
-      {renderPlayground()}
+      <div className="relative z-10 flex h-full min-h-0 flex-col gap-3 p-3 md:gap-4 md:p-4 lg:flex-row lg:p-5">
+        <NavigationSidebar
+          activeMode={activePlayground}
+          onModeChange={setActivePlayground}
+          settings={settings}
+          onSettingsChange={updateSettings}
+          geminiLiveEnabled={geminiLiveEnabled}
+          themeMode={themeMode}
+          onThemeToggle={handleThemeToggle}
+        />
+
+        <main className="theme-stage min-h-0 flex-1">
+          <div className="theme-stage__inner">{renderPlayground()}</div>
+        </main>
+      </div>
     </div>
   );
 }

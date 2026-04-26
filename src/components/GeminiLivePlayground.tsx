@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GeminiClient, type ConnectionStatus } from '../lib/geminiLive/geminiClient';
 import { GeminiAudioHandler } from '../lib/geminiLive/audioHandler';
 import { SAMPLE_PRODUCT_DATA } from '../data/productData';
+import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
 
 // VAD type for the dynamically loaded library
 type MicVADInstance = {
@@ -494,42 +495,44 @@ Keep your responses concise and natural for voice interaction. Focus on the most
   }
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-      {/* Left side - Main Chat Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 shadow-md">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Gemini Live</h1>
-              <p className="text-purple-100 mt-1">Real-time voice conversation with Gemini AI</p>
-            </div>
-            <div className="flex items-center gap-3">
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="theme-page-header">
+        <div className="theme-page-header__inner">
+          <div>
+            <h1 className="theme-page-title">Gemini Live</h1>
+            <p className="theme-page-subtitle">Real-time voice conversation with Gemini AI</p>
+          </div>
+          <div className="theme-page-header__actions">
+            <PageDocsLink href={AZURE_SPEECH_DOCS.overview} />
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
+                status === 'connected'
+                  ? 'bg-green-500/20 text-green-100'
+                  : 'bg-white/20 text-white/80'
+              }`}
+            >
               <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
-                  status === 'connected'
-                    ? 'bg-green-500/20 text-green-100'
-                    : 'bg-white/20 text-white/80'
-                }`}
-              >
-                <span
-                  className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-green-400' : 'bg-white/60'}`}
-                />
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+                className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-green-400' : 'bg-white/60'}`}
+              />
+              {status.charAt(0).toUpperCase() + status.slice(1)}
+            </span>
+            {isRecording && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-red-500/20 text-red-100">
+                <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                Recording
               </span>
-              {isRecording && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-red-500/20 text-red-100">
-                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                  Recording
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
+      </div>
+
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* Left side - Main Chat Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Audio visualization circle */}
         <div
-          className="flex-shrink-0 flex flex-col items-center py-8 bg-white border-b border-gray-100"
+          className="flex-shrink-0 flex flex-col items-center py-8 border-b border-gray-100"
           style={{ height: '320px' }}
         >
           <div
@@ -569,7 +572,7 @@ Keep your responses concise and natural for voice interaction. Focus on the most
         </div>
 
         {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <p className="text-sm">Connect and speak to start chatting with Gemini</p>
@@ -593,7 +596,7 @@ Keep your responses concise and natural for voice interaction. Focus on the most
         </div>
 
         {/* Text Input & Status */}
-        <div className="bg-gray-50 border-t border-gray-200 p-4">
+        <div className="border-t border-gray-200 p-4">
           <div className="flex gap-2 mb-2">
             <input
               type="text"
@@ -638,8 +641,8 @@ Keep your responses concise and natural for voice interaction. Focus on the most
         </div>
       </div>
 
-      {/* Right side - Configuration Panel */}
-      <div className="w-full md:w-80 flex-shrink-0 bg-gray-50 border-l border-gray-200 p-6 flex flex-col overflow-y-auto">
+        {/* Right side - Configuration Panel */}
+        <div className="theme-side-panel p-6 flex flex-col overflow-y-auto">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Configuration</h2>
 
         <div className="space-y-4 flex-1">
@@ -790,6 +793,7 @@ Keep your responses concise and natural for voice interaction. Focus on the most
               optional function calling capabilities.
             </p>
           </div>
+        </div>
         </div>
       </div>
     </div>

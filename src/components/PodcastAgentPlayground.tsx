@@ -408,11 +408,11 @@ export function PodcastAgentPlayground({
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6">
-        <div className="flex items-start justify-between">
+      <div className="theme-page-header">
+        <div className="theme-page-header__inner">
           <div className="flex-1">
-            <h1 className="text-2xl font-bold">Podcast Agent</h1>
-            <p className="text-purple-100 mt-1">
+            <h1 className="theme-page-title !text-[2rem]">Podcast Agent</h1>
+            <p className="theme-page-subtitle">
               Generate AI podcasts from your content with natural conversational speech
             </p>
           </div>

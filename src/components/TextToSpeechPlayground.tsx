@@ -13,6 +13,7 @@ import { PERSONAL_VOICE_MODELS, PersonalVoiceModel, BaseModel } from '../types/p
 import { listBaseModels } from '../lib/personalVoice/personalVoiceClient';
 import { getLanguageFromVoice } from '../utils/languagePresets';
 import { useFeatureFlags } from '../hooks/useFeatureFlags';
+import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
 
 interface TextToSpeechPlaygroundProps {
   settings: AzureSettings;
@@ -170,16 +171,24 @@ export function TextToSpeechPlayground({
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-      {/* Left side - Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 shadow-md">
-          <h1 className="text-3xl font-bold">Text to Speech</h1>
-          <p className="text-blue-100 mt-1">
-            Realtime text-to-Speech voices from Microsoft Foundry Voice Gallery
-          </p>
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="theme-page-header">
+        <div className="theme-page-header__inner">
+          <div>
+            <h1 className="theme-page-title">Text to Speech</h1>
+            <p className="theme-page-subtitle">
+              Realtime text-to-Speech voices from Microsoft Foundry Voice Gallery
+            </p>
+          </div>
+          <div className="theme-page-header__actions">
+            <PageDocsLink href={AZURE_SPEECH_DOCS.textToSpeech} />
+          </div>
         </div>
+      </div>
+
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* Left side - Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Main Content */}
         <div className="flex-1 grid grid-rows-[1fr_auto] gap-6 p-6 overflow-hidden">
@@ -234,7 +243,7 @@ export function TextToSpeechPlayground({
         />
 
         {/* Footer with Feedback Button */}
-        <div className="bg-gray-50 border-t border-gray-200 px-6 py-3">
+        <div className="border-t border-gray-200 px-6 py-3">
           <div className="flex items-center justify-between">
             <p className="text-xs text-gray-600">
               Built with React, TypeScript, and Azure Cognitive Services Speech SDK
@@ -249,8 +258,8 @@ export function TextToSpeechPlayground({
         </div>
       </div>
 
-      {/* Right side - Voice Selector */}
-      <div className="w-full md:w-80 flex-shrink-0 bg-gray-50 border-l border-gray-200 p-6 flex flex-col overflow-hidden">
+        {/* Right side - Voice Selector */}
+        <div className="theme-side-panel p-6 flex flex-col overflow-hidden">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Voice Selection</h2>
         <div className="flex-1 min-h-0">
           <VoiceSelector
@@ -278,6 +287,7 @@ export function TextToSpeechPlayground({
               });
             }}
           />
+          </div>
         </div>
 
         {/* Personal Voice Model Selector - only show when personal voice is selected */}

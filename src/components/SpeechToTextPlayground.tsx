@@ -15,6 +15,7 @@ import { ExportTranscript } from './ExportTranscript';
 import { AudioUploader } from './AudioUploader';
 import { AudioRecorder } from './AudioRecorder';
 import { getAudioDuration } from '../utils/audioUtils';
+import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
 
 interface SpeechToTextPlaygroundProps {
   settings: AzureSettings;
@@ -240,17 +241,24 @@ export function SpeechToTextPlayground({
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 shadow-md">
-        <h1 className="text-3xl font-bold">Speech to Text</h1>
-        <p className="text-purple-100 mt-1">
-          Transcribe audio using Azure Speech Recognition APIs
-        </p>
+      <div className="theme-page-header">
+        <div className="theme-page-header__inner">
+          <div>
+            <h1 className="theme-page-title">Speech to Text</h1>
+            <p className="theme-page-subtitle">
+              Transcribe audio using Azure Speech Recognition APIs
+            </p>
+          </div>
+          <div className="theme-page-header__actions">
+            <PageDocsLink href={AZURE_SPEECH_DOCS.speechToText} />
+          </div>
+        </div>
       </div>
 
       {/* Main Content - Two Column Layout */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Left side - Audio Source & Transcript */}
-        <div className="flex-1 bg-gray-50 border-r border-gray-200 flex flex-col overflow-hidden">
+        <div className="flex-1 border-r border-gray-200 flex flex-col overflow-hidden">
           <div className="flex-1 flex flex-col gap-6 p-6 overflow-y-auto">
             <h2 className="text-lg font-semibold text-gray-800">Audio Source</h2>
 
@@ -357,7 +365,7 @@ export function SpeechToTextPlayground({
         </div>
 
         {/* Right side - Recognition Config */}
-        <div className="w-full md:w-[400px] flex-shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
+        <div className="theme-side-panel flex flex-col overflow-hidden">
           <div className="flex-1 flex flex-col gap-6 p-6 overflow-y-auto">
             {/* Model Selection */}
             <STTModelSelector
@@ -447,7 +455,7 @@ export function SpeechToTextPlayground({
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-50 border-t border-gray-200 px-6 py-3">
+          <div className="border-t border-gray-200 px-6 py-3">
             <p className="text-xs text-gray-600">
               Powered by Azure Speech Services - Realtime, Fast Transcription, and Whisper APIs
             </p>

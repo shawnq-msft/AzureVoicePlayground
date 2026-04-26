@@ -9,6 +9,8 @@ import {
 import { MicCapture } from '../lib/voiceLive/audio/micCapture';
 import { VoiceLiveInterpreter, type SessionLogItem } from '../lib/voiceLive/interpreter';
 import { calculatePercentile, calculateAverage, calculateCost } from '../lib/voiceLive/metrics';
+import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
+import { notifySidebarConfigAttention } from '../utils/sidebarConfigAttention';
 
 interface VoiceLiveTranslatorPlaygroundProps {
   endpoint: string;
@@ -94,6 +96,12 @@ export function VoiceLiveTranslatorPlayground({ endpoint, apiKey }: VoiceLiveTra
   useEffect(() => {
     localStorage.setItem('voicelive.translator.config', JSON.stringify(config));
   }, [config]);
+
+  useEffect(() => {
+    if (/error|failed|connect first|unauthorized|forbidden|denied|invalid|mic error/i.test(statusText)) {
+      notifySidebarConfigAttention();
+    }
+  }, [statusText]);
 
   // Cleanup on unmount - disconnect when switching playgrounds
   useEffect(() => {
@@ -227,37 +235,39 @@ export function VoiceLiveTranslatorPlayground({ endpoint, apiKey }: VoiceLiveTra
   }
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-      {/* Left side - Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 shadow-md">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Voice Live Translator</h1>
-              <p className="text-blue-100 mt-1">
-                Real-time voice translation powered by Azure Voice Live
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
-                isConnected ? 'bg-green-500/20 text-green-100' : 'bg-white/20 text-white/80'
-              }`}>
-                <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-white/60'}`} />
-                {isConnected ? 'Connected' : 'Disconnected'}
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="theme-page-header">
+        <div className="theme-page-header__inner">
+          <div>
+            <h1 className="theme-page-title">Voice Live Translator</h1>
+            <p className="theme-page-subtitle">
+              Real-time voice translation powered by Azure Voice Live
+            </p>
+          </div>
+          <div className="theme-page-header__actions">
+            <PageDocsLink href={AZURE_SPEECH_DOCS.voiceLive} />
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
+              isConnected ? 'bg-green-500/20 text-green-100' : 'bg-white/20 text-white/80'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-white/60'}`} />
+              {isConnected ? 'Connected' : 'Disconnected'}
+            </span>
+            {isMicOn && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-red-500/20 text-red-100">
+                <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                Recording
               </span>
-              {isMicOn && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-red-500/20 text-red-100">
-                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                  Recording
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
+      </div>
+
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* Left side - Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Statistics Bar */}
-        <div className="bg-white border-b border-gray-200 p-4">
+        <div className="border-b border-gray-200 p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
             <div className="bg-gray-50 rounded-lg p-2.5">
               <p className="text-xs text-gray-500">Turns</p>
@@ -344,7 +354,7 @@ export function VoiceLiveTranslatorPlayground({ endpoint, apiKey }: VoiceLiveTra
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 border-t border-gray-200 px-6 py-3">
+        <div className="border-t border-gray-200 px-6 py-3">
           <div className="flex items-center justify-between">
             <p className="text-xs text-gray-600">
               {statusText || 'Ready to translate'}
@@ -353,8 +363,8 @@ export function VoiceLiveTranslatorPlayground({ endpoint, apiKey }: VoiceLiveTra
         </div>
       </div>
 
-      {/* Right side - Configuration Panel */}
-      <div className="w-full md:w-80 flex-shrink-0 bg-gray-50 border-l border-gray-200 p-6 flex flex-col overflow-y-auto">
+        {/* Right side - Configuration Panel */}
+        <div className="theme-side-panel p-6 flex flex-col overflow-y-auto">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Configuration</h2>
 
         <div className="space-y-4 flex-1">
@@ -569,6 +579,7 @@ export function VoiceLiveTranslatorPlayground({ endpoint, apiKey }: VoiceLiveTra
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

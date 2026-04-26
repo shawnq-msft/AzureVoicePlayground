@@ -5,6 +5,7 @@ import { VideoTranslationConfig, VoiceKind } from '../types/videoTranslation'
 import { BlobStorageConfig } from '../types/voiceConversion'
 import { uploadToBlob, loadBlobConfig, saveBlobConfig, validateBlobConfig } from '../utils/blobStorage'
 import { AzureSettings } from '../types/azure'
+import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink'
 
 interface VideoTranslationPlaygroundProps {
   settings: AzureSettings
@@ -245,11 +246,18 @@ export function VideoTranslationPlayground({ settings, isConfigured }: VideoTran
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
-        <h1 className="text-2xl font-bold">Video Translation</h1>
-        <p className="text-indigo-100 mt-1">
-          Translate videos into different languages with AI-powered voice dubbing
-        </p>
+      <div className="theme-page-header">
+        <div className="theme-page-header__inner">
+          <div>
+            <h1 className="theme-page-title !text-[2rem]">Video Translation</h1>
+            <p className="theme-page-subtitle">
+              Translate videos into different languages with AI-powered voice dubbing
+            </p>
+          </div>
+          <div className="theme-page-header__actions">
+            <PageDocsLink href={AZURE_SPEECH_DOCS.speechTranslation} />
+          </div>
+        </div>
       </div>
 
       {/* Main Content - Two Panel Layout */}
@@ -722,7 +730,7 @@ export function VideoTranslationPlayground({ settings, isConfigured }: VideoTran
         </div>
 
         {/* Right Panel - Translation Settings */}
-        <div className="w-80 flex-shrink-0 bg-gray-50 border-l border-gray-200 p-6 overflow-auto">
+        <div className="theme-side-panel p-6 overflow-auto">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Translation Settings</h2>
 
           <div className="space-y-4">

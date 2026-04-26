@@ -9,6 +9,7 @@ import { getAudioDuration } from '../utils/audioUtils';
 import { PODCAST_PRESETS, adaptPresetToSpeakers } from '../utils/podcastPresets';
 import { generatePodcastScript, AzureOpenAIConfig } from '../utils/azureOpenAI';
 import { fetchVoiceList } from '../utils/voiceList';
+import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
 
 interface MultiTalkerPlaygroundProps {
   settings: AzureSettings;
@@ -341,16 +342,24 @@ ${capitalizedSpeaker2}: ha ha ha, Precisely. It's all about being… um, reliabl
   const synthesisState: SynthesisState = state as SynthesisState;
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-      {/* Left side - Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 shadow-md">
-          <h1 className="text-3xl font-bold">Multi Talker</h1>
-          <p className="text-purple-100 mt-1">
-            Create multi-speaker dialog content with AI-powered voices
-          </p>
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="theme-page-header">
+        <div className="theme-page-header__inner">
+          <div>
+            <h1 className="theme-page-title">Multi Talker</h1>
+            <p className="theme-page-subtitle">
+              Create multi-speaker dialog content with AI-powered voices
+            </p>
+          </div>
+          <div className="theme-page-header__actions">
+            <PageDocsLink href={AZURE_SPEECH_DOCS.textToSpeech} />
+          </div>
         </div>
+      </div>
+
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* Left side - Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col gap-4 p-6 overflow-y-auto">
@@ -703,7 +712,7 @@ ${capitalizedSpeaker2}: ha ha ha, Precisely. It's all about being… um, reliabl
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 border-t border-gray-200 px-6 py-3 flex items-center justify-between">
+        <div className="border-t border-gray-200 px-6 py-3 flex items-center justify-between">
           <p className="text-xs text-gray-600">
             Multi Talker uses Azure Speech Service with multi-talker voices.
           </p>
@@ -719,8 +728,8 @@ ${capitalizedSpeaker2}: ha ha ha, Precisely. It's all about being… um, reliabl
         </div>
       </div>
 
-      {/* Right side - Voice and Speaker Pair Selector */}
-      <div className="w-full md:w-[28rem] flex-shrink-0 bg-gray-50 border-l border-gray-200 p-6 flex flex-col overflow-hidden">
+        {/* Right side - Voice and Speaker Pair Selector */}
+        <div className="theme-side-panel p-6 flex flex-col overflow-hidden">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Voice & Speaker Selection</h2>
         <div className="flex-1 min-h-0 overflow-y-auto">
           <MultiTalkerSpeakerPairSelector
@@ -731,6 +740,7 @@ ${capitalizedSpeaker2}: ha ha ha, Precisely. It's all about being… um, reliabl
             onPairChange={handlePairChange}
             isLoading={isLoadingVoices}
           />
+        </div>
         </div>
       </div>
     </div>

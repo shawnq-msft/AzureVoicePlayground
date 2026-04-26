@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AzureSettings, PlaygroundMode } from '../types/azure';
-import { BUILD_TIMESTAMP, BUILD_COMMIT } from '../buildTimestamp';
+import { BUILD_TIMESTAMP } from '../buildTimestamp';
+import { SIDEBAR_CONFIG_ATTENTION_EVENT } from '../utils/sidebarConfigAttention';
 
 interface NavigationSidebarProps {
   activeMode: PlaygroundMode;
@@ -8,6 +9,8 @@ interface NavigationSidebarProps {
   settings: AzureSettings;
   onSettingsChange: (settings: Partial<AzureSettings>) => void;
   geminiLiveEnabled?: boolean;
+  themeMode: 'light' | 'dark';
+  onThemeToggle: () => void;
 }
 
 export const ALL_TTS_REGIONS = [
@@ -165,335 +168,437 @@ export function NavigationSidebar({
   settings,
   onSettingsChange,
   geminiLiveEnabled = false,
+  themeMode,
+  onThemeToggle,
 }: NavigationSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [showSecurityNotice, setShowSecurityNotice] = useState(false);
+  const [isConfigExpanded, setIsConfigExpanded] = useState(false);
+  const logoSrc = `${import.meta.env.BASE_URL}azure-logo.png`;
+  const buildDateLabel = BUILD_TIMESTAMP.split('T')[0];
 
-  // Determine if current mode is a Voice Agent mode (has its own config panel)
-  const isAgentMode = activeMode === 'voice-live-chat' || activeMode === 'voice-live-translator' || activeMode === 'gemini-live';
+  const isVoiceLiveMode = activeMode === 'voice-live-chat' || activeMode === 'voice-live-translator';
+  const supportsSidebarConfig = activeMode !== 'gemini-live';
+  const hasSpeechConfig = settings.apiKey.trim() !== '' && settings.region.trim() !== '';
+  const hasVoiceLiveConfig = (settings.voiceLiveEndpoint || '').trim() !== '' && (settings.voiceLiveApiKey || '').trim() !== '';
+  const needsConfigAttention = supportsSidebarConfig && (isVoiceLiveMode ? !hasVoiceLiveConfig : !hasSpeechConfig);
+  const configSectionLabel = isVoiceLiveMode ? 'Voice Live Config' : 'Azure Speech Config';
+  const configSectionDescription = isVoiceLiveMode ? 'Endpoint and key for real-time voice agents.' : 'API key and region for Speech Service features.';
+  const isFooterConfigOpen = supportsSidebarConfig && isConfigExpanded && !isCollapsed;
+
+  const contentModes = playgroundModes.filter((item) => item.category === 'content');
+  const agentModes = playgroundModes.filter(
+    (item) => item.category === 'agent' && (item.mode !== 'gemini-live' || geminiLiveEnabled),
+  );
+
+  useEffect(() => {
+    if (!supportsSidebarConfig) {
+      setIsConfigExpanded(false);
+      return;
+    }
+
+    if (needsConfigAttention) {
+      setIsCollapsed(false);
+      setIsConfigExpanded(true);
+    }
+  }, [needsConfigAttention, supportsSidebarConfig]);
+
+  useEffect(() => {
+    const handleSidebarAttention = () => {
+      if (!supportsSidebarConfig) {
+        return;
+      }
+
+      setIsCollapsed(false);
+      setIsConfigExpanded(true);
+    };
+
+    window.addEventListener(SIDEBAR_CONFIG_ATTENTION_EVENT, handleSidebarAttention);
+    return () => window.removeEventListener(SIDEBAR_CONFIG_ATTENTION_EVENT, handleSidebarAttention);
+  }, [supportsSidebarConfig]);
+
+  const copyPlaygroundLink = (mode: PlaygroundMode) => {
+    const url = `${window.location.origin}${window.location.pathname}#${mode}`;
+
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(url);
+      return;
+    }
+
+    window.location.hash = mode;
+  };
+
+  const handleConfigToggle = () => {
+    if (!supportsSidebarConfig) {
+      return;
+    }
+
+    if (isCollapsed) {
+      setIsCollapsed(false);
+      setIsConfigExpanded(true);
+      return;
+    }
+
+    setIsConfigExpanded((expanded) => !expanded);
+  };
 
   return (
     <div
-      className={`h-full bg-gray-900 text-white flex flex-col flex-shrink-0 transition-all duration-300 ${
-        isCollapsed ? 'w-16' : 'w-64'
+      className={`theme-sidebar w-full transition-[max-height,width] duration-500 ease-out lg:h-full lg:flex-shrink-0 ${
+        isCollapsed ? 'max-h-[5.75rem] lg:max-h-none lg:w-[5.75rem]' : 'max-h-[45vh] lg:max-h-none lg:w-[20rem]'
       }`}
     >
-      {/* Logo / Title with Toggle */}
-      <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-        {!isCollapsed && (
-          <div>
-            <h1 className="text-lg font-bold text-white">Azure Voice</h1>
-            <p className="text-xs text-gray-400">Playground</p>
-          </div>
-        )}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className={`p-1.5 rounded-lg hover:bg-gray-800 transition-colors ${isCollapsed ? 'mx-auto' : ''}`}
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          <svg
-            className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-          </svg>
-        </button>
-      </div>
+      <div className="theme-sidebar__rail" />
 
-      {/* Content Generation Navigation */}
-      <div className="p-3">
-        {!isCollapsed && (
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2 px-2">Content Generation</p>
-        )}
-        <nav className="space-y-1">
-          {playgroundModes.filter(m => m.category === 'content').map(({ mode, label, icon }) => (
-            <div key={mode} className="flex items-center gap-1">
-              <button
-                onClick={() => onModeChange(mode)}
-                title={isCollapsed ? label : undefined}
-                className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  activeMode === mode
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                } ${isCollapsed ? 'justify-center' : ''}`}
-              >
-                {icon}
-                {!isCollapsed && <span>{label}</span>}
-              </button>
-              {!isCollapsed && (
-                <a
-                  href={`${window.location.origin}${window.location.pathname}#${mode}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const url = `${window.location.origin}${window.location.pathname}#${mode}`;
-                    navigator.clipboard.writeText(url);
-                  }}
-                  className="p-1.5 rounded text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
-                  title="Click to copy link"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                </a>
-              )}
-            </div>
-          ))}
-        </nav>
-      </div>
-
-      {/* Voice Agent Navigation */}
-      <div className="p-3 pt-0">
-        {!isCollapsed && (
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2 px-2">Voice Agent</p>
-        )}
-        <nav className="space-y-1">
-          {playgroundModes.filter(m => m.category === 'agent' && (m.mode !== 'gemini-live' || geminiLiveEnabled)).map(({ mode, label, icon }) => (
-            <div key={mode} className="flex items-center gap-1">
-              <button
-                onClick={() => onModeChange(mode)}
-                title={isCollapsed ? label : undefined}
-                className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  activeMode === mode
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                } ${isCollapsed ? 'justify-center' : ''}`}
-              >
-                {icon}
-                {!isCollapsed && <span>{label}</span>}
-              </button>
-              {!isCollapsed && (
-                <a
-                  href={`${window.location.origin}${window.location.pathname}#${mode}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const url = `${window.location.origin}${window.location.pathname}#${mode}`;
-                    navigator.clipboard.writeText(url);
-                  }}
-                  className="p-1.5 rounded text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
-                  title="Click to copy link"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                </a>
-              )}
-            </div>
-          ))}
-        </nav>
-      </div>
-
-      {/* Divider */}
-      <div className="border-t border-gray-700 mx-3 my-2" />
-
-      {/* Azure Configuration - Different for Content vs Agent modes */}
-      <div className={`flex-1 overflow-y-auto p-3 ${isCollapsed ? 'hidden' : ''}`}>
-        {isAgentMode ? (
-          <>
-            {/* Voice Agent Config */}
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-3 px-2">Voice Live Config</p>
-
-            {/* Endpoint */}
-            <div className="space-y-2 px-2 mb-4">
-              <label className="block text-xs font-medium text-gray-400">Endpoint</label>
-              <input
-                type="text"
-                value={settings.voiceLiveEndpoint || ''}
-                onChange={(e) => {
-                  const newValue = e.target.value;
-                  onSettingsChange({ voiceLiveEndpoint: newValue });
-                }}
-                placeholder="https://{resource}.cognitiveservices.azure.com/"
-                autoComplete="off"
-                className="w-full px-2 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+      <div className="relative z-10 flex h-full min-h-0 flex-col">
+        <div className={`border-b border-gray-200 ${isCollapsed ? 'px-3 py-3' : 'px-4 py-4'}`}>
+          <div className={`flex ${isCollapsed ? 'flex-col items-center gap-2' : 'items-start gap-3'}`}>
+            <div className={`flex flex-shrink-0 items-center justify-center ${isCollapsed ? '' : 'pt-0.5'}`}>
+              <img
+                src={logoSrc}
+                alt="Azure"
+                className={`${isCollapsed ? 'h-9 w-9' : 'h-10 w-10'} object-contain`}
               />
             </div>
 
-            {/* API Key */}
-            <div className="space-y-2 px-2 mb-4">
-              <label className="block text-xs font-medium text-gray-400">API Key</label>
-              <input
-                type="password"
-                value={settings.voiceLiveApiKey || ''}
-                onChange={(e) => {
-                  const newValue = e.target.value;
-                  onSettingsChange({ voiceLiveApiKey: newValue });
-                }}
-                placeholder="Enter API key"
-                autoComplete="new-password"
-                data-lpignore="true"
-                data-form-type="other"
-                className="w-full px-2 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <a
-                href="https://ai.azure.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-400 hover:text-blue-300 underline"
-              >
-                Get credentials
-              </a>
-            </div>
+            {!isCollapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="theme-section-label text-[0.62rem] !text-[var(--text-soft)]">AI Voice Lab</p>
+                <h1 className="mt-1 text-xl font-bold tracking-tight text-[var(--text-strong)]">Azure Voice Playground</h1>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">
+                  Production-ready Speech Service and Voice Agent
+                </p>
+              </div>
+            )}
 
-            {/* Security Warning */}
-            <div className="mt-4 bg-yellow-900/30 border border-yellow-700/50 rounded-md overflow-hidden">
-              <button
-                onClick={() => setShowSecurityNotice(!showSecurityNotice)}
-                className="w-full p-3 flex items-center justify-between hover:bg-yellow-900/50 transition-colors"
-              >
-                <h3 className="text-xs font-semibold text-yellow-400">
-                  Security Notice
-                </h3>
-                <svg
-                  className={`w-4 h-4 text-yellow-400 transition-transform ${showSecurityNotice ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            {!isCollapsed ? (
+              <div className="ml-auto flex items-center gap-2 lg:flex-col">
+                <button
+                  onClick={onThemeToggle}
+                  className="theme-icon-button"
+                  title={`Switch to ${themeMode === 'dark' ? 'light' : 'dark'} mode`}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  {themeMode === 'dark' ? (
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 3v2.25M12 18.75V21m9-9h-2.25M5.25 12H3m15.114 6.364l-1.591-1.59M7.477 7.477L5.886 5.886m12.228 0l-1.591 1.591M7.477 16.523l-1.591 1.591M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                      />
+                    </svg>
+                  ) : (
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21.752 15.002A9.718 9.718 0 0112 21c-5.385 0-9.75-4.365-9.75-9.75 0-4.14 2.578-7.678 6.214-9.084a.75.75 0 01.98.94A7.5 7.5 0 0019.894 13.556a.75.75 0 01.94.98 9.72 9.72 0 01-.082.466z"
+                      />
+                    </svg>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (!isCollapsed) {
+                      setIsConfigExpanded(false);
+                    }
+
+                    setIsCollapsed((collapsed) => !collapsed);
+                  }}
+                  className="theme-icon-button"
+                  title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                >
+                  <svg
+                    className={`h-4 w-4 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsCollapsed((collapsed) => !collapsed)}
+                className="theme-icon-button theme-icon-button--compact"
+                title="Expand sidebar"
+              >
+                <svg className="h-4 w-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
                 </svg>
               </button>
-              {showSecurityNotice && (
-                <div className="px-3 pb-3">
-                  <p className="text-xs text-yellow-200/70">
-                    Your credentials are stored in browser localStorage. Never share your key or use on untrusted devices.
-                  </p>
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Content Generation Config */}
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-3 px-2">Azure Speech Config</p>
-
-            {/* API Key */}
-            <div className="space-y-2 px-2 mb-4">
-              <label className="block text-xs font-medium text-gray-400">API Key</label>
-              <input
-                type="password"
-                value={settings.apiKey}
-                onChange={(e) => {
-                  const newValue = e.target.value;
-                  if (newValue !== settings.apiKey) {
-                    onSettingsChange({ apiKey: newValue });
-                  }
-                }}
-                placeholder="Enter API key"
-                autoComplete="new-password"
-                data-lpignore="true"
-                data-form-type="other"
-                className="w-full px-2 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <a
-                href="https://portal.azure.com/#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/SpeechServices"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-400 hover:text-blue-300 underline"
-              >
-                Get API key
-              </a>
-            </div>
-
-            {/* Region */}
-            <div className="space-y-2 px-2">
-              <label className="block text-xs font-medium text-gray-400">Region</label>
-              <select
-                value={ALL_TTS_REGIONS.some(r => r.value === settings.region) ? settings.region : 'custom'}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === 'custom') {
-                    // Set to empty string or a custom placeholder to trigger the input field
-                    onSettingsChange({ region: '' });
-                  } else {
-                    onSettingsChange({ region: value });
-                  }
-                }}
-                className="w-full px-2 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {ALL_TTS_REGIONS.map((region) => (
-                  <option key={region.value} value={region.value}>
-                    {region.label}
-                  </option>
-                ))}
-                <option value="custom">Custom...</option>
-              </select>
-              {!ALL_TTS_REGIONS.some(r => r.value === settings.region) && (
-                <input
-                  type="text"
-                  value={settings.region}
-                  onChange={(e) => onSettingsChange({ region: e.target.value })}
-                  placeholder="e.g., eastus, westeurope, etc."
-                  autoFocus
-                  className="w-full px-2 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                />
-              )}
-            </div>
-
-            {/* Security Warning */}
-            <div className="mt-6 bg-yellow-900/30 border border-yellow-700/50 rounded-md overflow-hidden">
-              <button
-                onClick={() => setShowSecurityNotice(!showSecurityNotice)}
-                className="w-full p-3 flex items-center justify-between hover:bg-yellow-900/50 transition-colors"
-              >
-                <h3 className="text-xs font-semibold text-yellow-400">
-                  Security Notice
-                </h3>
-                <svg
-                  className={`w-4 h-4 text-yellow-400 transition-transform ${showSecurityNotice ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showSecurityNotice && (
-                <div className="px-3 pb-3">
-                  <p className="text-xs text-yellow-200/70">
-                    Your API key is stored in browser localStorage. Never share your key or use on untrusted devices.
-                  </p>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Collapsed state: show config icon */}
-      {isCollapsed && (
-        <div className="flex-1 flex flex-col items-center pt-2">
-          <div
-            className="p-2 text-gray-500"
-            title="Expand to configure Azure settings"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            )}
           </div>
         </div>
-      )}
 
-      {/* Footer */}
-      <div className="p-3 border-t border-gray-700">
-        {!isCollapsed && (
-          <div className="text-xs text-gray-500 text-center space-y-1">
-            <p>API key stored locally</p>
-            <p className="text-gray-600">
-              Build: <a
-                href={`https://github.com/szhaomsft/AzureVoicePlayground/commit/${BUILD_COMMIT}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300 underline"
-              >{BUILD_COMMIT}</a>
-            </p>
-            <p className="text-gray-600">
-              {new Date(BUILD_TIMESTAMP).toLocaleString()}
-            </p>
+        <div className="flex-1 min-h-0 overflow-y-auto pb-4">
+          <div className="theme-sidebar__section">
+            {!isCollapsed && <p className="theme-section-label px-1">Content Generation</p>}
+            <nav className="mt-3 space-y-2">
+              {contentModes.map(({ mode, label, icon }) => (
+                <div
+                  key={mode}
+                  className={`theme-sidebar__nav-button text-sm ${
+                    activeMode === mode ? 'theme-sidebar__nav-button--active' : ''
+                  } ${isCollapsed ? 'justify-center px-0' : ''}`}
+                >
+                  <button
+                    onClick={() => onModeChange(mode)}
+                    title={isCollapsed ? label : undefined}
+                    className={`theme-sidebar__nav-action ${isCollapsed ? 'justify-center' : ''}`}
+                  >
+                    {icon}
+                    {!isCollapsed && <span className="truncate">{label}</span>}
+                  </button>
+
+                  {!isCollapsed && (
+                    <a
+                      href={`${window.location.origin}${window.location.pathname}#${mode}`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        copyPlaygroundLink(mode);
+                      }}
+                      className="theme-sidebar__copy-link theme-sidebar__copy-link--inline"
+                      title="Copy direct link"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
+              ))}
+            </nav>
           </div>
-        )}
+
+          <div className="theme-sidebar__section pt-4">
+            {!isCollapsed && <p className="theme-section-label px-1">Voice Agents</p>}
+            <nav className="mt-3 space-y-2">
+              {agentModes.map(({ mode, label, icon }) => (
+                <div
+                  key={mode}
+                  className={`theme-sidebar__nav-button text-sm ${
+                    activeMode === mode ? 'theme-sidebar__nav-button--active' : ''
+                  } ${isCollapsed ? 'justify-center px-0' : ''}`}
+                >
+                  <button
+                    onClick={() => onModeChange(mode)}
+                    title={isCollapsed ? label : undefined}
+                    className={`theme-sidebar__nav-action ${isCollapsed ? 'justify-center' : ''}`}
+                  >
+                    {icon}
+                    {!isCollapsed && <span className="truncate">{label}</span>}
+                  </button>
+
+                  {!isCollapsed && (
+                    <a
+                      href={`${window.location.origin}${window.location.pathname}#${mode}`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        copyPlaygroundLink(mode);
+                      }}
+                      className="theme-sidebar__copy-link theme-sidebar__copy-link--inline"
+                      title="Copy direct link"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
+              ))}
+            </nav>
+          </div>
+        </div>
+
+        <div className="theme-footer">
+          {supportsSidebarConfig && (
+            <div className="theme-footer__config-shell">
+              <div
+                id="sidebar-configuration-panel"
+                aria-hidden={!isFooterConfigOpen}
+                className={`theme-footer__config-popover ${isFooterConfigOpen ? 'theme-footer__config-popover--open' : ''}`}
+              >
+                <div className="theme-footer__config-panel">
+                  <p className="theme-section-label px-1">{configSectionLabel}</p>
+
+                  {isVoiceLiveMode ? (
+                    <>
+                      <div className="mt-4 space-y-2 px-1">
+                        <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">Endpoint</label>
+                        <input
+                          type="text"
+                          value={settings.voiceLiveEndpoint || ''}
+                          onChange={(event) => {
+                            onSettingsChange({ voiceLiveEndpoint: event.target.value });
+                          }}
+                          placeholder="https://{resource}.cognitiveservices.azure.com/"
+                          autoComplete="off"
+                          className="theme-control theme-control--sm"
+                        />
+                      </div>
+
+                      <div className="mt-4 space-y-2 px-1">
+                        <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">API Key</label>
+                        <input
+                          type="password"
+                          value={settings.voiceLiveApiKey || ''}
+                          onChange={(event) => {
+                            onSettingsChange({ voiceLiveApiKey: event.target.value });
+                          }}
+                          placeholder="Enter API key"
+                          autoComplete="new-password"
+                          data-lpignore="true"
+                          data-form-type="other"
+                          className="theme-control theme-control--sm"
+                        />
+                        <a
+                          href="https://ai.azure.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="theme-link text-xs"
+                        >
+                          Get credentials
+                        </a>
+                      </div>
+
+                      <div className="theme-alert theme-alert--warning mt-5 px-4 py-3">
+                        <h3 className="theme-alert__title text-xs font-semibold uppercase tracking-[0.18em]">Security Notice</h3>
+                        <p className="theme-alert__body mt-2 text-xs leading-6">
+                          Stored in browser localStorage. Don&apos;t use shared or untrusted devices.
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="mt-4 space-y-2 px-1">
+                        <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">API Key</label>
+                        <input
+                          type="password"
+                          value={settings.apiKey}
+                          onChange={(event) => {
+                            const nextValue = event.target.value;
+                            if (nextValue !== settings.apiKey) {
+                              onSettingsChange({ apiKey: nextValue });
+                            }
+                          }}
+                          placeholder="Enter API key"
+                          autoComplete="new-password"
+                          data-lpignore="true"
+                          data-form-type="other"
+                          className="theme-control theme-control--sm"
+                        />
+                        <a
+                          href="https://portal.azure.com/#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/SpeechServices"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="theme-link text-xs"
+                        >
+                          Get API key
+                        </a>
+                      </div>
+
+                      <div className="mt-4 space-y-2 px-1">
+                        <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">Region</label>
+                        <select
+                          value={ALL_TTS_REGIONS.some((region) => region.value === settings.region) ? settings.region : 'custom'}
+                          onChange={(event) => {
+                            const selectedRegion = event.target.value;
+                            if (selectedRegion === 'custom') {
+                              onSettingsChange({ region: '' });
+                            } else {
+                              onSettingsChange({ region: selectedRegion });
+                            }
+                          }}
+                          className="theme-control theme-control--sm"
+                        >
+                          {ALL_TTS_REGIONS.map((region) => (
+                            <option key={region.value} value={region.value}>
+                              {region.label}
+                            </option>
+                          ))}
+                          <option value="custom">Custom...</option>
+                        </select>
+
+                        {!ALL_TTS_REGIONS.some((region) => region.value === settings.region) && (
+                          <input
+                            type="text"
+                            value={settings.region}
+                            onChange={(event) => onSettingsChange({ region: event.target.value })}
+                            placeholder="e.g., eastus, westeurope"
+                            autoFocus
+                            className="theme-control theme-control--sm"
+                          />
+                        )}
+                      </div>
+
+                      <div className="theme-alert theme-alert--warning mt-5 px-4 py-3">
+                        <h3 className="theme-alert__title text-xs font-semibold uppercase tracking-[0.18em]">Security Notice</h3>
+                        <p className="theme-alert__body mt-2 text-xs leading-6">
+                          Stored in browser localStorage. Don&apos;t use shared or untrusted devices.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={handleConfigToggle}
+                title={isCollapsed ? 'Open configuration' : undefined}
+                aria-expanded={isFooterConfigOpen}
+                aria-controls="sidebar-configuration-panel"
+                className={`theme-footer__config-trigger ${needsConfigAttention ? 'theme-footer__config-trigger--attention' : ''} ${isFooterConfigOpen ? 'theme-footer__config-trigger--open' : ''} ${isCollapsed ? 'theme-footer__config-trigger--compact' : ''}`}
+              >
+                <div className={`theme-footer__config-content ${isCollapsed ? 'justify-center' : ''}`}>
+                  <span className="theme-footer__config-gear" aria-hidden="true">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </span>
+
+                  {!isCollapsed && (
+                    <div className="min-w-0 text-left">
+                      <p className="text-sm font-semibold text-[var(--text-strong)]">Configuration</p>
+                    </div>
+                  )}
+                </div>
+
+                {!isCollapsed && (
+                  <div className="flex items-center gap-2">
+                    {needsConfigAttention && <span className="theme-footer__config-badge">Required</span>}
+                    <svg
+                      className={`h-4 w-4 text-[var(--text-muted)] transition-transform duration-300 ${isFooterConfigOpen ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            </div>
+          )}
+
+          {!isCollapsed ? (
+            <p className="theme-footer__meta text-center text-[11px] font-medium tracking-[0.08em] text-[var(--text-muted)]">
+              Version Date {buildDateLabel}
+            </p>
+          ) : (
+            <div className="theme-footer__meta flex justify-center">
+              <span className="text-[10px] font-medium tracking-[0.08em] text-[var(--text-soft)]">{buildDateLabel.slice(5)}</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

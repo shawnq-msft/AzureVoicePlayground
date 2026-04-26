@@ -29,6 +29,7 @@ import {
   type PersonalVoiceClientConfig,
 } from '../lib/personalVoice/personalVoiceClient';
 import { VOICE_EXAMPLES } from '../data/voiceExamples';
+import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
 
 interface VoiceCreationPlaygroundProps {
   settings: {
@@ -392,19 +393,27 @@ Bonjour, ceci est ma voix personnelle.`);
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-      {/* Left Panel - Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6 shadow-md">
-          <h1 className="text-3xl font-bold">Voice Creation</h1>
-          <p className="text-emerald-100 mt-1">
-            Create your custom AI voice from audio samples or text prompt
-          </p>
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="theme-page-header">
+        <div className="theme-page-header__inner">
+          <div>
+            <h1 className="theme-page-title">Voice Creation</h1>
+            <p className="theme-page-subtitle">
+              Create your custom AI voice from audio samples or text prompt
+            </p>
+          </div>
+          <div className="theme-page-header__actions">
+            <PageDocsLink href={AZURE_SPEECH_DOCS.customVoice} />
+          </div>
         </div>
+      </div>
+
+      <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
+        {/* Left Panel - Main Content */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
 
         {/* Main Content - Split into Creation and Test areas */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex min-h-full flex-col">
           {!isConfigured ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center text-gray-500">
@@ -417,7 +426,7 @@ Bonjour, ceci est ma voix personnelle.`);
           ) : (
             <>
               {/* Top Section - Voice Creation with Tabs */}
-              <div className="flex-[3] min-h-0 border-b border-gray-200 flex flex-col">
+              <div className="border-b border-gray-200 flex flex-col">
                 {/* Tab Navigation */}
                 <div className="flex border-b border-gray-200 bg-gray-50 flex-shrink-0">
                   <button
@@ -453,10 +462,10 @@ Bonjour, ceci est ma voix personnelle.`);
                 </div>
 
                 {/* Tab Content */}
-                <div className="flex-1 min-h-0 p-4 overflow-hidden">
+                <div className="p-4">
                   {activeTab === 'audio' ? (
                     /* Audio Based Voice Creation - Compact Layout */
-                    <div className="h-full flex flex-col gap-3">
+                    <div className="flex flex-col gap-3">
                       {/* Region Not Supported Message */}
                       {!isAudioRegionSupported ? (
                         <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
@@ -502,7 +511,7 @@ Bonjour, ceci est ma voix personnelle.`);
                         </span>
                       </div>
                       {/* Settings Row */}
-                      <div className="flex gap-4 items-end flex-shrink-0">
+                      <div className="flex flex-wrap gap-4 items-end flex-shrink-0">
                         <div className="flex-1">
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Voice Name <span className="text-red-500">*</span>
@@ -527,7 +536,7 @@ Bonjour, ceci est ma voix personnelle.`);
                             className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                           />
                         </div>
-                        <div className="w-32">
+                        <div className="w-full sm:w-32">
                           <label className="block text-xs font-medium text-gray-700 mb-1">Language</label>
                           <select
                             value={config.locale}
@@ -544,7 +553,7 @@ Bonjour, ceci est ma voix personnelle.`);
                       </div>
 
                       {/* Two Recording Sections Side by Side */}
-                      <div className="flex-1 min-h-0 max-h-[250px] grid grid-cols-2 gap-3 overflow-auto">
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                         {/* Consent Recording */}
                         <div className="flex flex-col rounded-lg border border-gray-200 bg-white p-3">
                           <div className="flex items-center gap-2 mb-2 flex-shrink-0">
@@ -627,7 +636,7 @@ Bonjour, ceci est ma voix personnelle.`);
                     </div>
                   ) : (
                     /* Text Prompt Voice Creation */
-                    <div className="h-full flex flex-col gap-3">
+                    <div className="flex flex-col gap-3">
                       {!isTextPromptRegionSupported ? (
                         <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                           <div className="flex items-start gap-3">
@@ -686,7 +695,7 @@ Bonjour, ceci est ma voix personnelle.`);
                           </div>
 
                           {/* Voice Prompt */}
-                          <div className="flex-1 min-h-0 flex flex-col">
+                          <div className="flex flex-col">
                             <label className="block text-xs font-medium text-gray-700 mb-1">
                               Voice Description <span className="text-red-500">*</span>
                             </label>
@@ -757,7 +766,7 @@ Bonjour, ceci est ma voix personnelle.`);
                           </div>
 
                           {/* Candidates */}
-                          <div className="flex-1 min-h-0 overflow-auto">
+                          <div className="flex flex-col">
                             <label className="block text-xs font-medium text-gray-700 mb-1">
                               Select a Voice Candidate
                             </label>
@@ -854,8 +863,8 @@ Bonjour, ceci est ma voix personnelle.`);
               </div>
 
               {/* Bottom Section - Test Voice */}
-              <div className="flex-[2] min-h-0 p-4 bg-gray-50 flex flex-col">
-                <div className="bg-white rounded-lg border border-gray-200 p-4 flex-1 min-h-0 flex flex-col">
+              <div className="p-4 bg-gray-50 flex flex-col">
+                <div className="bg-white rounded-lg border border-gray-200 p-4 min-h-[22rem] flex flex-col">
                   <div className="flex items-center justify-between mb-3 flex-shrink-0">
                     <h2 className="text-sm font-semibold text-gray-800">Test Voice</h2>
                     {selectedVoice && (
@@ -1008,8 +1017,8 @@ ${ssml}
         </div>
       </div>
 
-      {/* Right Panel - Voice List */}
-      <div className="w-full md:w-80 flex-shrink-0 bg-gray-50 border-l border-gray-200 flex flex-col overflow-hidden">
+        {/* Right Panel - Voice List */}
+        <div className="theme-side-panel flex flex-col overflow-hidden">
         {/* Voice List */}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex items-center justify-between mb-4">
@@ -1083,6 +1092,7 @@ ${ssml}
               ))}
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

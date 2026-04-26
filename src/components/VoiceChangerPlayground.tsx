@@ -13,6 +13,7 @@ import { VoiceConversionSelector } from './VoiceConversionSelector';
 import { AudioUploader } from './AudioUploader';
 import { ConversionHistoryPanel } from './ConversionHistoryPanel';
 import { VoiceConversionFeedbackButton } from './VoiceConversionFeedbackButton';
+import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
 
 interface VoiceChangerPlaygroundProps {
   settings: AzureSettings;
@@ -143,16 +144,24 @@ export function VoiceChangerPlayground({
     isConfigured && isRegionSupported && isBlobConfigured && selectedFile && selectedVoice && (state === 'idle' || state === 'error');
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-      {/* Left side - Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 shadow-md">
-          <h1 className="text-3xl font-bold">Voice Changer</h1>
-          <p className="text-purple-100 mt-1">
-            Transform your voice using Azure Voice Conversion (Preview)
-          </p>
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="theme-page-header">
+        <div className="theme-page-header__inner">
+          <div>
+            <h1 className="theme-page-title">Voice Changer</h1>
+            <p className="theme-page-subtitle">
+              Transform your voice using Azure Voice Conversion (Preview)
+            </p>
+          </div>
+          <div className="theme-page-header__actions">
+            <PageDocsLink href={AZURE_SPEECH_DOCS.overview} />
+          </div>
         </div>
+      </div>
+
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* Left side - Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -386,7 +395,7 @@ export function VoiceChangerPlayground({
         />
 
         {/* Footer */}
-        <div className="bg-gray-50 border-t border-gray-200 px-6 py-3">
+        <div className="border-t border-gray-200 px-6 py-3">
           <div className="flex items-center justify-between">
             <p className="text-xs text-gray-600">
               Voice Conversion is a preview feature. Only en-US voices are supported. Zeroshot is also supported, contact us.
@@ -401,12 +410,13 @@ export function VoiceChangerPlayground({
         </div>
       </div>
 
-      {/* Right side - Voice Selector */}
-      <div className="w-full md:w-80 flex-shrink-0 bg-gray-50 border-l border-gray-200 p-6 overflow-y-auto">
+        {/* Right side - Voice Selector */}
+        <div className="theme-side-panel p-6 overflow-y-auto">
         <VoiceConversionSelector
           selectedVoice={selectedVoice}
           onVoiceChange={setSelectedVoice}
         />
+        </div>
       </div>
     </div>
   );
