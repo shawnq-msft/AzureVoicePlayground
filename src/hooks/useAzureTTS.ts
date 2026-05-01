@@ -96,7 +96,7 @@ export function useAzureTTS(settings: AzureSettings) {
     }
 
     speechConfig.speechSynthesisOutputFormat =
-      SpeechSDK.SpeechSynthesisOutputFormat.Audio48Khz192KBitRateMonoMp3;
+      SpeechSDK.SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3;
 
     // Use speaker output for streaming playback
     const player = new SpeechSDK.SpeakerAudioDestination();
