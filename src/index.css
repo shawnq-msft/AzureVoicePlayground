@@ -686,6 +686,7 @@ textarea {
       width: 24rem;
     }
   }
+
 }
 
 .theme-shell .bg-white {
@@ -796,6 +797,120 @@ textarea {
     border-color 200ms ease,
     box-shadow 200ms ease,
     transform 200ms ease;
+}
+
+.theme-shell .voice-live-calculator {
+  color: var(--text-body);
+}
+
+.theme-shell .voice-live-calculator .panel,
+.theme-shell .voice-live-calculator .bg-white,
+.theme-shell .voice-live-calculator .bg-white\/70,
+.theme-shell .voice-live-calculator .bg-slate-50,
+.theme-shell .voice-live-calculator .bg-slate-100 {
+  border-color: var(--border-soft) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03)), var(--surface) !important;
+  box-shadow: var(--shadow-sm) !important;
+  backdrop-filter: blur(22px) saturate(140%);
+}
+
+.theme-shell .voice-live-calculator .panel {
+  border-radius: 1.15rem;
+  border-width: 1px;
+  border-style: solid;
+}
+
+.theme-shell .voice-live-calculator .rounded-lg {
+  border-radius: 0.85rem;
+}
+
+.theme-shell .voice-live-calculator .field-label {
+  display: grid;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-strong) !important;
+}
+
+.theme-shell .voice-live-calculator .text-slate-950,
+.theme-shell .voice-live-calculator .text-slate-900,
+.theme-shell .voice-live-calculator .text-slate-800,
+.theme-shell .voice-live-calculator .text-slate-700,
+.theme-shell .voice-live-calculator .text-blue-950 {
+  color: var(--text-strong) !important;
+}
+
+.theme-shell .voice-live-calculator .text-slate-600,
+.theme-shell .voice-live-calculator .text-slate-500,
+.theme-shell .voice-live-calculator .text-blue-900,
+.theme-shell .voice-live-calculator .text-blue-700 {
+  color: var(--text-muted) !important;
+}
+
+.theme-shell .voice-live-calculator .border-slate-200,
+.theme-shell .voice-live-calculator .border-slate-300,
+.theme-shell .voice-live-calculator .border-blue-100,
+.theme-shell .voice-live-calculator .border-blue-200,
+.theme-shell .voice-live-calculator .border-amber-300 {
+  border-color: var(--border-soft) !important;
+}
+
+.theme-shell .voice-live-calculator .form-control {
+  height: 2.5rem;
+  width: 100%;
+  border-radius: 0.85rem;
+  border-width: 1px;
+  border-style: solid;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
+  outline: none;
+  border-color: var(--border-soft) !important;
+  background: var(--input-bg) !important;
+  color: var(--text-strong) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+.theme-shell .voice-live-calculator .form-control:focus {
+  border-color: rgba(79, 140, 255, 0.48) !important;
+  box-shadow: 0 0 0 4px rgba(79, 140, 255, 0.18), var(--shadow-sm) !important;
+}
+
+.theme-shell .voice-live-calculator .chip {
+  display: inline-flex;
+  min-height: 1.625rem;
+  align-items: center;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 9999px;
+  padding: 0.1875rem 0.5625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.theme-shell .voice-live-calculator .chip,
+.theme-shell .voice-live-calculator .bg-blue-100,
+.theme-shell .voice-live-calculator .bg-blue-50,
+.theme-shell .voice-live-calculator .bg-blue-50\/70,
+.theme-shell .voice-live-calculator .bg-amber-50 {
+  border-color: var(--border-soft) !important;
+  background: var(--accent-soft) !important;
+  color: var(--text-strong) !important;
+}
+
+.theme-shell .voice-live-calculator .table-cell {
+  padding: 0.45rem 0.65rem;
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.8125rem;
+  border-color: var(--border-soft) !important;
+}
+
+.theme-shell .voice-live-calculator a {
+  color: var(--accent) !important;
+}
+
+.theme-shell .voice-live-calculator a:hover {
+  color: var(--accent-secondary) !important;
 }
 
 .theme-shell .overflow-y-auto {

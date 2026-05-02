@@ -177,7 +177,7 @@ export function NavigationSidebar({
   const buildDateLabel = BUILD_TIMESTAMP.split('T')[0];
 
   const isVoiceLiveMode = activeMode === 'voice-live-chat' || activeMode === 'voice-live-translator';
-  const supportsSidebarConfig = activeMode !== 'gemini-live';
+  const supportsSidebarConfig = activeMode !== 'gemini-live' && activeMode !== 'voice-live-calculator';
   const hasSpeechConfig = settings.apiKey.trim() !== '' && settings.region.trim() !== '';
   const hasVoiceLiveConfig = (settings.voiceLiveEndpoint || '').trim() !== '' && (settings.voiceLiveApiKey || '').trim() !== '';
   const needsConfigAttention = supportsSidebarConfig && (isVoiceLiveMode ? !hasVoiceLiveConfig : !hasSpeechConfig);
@@ -188,7 +188,11 @@ export function NavigationSidebar({
   const contentModes = playgroundModes.filter((item) => item.category === 'content');
   const agentModes = playgroundModes.filter(
     (item) => item.category === 'agent' && (item.mode !== 'gemini-live' || geminiLiveEnabled),
-  );
+  ).sort((left, right) => {
+    if (left.mode === 'podcast-agent') return 1;
+    if (right.mode === 'podcast-agent') return -1;
+    return 0;
+  });
 
   useEffect(() => {
     if (!supportsSidebarConfig) {
@@ -393,19 +397,34 @@ export function NavigationSidebar({
                   </button>
 
                   {!isCollapsed && (
-                    <a
-                      href={`${window.location.origin}${window.location.pathname}#${mode}`}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        copyPlaygroundLink(mode);
-                      }}
-                      className="theme-sidebar__copy-link theme-sidebar__copy-link--inline"
-                      title="Copy direct link"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                      </svg>
-                    </a>
+                    <div className="ml-auto flex items-center">
+                      {mode === 'voice-live-chat' && (
+                        <a
+                          href={`${window.location.origin}${window.location.pathname}#voice-live-calculator`}
+                          className="theme-sidebar__copy-link theme-sidebar__copy-link--inline"
+                          title="Open Voice Live price calculator"
+                          aria-label="Open Voice Live price calculator"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m-6 4h.01M12 11h.01M15 11h.01M9 15h.01M12 15h.01M15 15h.01M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
+                          </svg>
+                        </a>
+                      )}
+
+                      <a
+                        href={`${window.location.origin}${window.location.pathname}#${mode}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          copyPlaygroundLink(mode);
+                        }}
+                        className="theme-sidebar__copy-link theme-sidebar__copy-link--inline"
+                        title="Copy direct link"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                      </a>
+                    </div>
                   )}
                 </div>
               ))}
