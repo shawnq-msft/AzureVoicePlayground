@@ -16,6 +16,7 @@ import { VoiceLiveChatPlayground } from './components/VoiceLiveChatPlayground';
 import { VoiceLiveCalculatorPlayground } from './components/VoiceLiveCalculatorPlayground';
 import { VoiceCreationPlayground } from './components/VoiceCreationPlayground';
 import { VideoTranslationPlayground } from './components/VideoTranslationPlayground';
+import { StoryLandAgentPlayground } from './components/StoryLandAgentPlayground';
 import { PodcastAgentPlayground } from './components/PodcastAgentPlayground';
 import { GeminiLivePlayground } from './components/GeminiLivePlayground';
 
@@ -34,6 +35,7 @@ const VALID_MODES: PlaygroundMode[] = [
   'voice-live-chat',
   'voice-live-translator',
   'voice-live-calculator',
+  'storyland-agent',
   'podcast-agent',
   'gemini-live',
 ];
@@ -193,6 +195,8 @@ function App() {
         );
       case 'voice-live-calculator':
         return <VoiceLiveCalculatorPlayground />;
+      case 'storyland-agent':
+        return <StoryLandAgentPlayground />;
       case 'podcast-agent':
         return (
           <PodcastAgentPlayground
