@@ -26,6 +26,21 @@ type MicVADInstance = {
   destroy: () => void;
 };
 
+function calculatorHref(params: Record<string, string | number>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    search.set(key, String(value));
+  }
+  return `${window.location.pathname}?${search.toString()}#voice-live-calculator`;
+}
+
+function inferChatAudioOutputType(config: VoiceLiveChatConfig) {
+  if (config.voiceType === 'personal') return 'custom';
+  if (!config.voice.includes('-') && !config.voice.includes(':')) return 'native';
+  if (config.voice.includes('Custom')) return 'custom';
+  return 'standard';
+}
+
 // Declare the global vad object loaded from script
 declare global {
   interface Window {
@@ -451,6 +466,21 @@ export function VoiceLiveChatPlayground({ endpoint, apiKey }: VoiceLiveChatPlayg
     }
   }
 
+  const calculatorImportHref = calculatorHref({
+    dailyActiveUsers: 1,
+    averageTurnsPerUser: Math.max(1, messages.filter((message) => message.type === 'user').length || 5),
+    averageInputAudioSeconds: 10,
+    averageOutputAudioSeconds: 15,
+    averageInputTextTokens: 2000,
+    textInputCacheRate: 50,
+    audioInputCacheRate: 5,
+    serviceMode: 'managed',
+    selectedModel: config.model,
+    audioInputType: config.model.includes('realtime') ? 'native' : 'standard',
+    audioOutputType: inferChatAudioOutputType(config),
+    avatarType: config.avatar.enabled ? 'interactive' : 'none',
+  });
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       <div className="theme-page-header">
@@ -462,6 +492,12 @@ export function VoiceLiveChatPlayground({ endpoint, apiKey }: VoiceLiveChatPlayg
             </p>
           </div>
           <div className="theme-page-header__actions">
+            <a className="theme-docs-link" href={calculatorImportHref} title="Import current chat settings into calculator">
+              <svg className="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m-6 4h.01M12 11h.01M15 11h.01M9 15h.01M12 15h.01M15 15h.01M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
+              </svg>
+              <span className="text-sm font-medium">Calc</span>
+            </a>
             <PageDocsLink href={AZURE_SPEECH_DOCS.voiceLive} />
             <span
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${

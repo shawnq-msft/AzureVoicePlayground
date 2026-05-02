@@ -13,6 +13,7 @@ import { VoiceChangerPlayground } from './components/VoiceChangerPlayground';
 import { MultiTalkerPlayground } from './components/MultiTalkerPlayground';
 import { VoiceLiveTranslatorPlayground } from './components/VoiceLiveTranslatorPlayground';
 import { VoiceLiveChatPlayground } from './components/VoiceLiveChatPlayground';
+import { VoiceLiveCalculatorPlayground } from './components/VoiceLiveCalculatorPlayground';
 import { VoiceCreationPlayground } from './components/VoiceCreationPlayground';
 import { VideoTranslationPlayground } from './components/VideoTranslationPlayground';
 import { PodcastAgentPlayground } from './components/PodcastAgentPlayground';
@@ -32,6 +33,7 @@ const VALID_MODES: PlaygroundMode[] = [
   'video-translation',
   'voice-live-chat',
   'voice-live-translator',
+  'voice-live-calculator',
   'podcast-agent',
   'gemini-live',
 ];
@@ -189,6 +191,8 @@ function App() {
             apiKey={settings.voiceLiveApiKey || ''}
           />
         );
+      case 'voice-live-calculator':
+        return <VoiceLiveCalculatorPlayground />;
       case 'podcast-agent':
         return (
           <PodcastAgentPlayground

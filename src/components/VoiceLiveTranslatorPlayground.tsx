@@ -23,6 +23,19 @@ function formatMs(ms: number) {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
+function calculatorHref(params: Record<string, string | number>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    search.set(key, String(value));
+  }
+  return `${window.location.pathname}?${search.toString()}#voice-live-calculator`;
+}
+
+function percent(numerator: number, denominator: number) {
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((numerator / denominator) * 100)));
+}
+
 export function VoiceLiveTranslatorPlayground({ endpoint, apiKey }: VoiceLiveTranslatorPlaygroundProps) {
   const [config, setConfig] = useState<VoiceLiveConfig>(() => {
     const raw = localStorage.getItem('voicelive.translator.config');
@@ -179,6 +192,28 @@ export function VoiceLiveTranslatorPlayground({ endpoint, apiKey }: VoiceLiveTra
     return tiers;
   }, []);
 
+  const calculatorImportHref = useMemo(() => {
+    const turnsPerUser = Math.max(1, turns || 1);
+    const perTurnInputAudio = turns > 0 ? inputAudioSeconds / turns : 10;
+    const perTurnOutputAudio = turns > 0 ? outputAudioSeconds / turns : 15;
+    const perTurnInputText = turns > 0 ? inputTextTokens / turns : 2000;
+
+    return calculatorHref({
+      dailyActiveUsers: 1,
+      averageTurnsPerUser: turnsPerUser,
+      averageInputAudioSeconds: Number(perTurnInputAudio.toFixed(1)),
+      averageOutputAudioSeconds: Number(perTurnOutputAudio.toFixed(1)),
+      averageInputTextTokens: Math.round(perTurnInputText),
+      textInputCacheRate: percent(cachedTextTokens, inputTextTokens),
+      audioInputCacheRate: percent(cachedAudioTokens, inputAudioTokens),
+      serviceMode: 'managed',
+      selectedModel: config.model,
+      audioInputType: 'standard',
+      audioOutputType: config.voiceProvider === 'openai' ? 'native' : 'standard',
+      avatarType: 'none',
+    });
+  }, [cachedAudioTokens, cachedTextTokens, config.model, config.voiceProvider, inputAudioSeconds, inputAudioTokens, inputTextTokens, outputAudioSeconds, turns]);
+
   async function onConnect() {
     setStatusText('Connecting…');
     try {
@@ -245,6 +280,12 @@ export function VoiceLiveTranslatorPlayground({ endpoint, apiKey }: VoiceLiveTra
             </p>
           </div>
           <div className="theme-page-header__actions">
+            <a className="theme-docs-link" href={calculatorImportHref} title="Import current translator usage into calculator">
+              <svg className="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m-6 4h.01M12 11h.01M15 11h.01M9 15h.01M12 15h.01M15 15h.01M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
+              </svg>
+              <span className="text-sm font-medium">Calc</span>
+            </a>
             <PageDocsLink href={AZURE_SPEECH_DOCS.voiceLive} />
             <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
               isConnected ? 'bg-green-500/20 text-green-100' : 'bg-white/20 text-white/80'
