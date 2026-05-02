@@ -911,23 +911,29 @@ function FooterReference() {
             {(["Pro", "Standard", "Lite", "BYO"] as const).map((tier) => (
               <div key={tier} className="overflow-hidden rounded-lg border border-slate-200 bg-white/70">
                 <h3 className="border-b border-slate-200 bg-slate-50 px-4 py-3 font-bold text-slate-700">Voice Live {tier}</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-[560px] w-full border-collapse">
+                <div>
+                  <table className="w-full table-fixed border-collapse">
+                    <colgroup>
+                      <col className="w-[30%]" />
+                      <col className="w-[23%]" />
+                      <col className="w-[24%]" />
+                      <col className="w-[23%]" />
+                    </colgroup>
                     <thead>
                       <tr>
-                        <th className="table-cell bg-slate-50">Category</th>
-                        <th className="table-cell bg-slate-50">Input</th>
-                        <th className="table-cell bg-slate-50">Cached input</th>
-                        <th className="table-cell bg-slate-50">Output</th>
+                        <th className="price-table-cell bg-slate-50">Category</th>
+                        <th className="price-table-cell bg-slate-50">Input</th>
+                        <th className="price-table-cell bg-slate-50">Cached input</th>
+                        <th className="price-table-cell bg-slate-50">Output</th>
                       </tr>
                     </thead>
                     <tbody>
                       {rateRows(tier).map((row) => (
                         <tr key={row.label}>
-                          <td className="table-cell font-semibold text-slate-950">{row.label}</td>
+                          <td className="price-table-cell font-semibold text-slate-950">{row.label}</td>
                           {row.values.map((price, index) => {
                             const keys = ["input", "cachedInput", "output"];
-                            return <td className="table-cell" key={keys[index]}><PriceCell tier={tier} category={row.category} priceKey={keys[index]} price={price} /></td>;
+                            return <td className="price-table-cell" key={keys[index]}><PriceCell tier={tier} category={row.category} priceKey={keys[index]} price={price} /></td>;
                           })}
                         </tr>
                       ))}
@@ -951,12 +957,12 @@ function PriceCell({ tier, category, priceKey, price }: { tier: Tier; category: 
   const oldPrice = getOldPrice(tier, category, priceKey);
   const reduced = isReduced(tier, category, priceKey, price);
 
-  if (!reduced || oldPrice == null) return <span className="font-semibold text-slate-700">{formatPrice(price)}</span>;
+  if (!reduced || oldPrice == null) return <span className="whitespace-nowrap font-semibold text-slate-700">{formatPrice(price)}</span>;
 
   return (
-    <span className="inline-flex flex-wrap items-center gap-2">
-      <span className="text-slate-400 line-through decoration-slate-500">{formatPrice(oldPrice)}</span>
-      <span className="font-bold text-emerald-700">{formatPrice(price)}</span>
+    <span className="grid gap-0.5">
+      <span className="whitespace-nowrap text-slate-400 line-through decoration-slate-500">{formatPrice(oldPrice)}</span>
+      <span className="whitespace-nowrap font-bold text-emerald-700">{formatPrice(price)}</span>
     </span>
   );
 }

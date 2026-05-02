@@ -905,6 +905,16 @@ textarea {
   border-color: var(--border-soft) !important;
 }
 
+.theme-shell .voice-live-calculator .price-table-cell {
+  padding: 0.5rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  border-color: var(--border-soft) !important;
+  overflow-wrap: anywhere;
+}
+
 .theme-shell .voice-live-calculator a {
   color: var(--accent) !important;
 }
