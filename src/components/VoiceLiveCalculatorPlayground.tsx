@@ -580,9 +580,8 @@ export function VoiceLiveCalculatorPlayground() {
 
       <div className="voice-live-calculator flex-1 overflow-y-auto px-4 pb-6 sm:px-7">
         <div className="mx-auto grid w-full max-w-[1440px] gap-4 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
-          <div className="grid min-w-0 gap-4">
 
-      <section className="grid gap-3 p-4" aria-label="Quick Start Scenarios">
+      <section className="grid min-w-0 gap-3 p-4 xl:col-start-1 xl:row-start-1" aria-label="Quick Start Scenarios">
         <div>
           <h2 className="text-lg font-bold text-slate-950">Quick Start Scenarios</h2>
           <p className="mt-1 text-xs leading-5 text-slate-500">Select a predefined scenario to populate the form with typical usage patterns.</p>
@@ -611,46 +610,7 @@ export function VoiceLiveCalculatorPlayground() {
         </div>
       </section>
 
-      <section className="grid content-start gap-4 p-4" aria-live="polite">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-slate-950">Estimate</h2>
-            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{PRICING_SOURCE.currency}</span>
-          </div>
-
-          <ModelSelectionSummary config={config} estimate={estimate} />
-
-          {estimate.errors.length > 0 && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-medium leading-5 text-amber-900">
-              {estimate.errors.map((error) => <p key={error}>{error}</p>)}
-            </div>
-          )}
-
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <Metric label="Per turn" value={formatCurrency(estimate.usageCostPerTurn, 5)} helper="Usage only" />
-            <Metric label="Per day" value={estimate.errors.length ? "N/A" : formatCurrency(estimate.totalPerDay)} helper={`${formatNumber(estimate.turnsPerDay)} turns`} />
-            <Metric label="Per month" value={estimate.errors.length ? "N/A" : formatCurrency(estimate.totalPerMonth)} helper="30 day estimate" />
-            <Metric label="Per year" value={estimate.errors.length ? "N/A" : formatCurrency(estimate.totalPerYear)} helper="365 day estimate" />
-          </div>
-
-          <div className="overflow-hidden rounded-lg border border-slate-200">
-            <BreakdownRow label="Text input per turn" value={formatCurrency(estimate.textCostPerTurn, 5)} />
-            <BreakdownRow label="Audio input per turn" value={formatCurrency(estimate.audioInputCostPerTurn, 5)} />
-            <BreakdownRow label="Audio output per turn" value={formatCurrency(estimate.audioOutputCostPerTurn, 5)} />
-            <BreakdownRow label="Usage per day" value={formatCurrency(estimate.usageCostPerDay)} />
-            <BreakdownRow label="Custom hosting per day" value={formatCurrency(estimate.hostingPerDay)} />
-          </div>
-
-          <CompetitiveBenchmark rows={comparisonRows(config, estimate)} />
-
-          {config.avatarType === "interactive" && (
-            <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs font-medium leading-5 text-blue-900">Avatar output is charged separately through Text to Speech Avatar interactive avatar pricing.</p>
-          )}
-        </section>
-
-            <FooterReference />
-          </div>
-
-          <aside className="theme-side-panel p-4 xl:sticky xl:top-0">
+          <aside className="theme-side-panel p-4 xl:sticky xl:top-0 xl:col-start-2 xl:row-span-4 xl:row-start-1">
             <form className="grid gap-3.5" onSubmit={(event) => event.preventDefault()}>
               <div>
                 <h2 className="text-lg font-bold text-slate-950">Usage Parameters</h2>
@@ -723,6 +683,46 @@ export function VoiceLiveCalculatorPlayground() {
               </label>
             </form>
           </aside>
+
+      <section className="grid min-w-0 content-start gap-4 p-4 xl:col-start-1 xl:row-start-2" aria-live="polite">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-slate-950">Estimate</h2>
+            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{PRICING_SOURCE.currency}</span>
+          </div>
+
+          <ModelSelectionSummary config={config} estimate={estimate} />
+
+          {estimate.errors.length > 0 && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-medium leading-5 text-amber-900">
+              {estimate.errors.map((error) => <p key={error}>{error}</p>)}
+            </div>
+          )}
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <Metric label="Per turn" value={formatCurrency(estimate.usageCostPerTurn, 5)} helper="Usage only" />
+            <Metric label="Per day" value={estimate.errors.length ? "N/A" : formatCurrency(estimate.totalPerDay)} helper={`${formatNumber(estimate.turnsPerDay)} turns`} />
+            <Metric label="Per month" value={estimate.errors.length ? "N/A" : formatCurrency(estimate.totalPerMonth)} helper="30 day estimate" />
+            <Metric label="Per year" value={estimate.errors.length ? "N/A" : formatCurrency(estimate.totalPerYear)} helper="365 day estimate" />
+          </div>
+
+          <div className="overflow-hidden rounded-lg border border-slate-200">
+            <BreakdownRow label="Text input per turn" value={formatCurrency(estimate.textCostPerTurn, 5)} />
+            <BreakdownRow label="Audio input per turn" value={formatCurrency(estimate.audioInputCostPerTurn, 5)} />
+            <BreakdownRow label="Audio output per turn" value={formatCurrency(estimate.audioOutputCostPerTurn, 5)} />
+            <BreakdownRow label="Usage per day" value={formatCurrency(estimate.usageCostPerDay)} />
+            <BreakdownRow label="Custom hosting per day" value={formatCurrency(estimate.hostingPerDay)} />
+          </div>
+
+          <CompetitiveBenchmark rows={comparisonRows(config, estimate)} />
+
+          {config.avatarType === "interactive" && (
+            <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs font-medium leading-5 text-blue-900">Avatar output is charged separately through Text to Speech Avatar interactive avatar pricing.</p>
+          )}
+        </section>
+
+            <div className="min-w-0 xl:col-start-1 xl:row-start-3">
+              <FooterReference />
+            </div>
         </div>
       </div>
     </div>
