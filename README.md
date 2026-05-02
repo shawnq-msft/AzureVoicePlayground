@@ -2,7 +2,7 @@
 
 A feature-rich web application showcasing Microsoft Azure's voice and speech AI capabilities. Built with React, TypeScript, and Tailwind CSS.
 
-**Live Demo**: [https://szhaomsft.github.io/AzureVoicePlayground/](https://szhaomsft.github.io/AzureVoicePlayground/)
+**Live Demo**: [https://shawnq-msft.github.io/AzureVoicePlayground/](https://shawnq-msft.github.io/AzureVoicePlayground/)
 
 ## Features
 
@@ -59,6 +59,12 @@ npm run build
 # Deploy to GitHub Pages
 npm run deploy
 ```
+
+## GitHub Pages Deployment
+
+GitHub Pages must publish the Vite production build from `dist`, not the repository root. This repo includes a GitHub Actions workflow at `.github/workflows/deploy-pages.yml` that builds and deploys `dist` whenever `main` is updated.
+
+In the repository settings, set **Pages > Build and deployment > Source** to **GitHub Actions**. If Pages is pointed at the `main` branch root, the site will serve Vite's development `index.html` and fail to load on GitHub Pages.
 
 ## Configuration
 
