@@ -151,6 +151,10 @@ textarea {
     isolation: isolate;
   }
 
+  .theme-app-frame {
+    min-width: 0;
+  }
+
   .theme-shell__halo {
     position: absolute;
     inset: auto;
@@ -978,6 +982,46 @@ textarea {
 }
 
 @media (max-width: 1023px) {
+  html {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  body {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  #root {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .theme-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .theme-app-frame {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .theme-sidebar {
+    flex: 0 0 auto;
+  }
+
+  .theme-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
   .theme-stage__inner,
   .theme-sidebar {
     border-radius: 24px;
@@ -989,6 +1033,95 @@ textarea {
 
   .theme-page-header__inner {
     padding: 1.15rem 1.15rem 0.9rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .theme-app-frame {
+    gap: 0.625rem;
+    padding: 0.625rem;
+  }
+
+  .theme-sidebar {
+    border-radius: 18px;
+    overflow: visible;
+  }
+
+  .theme-sidebar--expanded {
+    max-height: none !important;
+  }
+
+  .theme-sidebar > .relative {
+    height: auto;
+    overflow: visible;
+  }
+
+  .theme-sidebar > .relative > .flex-1 {
+    overflow: visible;
+  }
+
+  .theme-stage__inner {
+    border-radius: 18px;
+    height: auto;
+    min-height: calc(100dvh - 1.25rem);
+    overflow: visible;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .theme-stage__inner > .flex.flex-col {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .theme-stage__inner > .flex.flex-col > .flex-1,
+  .theme-stage__inner > .flex.flex-col > .flex-1 > .flex-1,
+  .theme-stage__inner > .flex.flex-col > .flex-1 > .flex-1 > .flex-1 {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .theme-stage__inner .md\:flex-row {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .theme-stage__inner .overflow-y-auto {
+    overflow-y: visible;
+  }
+
+  .theme-stage__inner .overflow-hidden {
+    overflow: visible;
+  }
+
+  .theme-stage__inner .overflow-x-auto {
+    overflow-x: auto;
+  }
+
+  .theme-side-panel {
+    border-top: 1px solid var(--border-soft);
+    border-left: 0;
+  }
+
+  .theme-page-header__inner {
+    gap: 0.75rem;
+    padding: 0.95rem 0.95rem 0.75rem;
+  }
+
+  .theme-page-title {
+    font-size: 1.55rem;
+    letter-spacing: 0;
+  }
+
+  .theme-page-subtitle {
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  .theme-page-header__actions {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
   }
 }
 

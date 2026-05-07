@@ -258,7 +258,9 @@ export function NavigationSidebar({
   return (
     <div
       className={`theme-sidebar w-full transition-[max-height,width] duration-500 ease-out lg:h-full lg:flex-shrink-0 ${
-        isCollapsed ? 'max-h-[5.75rem] lg:max-h-none lg:w-[5.75rem]' : 'max-h-[45vh] lg:max-h-none lg:w-[20rem]'
+        isCollapsed
+          ? 'theme-sidebar--collapsed max-h-[5.75rem] lg:max-h-none lg:w-[5.75rem]'
+          : 'theme-sidebar--expanded max-h-[40dvh] lg:max-h-none lg:w-[20rem]'
       }`}
     >
       <div className="theme-sidebar__rail" />

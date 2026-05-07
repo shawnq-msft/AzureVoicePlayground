@@ -222,7 +222,7 @@ function App() {
       <div className="theme-shell__halo theme-shell__halo--tertiary" />
       <div className="theme-shell__noise" />
 
-      <div className="relative z-10 flex h-full min-h-0 flex-col gap-3 p-3 md:gap-4 md:p-4 lg:flex-row lg:p-5">
+      <div className="theme-app-frame relative z-10 flex h-full min-h-0 flex-col gap-3 p-3 md:gap-4 md:p-4 lg:flex-row lg:p-5">
         <NavigationSidebar
           activeMode={activePlayground}
           onModeChange={setActivePlayground}
@@ -233,7 +233,7 @@ function App() {
           onThemeToggle={handleThemeToggle}
         />
 
-        <main className="theme-stage min-h-0 flex-1">
+        <main className="theme-stage min-h-0 min-w-0 flex-1">
           <div className="theme-stage__inner">{renderPlayground()}</div>
         </main>
       </div>
