@@ -28,6 +28,7 @@ type Config = {
   averageInputAudioSeconds: number;
   averageOutputAudioSeconds: number;
   averageInputTextTokens: number;
+  averageOutputTextTokens: number;
   textInputCacheRate: number;
   audioInputCacheRate: number;
   serviceMode: ServiceMode;
@@ -128,7 +129,7 @@ const COMPETITOR_PRICING_SOURCE = {
 
 const OPENAI_GPT_REALTIME_RATES = {
   model: "GPT-realtime-1.5",
-  text: { input: 4, cachedInput: 0.4 },
+  text: { input: 4, cachedInput: 0.4, output: 16 },
   audio: { input: 32, cachedInput: 0.4, output: 64 },
 };
 
@@ -196,31 +197,32 @@ const LEGACY_NUMBER_QUERY_MAP: { queryKey: string; configKey: keyof Config }[] =
   { queryKey: "inputAudio", configKey: "averageInputAudioSeconds" },
   { queryKey: "outputAudio", configKey: "averageOutputAudioSeconds" },
   { queryKey: "inputText", configKey: "averageInputTextTokens" },
+  { queryKey: "outputText", configKey: "averageOutputTextTokens" },
   { queryKey: "textCache", configKey: "textInputCacheRate" },
   { queryKey: "audioCache", configKey: "audioInputCacheRate" },
 ];
 
 const PRICE_TABLE: Record<Tier, RateSet> = {
   Pro: {
-    text: { input: 4.4, cachedInput: 1.375, output: 17.6 },
-    audioStandard: { input: 17, cachedInput: 0.44, output: 38 },
-    audioCustom: { input: 40, cachedInput: 0.44, output: 55 },
-    nativeAudio: { input: 35.2, cachedInput: 0.44, output: 70.4 },
+    text: { input: 4, cachedInput: 0.4, output: 16 },
+    audioStandard: { input: 17, cachedInput: 0.4, output: 31 },
+    audioCustom: { input: 40, cachedInput: 0.4, output: 55 },
+    nativeAudio: { input: 32, cachedInput: 0.4, output: 64 },
   },
   Standard: {
     text: { input: 0.66, cachedInput: 0.33, output: 2.64 },
-    audioStandard: { input: 15, cachedInput: 0.33, output: 33 },
+    audioStandard: { input: 15, cachedInput: 0.33, output: 26 },
     audioCustom: { input: 39, cachedInput: 0.33, output: 50 },
     nativeAudio: { input: 11, cachedInput: 0.33, output: 22 },
   },
   Lite: {
     text: { input: 0.11, cachedInput: 0.04, output: 0.44 },
-    audioStandard: { input: 15, cachedInput: 0.04, output: 33 },
+    audioStandard: { input: 15, cachedInput: 0.04, output: 25 },
     audioCustom: { input: null, cachedInput: 0.04, output: 50 },
     nativeAudio: { input: 4, cachedInput: 0.04, output: null },
   },
   BYO: {
-    audioStandard: { input: 12.5, output: 30 },
+    audioStandard: { input: 12.5, output: 23 },
     audioCustom: { input: 36, output: 47 },
   },
 };
@@ -251,28 +253,28 @@ const SCENARIOS: Scenario[] = [
     name: "Customer Service Agent",
     description: "Triage requests and guide resolution.",
     imageUrl: createScenarioImage("flow", "#246bfe", "#28c6ff"),
-    config: { dailyActiveUsers: 2500, averageTurnsPerUser: 8, averageInputAudioSeconds: 12, averageOutputAudioSeconds: 18, averageInputTextTokens: 2800, selectedModel: "gpt-realtime-mini", audioInputType: "standard", audioOutputType: "standard", textInputCacheRate: 45, audioInputCacheRate: 6 },
+    config: { dailyActiveUsers: 2500, averageTurnsPerUser: 8, averageInputAudioSeconds: 12, averageOutputAudioSeconds: 18, averageInputTextTokens: 2800, averageOutputTextTokens: 320, selectedModel: "gpt-realtime-mini", audioInputType: "standard", audioOutputType: "standard", textInputCacheRate: 45, audioInputCacheRate: 6 },
   },
   {
     id: "in-car-assistant",
     name: "In-Car Assistant",
     description: "Handle voice commands and navigation.",
     imageUrl: createScenarioImage("signal", "#14a7a0", "#8be05d"),
-    config: { dailyActiveUsers: 1_000_000, averageTurnsPerUser: 3, averageInputAudioSeconds: 4, averageOutputAudioSeconds: 5, averageInputTextTokens: 650, selectedModel: "gpt-5-nano", audioInputType: "standard", audioOutputType: "standard", textInputCacheRate: 20, audioInputCacheRate: 2 },
+    config: { dailyActiveUsers: 1_000_000, averageTurnsPerUser: 3, averageInputAudioSeconds: 4, averageOutputAudioSeconds: 5, averageInputTextTokens: 650, averageOutputTextTokens: 120, selectedModel: "gpt-5-nano", audioInputType: "standard", audioOutputType: "standard", textInputCacheRate: 20, audioInputCacheRate: 2 },
   },
   {
     id: "talent-interview-agent",
     name: "Talent Interview Agent",
     description: "Run structured prompts and follow-ups.",
     imageUrl: createScenarioImage("matrix", "#7657ff", "#ff7ab6"),
-    config: { dailyActiveUsers: 200, averageTurnsPerUser: 18, averageInputAudioSeconds: 28, averageOutputAudioSeconds: 24, averageInputTextTokens: 5600, selectedModel: "gpt-realtime", audioInputType: "native", audioOutputType: "native", textInputCacheRate: 55, audioInputCacheRate: 12 },
+    config: { dailyActiveUsers: 200, averageTurnsPerUser: 18, averageInputAudioSeconds: 28, averageOutputAudioSeconds: 24, averageInputTextTokens: 5600, averageOutputTextTokens: 520, selectedModel: "gpt-realtime", audioInputType: "native", audioOutputType: "native", textInputCacheRate: 55, audioInputCacheRate: 12 },
   },
   {
     id: "learning-agent",
     name: "Learning Agent",
     description: "Guide lessons, practice, and explanations.",
     imageUrl: createScenarioImage("pulse", "#f5a524", "#ff6b4a"),
-    config: { dailyActiveUsers: 1500, averageTurnsPerUser: 12, averageInputAudioSeconds: 18, averageOutputAudioSeconds: 30, averageInputTextTokens: 4200, selectedModel: "gpt-4o-mini", audioInputType: "standard", audioOutputType: "standard", textInputCacheRate: 50, audioInputCacheRate: 5 },
+    config: { dailyActiveUsers: 1500, averageTurnsPerUser: 12, averageInputAudioSeconds: 18, averageOutputAudioSeconds: 30, averageInputTextTokens: 4200, averageOutputTextTokens: 440, selectedModel: "gpt-4o-mini", audioInputType: "standard", audioOutputType: "standard", textInputCacheRate: 50, audioInputCacheRate: 5 },
   },
 ];
 
@@ -282,6 +284,7 @@ const DEFAULT_CONFIG: Config = {
   averageInputAudioSeconds: 10,
   averageOutputAudioSeconds: 15,
   averageInputTextTokens: 2000,
+  averageOutputTextTokens: 320,
   textInputCacheRate: 50,
   audioInputCacheRate: 5,
   serviceMode: "managed",
@@ -341,6 +344,7 @@ function constrainConfig(config: Config): Config {
     averageInputAudioSeconds: clamp(config.averageInputAudioSeconds, 0, Number.MAX_SAFE_INTEGER),
     averageOutputAudioSeconds: clamp(config.averageOutputAudioSeconds, 0, Number.MAX_SAFE_INTEGER),
     averageInputTextTokens: clamp(config.averageInputTextTokens, 0, Number.MAX_SAFE_INTEGER),
+    averageOutputTextTokens: clamp(config.averageOutputTextTokens, 0, Number.MAX_SAFE_INTEGER),
     textInputCacheRate: clamp(config.textInputCacheRate, 0, 100),
     audioInputCacheRate: clamp(config.audioInputCacheRate, 0, 100),
     audioInputType: !model.nativeAudioInput && config.audioInputType === "native" ? "standard" : config.audioInputType,
@@ -379,13 +383,17 @@ function calculate(config: Config) {
   const errors: string[] = [];
   let tier: Tier = model.tier;
   let textCostPerTurn = 0;
+  let textInputCostPerTurn = 0;
+  let textOutputCostPerTurn = 0;
   let audioInputCostPerTurn = 0;
   let audioOutputCostPerTurn = 0;
 
   if (config.serviceMode === "managed") {
     const rateSet = PRICE_TABLE[tier];
     const text = rateSet.text!;
-    textCostPerTurn = textRegularTokens * toPerToken(text.input) + textCachedTokens * toPerToken(text.cachedInput);
+    textInputCostPerTurn = textRegularTokens * toPerToken(text.input) + textCachedTokens * toPerToken(text.cachedInput);
+    textOutputCostPerTurn = config.averageOutputTextTokens * toPerToken(text.output);
+    textCostPerTurn = textInputCostPerTurn + textOutputCostPerTurn;
 
     const inputCategory = config.audioInputType === "native" ? "nativeAudio" : config.audioInputType === "custom" ? "audioCustom" : "audioStandard";
     const outputCategory = config.audioOutputType === "native" ? "nativeAudio" : config.audioOutputType === "custom" ? "audioCustom" : "audioStandard";
@@ -426,7 +434,10 @@ function calculate(config: Config) {
     turnsPerDay,
     inputAudioTokens,
     outputAudioTokens,
+    outputTextTokens: config.averageOutputTextTokens,
     textCostPerTurn,
+    textInputCostPerTurn,
+    textOutputCostPerTurn,
     audioInputCostPerTurn,
     audioOutputCostPerTurn,
     usageCostPerTurn,
@@ -510,6 +521,7 @@ function comparisonRows(config: Config, estimate: ReturnType<typeof calculate>) 
   const openAiPerTurn =
     textRegularTokens * toPerToken(OPENAI_GPT_REALTIME_RATES.text.input) +
     textCachedTokens * toPerToken(OPENAI_GPT_REALTIME_RATES.text.cachedInput) +
+    config.averageOutputTextTokens * toPerToken(OPENAI_GPT_REALTIME_RATES.text.output) +
     audioRegularTokens * toPerToken(OPENAI_GPT_REALTIME_RATES.audio.input) +
     audioCachedTokens * toPerToken(OPENAI_GPT_REALTIME_RATES.audio.cachedInput) +
     estimate.outputAudioTokens * toPerToken(OPENAI_GPT_REALTIME_RATES.audio.output);
@@ -622,7 +634,8 @@ export function VoiceLiveCalculatorPlayground() {
                 <NumberField label="Average Turns per User" helper="Average conversation turns per user per day." value={config.averageTurnsPerUser} min={1} step={1} onChange={(value) => updateNumber("averageTurnsPerUser", value)} />
                 <NumberField label="Average Input Audio (seconds)" helper="Average length of user speech per turn." value={config.averageInputAudioSeconds} min={0} step={0.5} onChange={(value) => updateNumber("averageInputAudioSeconds", value)} />
                 <NumberField label="Average Output Audio (seconds)" helper="Average length of AI response per turn." value={config.averageOutputAudioSeconds} min={0} step={0.5} onChange={(value) => updateNumber("averageOutputAudioSeconds", value)} />
-                <NumberField label="Average Input Text (tokens)" helper="Average text input, prompt, and context in tokens per turn." value={config.averageInputTextTokens} min={0} step={100} onChange={(value) => updateNumber("averageInputTextTokens", value)} />
+                <NumberField label="Average Input Text (tokens)" helper="Average total text tokens sent each turn, including prompt, user text, and conversation history." value={config.averageInputTextTokens} min={0} step={100} onChange={(value) => updateNumber("averageInputTextTokens", value)} />
+                <NumberField label="Average Output Text (tokens)" helper="Average assistant text output tokens generated per turn." value={config.averageOutputTextTokens} min={0} step={50} onChange={(value) => updateNumber("averageOutputTextTokens", value)} />
                 <NumberField label="Text Input Cache Rate (%)" helper="Percentage of text input that uses cached tokens." value={config.textInputCacheRate} min={0} max={100} step={1} onChange={(value) => updateNumber("textInputCacheRate", value)} />
                 <NumberField label="Audio Input Cache Rate (%)" helper="Percentage of audio input that uses cached tokens." value={config.audioInputCacheRate} min={0} max={100} step={1} onChange={(value) => updateNumber("audioInputCacheRate", value)} />
               </div>
@@ -706,7 +719,8 @@ export function VoiceLiveCalculatorPlayground() {
           </div>
 
           <div className="overflow-hidden rounded-lg border border-slate-200">
-            <BreakdownRow label="Text input per turn" value={formatCurrency(estimate.textCostPerTurn, 5)} />
+            <BreakdownRow label="Text input per turn" value={formatCurrency(estimate.textInputCostPerTurn, 5)} />
+            <BreakdownRow label="Text output per turn" value={formatCurrency(estimate.textOutputCostPerTurn, 5)} />
             <BreakdownRow label="Audio input per turn" value={formatCurrency(estimate.audioInputCostPerTurn, 5)} />
             <BreakdownRow label="Audio output per turn" value={formatCurrency(estimate.audioOutputCostPerTurn, 5)} />
             <BreakdownRow label="Usage per day" value={formatCurrency(estimate.usageCostPerDay)} />
@@ -767,7 +781,7 @@ function ModelSelectionSummary({ config, estimate }: { config: Config; estimate:
         <SelectionDetail label="Text pricing" value={textRates ? `${formatPrice(textRates.input)} input` : "Priced outside Voice Live"} helper={textRates ? `${formatPrice(textRates.cachedInput)} cached input / ${formatPrice(textRates.output)} output` : "BYO mode only includes speech layer pricing here."} />
         <SelectionDetail label="Audio input path" value={labelForAudio(inputAudioType)} helper={`${formatNumber(tokensPerSecond(inputAudioType, "input"))} tokens/sec - ${formatPrice(inputRates?.input)} regular${inputRates?.cachedInput != null ? ` / ${formatPrice(inputRates.cachedInput)} cached` : ""}`} />
         <SelectionDetail label="Audio output path" value={labelForAudio(outputAudioType)} helper={`${formatNumber(tokensPerSecond(outputAudioType, "output"))} tokens/sec - ${formatPrice(outputRates?.output)} output`} />
-        <SelectionDetail label="Cache assumptions" value={`${formatNumber(config.textInputCacheRate)}% text / ${formatNumber(config.audioInputCacheRate)}% audio`} helper="Applied to input tokens before per-turn and monthly estimates." />
+        <SelectionDetail label="Cache assumptions" value={`${formatNumber(config.textInputCacheRate)}% text / ${formatNumber(config.audioInputCacheRate)}% audio`} helper="Text input includes prompt, user text, and conversation history." />
       </div>
     </section>
   );
