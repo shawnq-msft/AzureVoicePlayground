@@ -992,8 +992,7 @@ textarea {
   body {
     height: auto;
     min-height: 100%;
-    overflow-x: hidden;
-    overflow-y: visible;
+    overflow: visible;
   }
 
   #root {
@@ -1005,12 +1004,15 @@ textarea {
   .theme-shell {
     height: auto;
     min-height: 100dvh;
-    overflow: visible;
+    overflow-x: clip;
+    overflow-y: visible;
   }
 
   .theme-app-frame {
     height: auto;
     min-height: 100dvh;
+    overflow-x: clip;
+    overflow-y: visible;
   }
 
   .theme-sidebar {
@@ -1064,7 +1066,8 @@ textarea {
     border-radius: 18px;
     height: auto;
     min-height: calc(100dvh - 1.25rem);
-    overflow: visible;
+    overflow-x: clip;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
   }
 
