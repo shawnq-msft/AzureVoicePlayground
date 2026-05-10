@@ -7,6 +7,9 @@ import { FastTranscript, TranscriptSegment, WordTiming } from '../types/transcri
 import { STTState } from '../types/stt';
 import { convertToWav16kHz } from '../utils/audioConversion';
 
+const MAI_TRANSCRIBE_MODEL = 'mai-transcribe-1';
+const MAI_TRANSCRIBE_MAX_FILE_SIZE_BYTES = 70 * 1024 * 1024;
+
 // MAI-Transcribe-1 supported languages (25 languages)
 export const MAI_TRANSCRIBE_LANGUAGES = [
   { code: 'ar-SA', name: 'Arabic', nativeName: 'العربية' },
@@ -45,6 +48,12 @@ interface UseMAITranscribeReturn {
   reset: () => void;
 }
 
+interface TranscriptionApiError extends Error {
+  status?: number;
+  code?: string;
+  responseText?: string;
+}
+
 /**
  * Hook for MAI-Transcribe-1 speech transcription via LLM Speech API
  */
@@ -63,9 +72,9 @@ export function useMAITranscribe(settings: AzureSettings): UseMAITranscribeRetur
       setError('');
       setProgress(0);
 
-      // Validate file size (300 MB limit)
-      if (audioFile.size > 300 * 1024 * 1024) {
-        throw new Error('Audio file must be less than 300 MB for MAI-Transcribe-1');
+      // Validate file size (70 MB limit)
+      if (audioFile.size > MAI_TRANSCRIBE_MAX_FILE_SIZE_BYTES) {
+        throw new Error('Audio file must be less than 70 MB for MAI-Transcribe-1');
       }
 
       setProgress(10);
@@ -74,42 +83,29 @@ export function useMAITranscribe(settings: AzureSettings): UseMAITranscribeRetur
       const wavBlob = await convertToWav16kHz(audioFile);
       setProgress(30);
 
-      // Build the definition object for MAI-Transcribe-1
-      const definition: Record<string, any> = {
-        enhancedMode: {
-          enabled: true,
-          model: 'mai-transcribe-1',
-        }
-      };
-
       // Call LLM Speech API endpoint with MAI-Transcribe-1 model
       const endpoint = `https://${settings.region}.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15`;
 
       setProgress(50);
 
-      // Create FormData with audio and definition
-      const formData = new FormData();
-      formData.append('audio', wavBlob, 'audio.wav');
-      formData.append('definition', JSON.stringify(definition));
-
+      const definition = buildMAITranscribeDefinition(language, true);
       console.log('MAI-Transcribe-1 API Request:', definition);
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Ocp-Apim-Subscription-Key': settings.apiKey,
-        },
-        body: formData
-      });
+      let result: any;
+      try {
+        result = await postTranscription(endpoint, settings.apiKey, wavBlob, definition);
+      } catch (err: any) {
+        if (!isEnhancedModelUnsupportedError(err)) {
+          throw err;
+        }
 
-      setProgress(70);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API request failed (${response.status}): ${errorText}`);
+        const fallbackDefinition = buildMAITranscribeDefinition(language, false);
+        console.warn('MAI-Transcribe-1 model flag is not supported by this API/resource yet; retrying enhanced transcription without model.', err.responseText || err.message);
+        console.log('MAI-Transcribe-1 API Fallback Request:', fallbackDefinition);
+        result = await postTranscription(endpoint, settings.apiKey, wavBlob, fallbackDefinition);
       }
 
-      const result = await response.json();
+      setProgress(70);
       setProgress(90);
 
       console.log('MAI-Transcribe-1 API Response:', result);
@@ -142,6 +138,77 @@ export function useMAITranscribe(settings: AzureSettings): UseMAITranscribeRetur
     transcribe,
     reset
   };
+}
+
+function buildMAITranscribeDefinition(language: string, includeModel: boolean): Record<string, any> {
+  const definition: Record<string, any> = {
+    enhancedMode: {
+      enabled: true,
+    }
+  };
+
+  if (includeModel) {
+    definition.enhancedMode.model = MAI_TRANSCRIBE_MODEL;
+  } else {
+    definition.enhancedMode.task = 'transcribe';
+  }
+
+  if (language !== 'auto') {
+    definition.locales = [language.split('-')[0].toLowerCase()];
+  }
+
+  return definition;
+}
+
+async function postTranscription(
+  endpoint: string,
+  apiKey: string,
+  wavBlob: Blob,
+  definition: Record<string, any>
+): Promise<any> {
+  const formData = new FormData();
+  formData.append('audio', wavBlob, 'audio.wav');
+  formData.append('definition', JSON.stringify(definition));
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Ocp-Apim-Subscription-Key': apiKey,
+    },
+    body: formData
+  });
+
+  if (!response.ok) {
+    throw await createApiError(response);
+  }
+
+  return response.json();
+}
+
+async function createApiError(response: Response): Promise<TranscriptionApiError> {
+  const responseText = await response.text();
+  let code: string | undefined;
+  let message = responseText;
+
+  try {
+    const parsed = JSON.parse(responseText);
+    code = parsed.code;
+    message = parsed.message || responseText;
+  } catch {
+    // Keep the raw response text when the service doesn't return JSON.
+  }
+
+  const error = new Error(`API request failed (${response.status}): ${message}`) as TranscriptionApiError;
+  error.status = response.status;
+  error.code = code;
+  error.responseText = responseText;
+  return error;
+}
+
+function isEnhancedModelUnsupportedError(error: TranscriptionApiError): boolean {
+  return error.status === 400 &&
+    error.code === 'InvalidRequest' &&
+    error.responseText?.includes('Enhanced mode with model is currently not supported yet') === true;
 }
 
 /**
