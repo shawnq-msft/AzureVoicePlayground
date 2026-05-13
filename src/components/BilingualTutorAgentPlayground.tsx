@@ -127,6 +127,18 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   const startStreamRef = useRef(assessment.startStream);
   useEffect(() => { startStreamRef.current = assessment.startStream; }, [assessment.startStream]);
 
+  const stopLocalConversation = () => {
+    audioHandlerRef.current?.stopRecording();
+    audioHandlerRef.current?.stopStreamingPlayback();
+    setIsRecording(false);
+    setIsSpeaking(false);
+    isSpeakingRef.current = false;
+    paSessionRef.current?.cancel();
+    paSessionRef.current = null;
+    prerollChunksRef.current = [];
+    prerollBytesRef.current = 0;
+  };
+
   const clientRef = useRef<VoiceLiveChatClient | null>(null);
   const assessLastTurnRef = useRef<(messageId: string, transcript: string) => Promise<void>>(async () => {});
   if (!clientRef.current) {
@@ -142,6 +154,10 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
         setMessages(state.messages);
         setStatusText(state.statusText || 'Ready');
         setSessionId(state.sessionId);
+        if (!state.isConnected) {
+          stopLocalConversation();
+          return;
+        }
         if (!wasSpeaking && state.isSpeaking) {
           // Consume reference text on use: snapshot the latest model-set value, then clear.
           const turnReferenceText = referenceTextRef.current;
@@ -246,12 +262,7 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   }, [chatClient]);
 
   const stopConversation = async () => {
-    audioHandlerRef.current?.stopRecording();
-    setIsRecording(false);
-    paSessionRef.current?.cancel();
-    paSessionRef.current = null;
-    prerollChunksRef.current = [];
-    prerollBytesRef.current = 0;
+    stopLocalConversation();
   };
 
   const handleConnect = async () => {
@@ -324,7 +335,9 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
       });
       setIsRecording(true);
       chatClient.addStatusMessage('Conversation started. Start speaking.');
-      await chatClient.addSystemText('Greet briefly, teach one L1 concept, then call set_reference_text before one short L2 repeat phrase.');
+      await chatClient.addSystemText(
+        'Greet briefly in L1, randomly propose one practical topic for today, and say the learner can choose another topic. Do not call set_reference_text unless you ask them to repeat a specific L2 phrase.',
+      );
       await chatClient.requestResponse();
     } catch (error) {
       setStatusText(error instanceof Error ? error.message : String(error));
