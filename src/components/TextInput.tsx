@@ -188,8 +188,10 @@ export function TextInput({
     return null;
   };
 
+  const isHDVoice = selectedVoice?.includes('DragonHD') && !personalVoiceInfo?.isPersonalVoice;
+
   // Generate SSML from plain text
-  const generateSSML = () => {
+  const generateSSML = (enhancePronunciation = false) => {
     // Use preset language selection, or detect from text, or fall back to voice language
     const detectedLanguage = detectLanguageFromText(text);
     const ssmlLocale = selectedPresetLanguage || detectedLanguage || currentLanguage || 'en-US';
@@ -204,12 +206,21 @@ export function TextInput({
       );
     }
 
+    const voiceParameters = enhancePronunciation && isHDVoice
+      ? ' parameters="enhancePronunciation=true"'
+      : '';
+
     // Regular voice SSML
     return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${ssmlLocale}">
-  <voice name="${selectedVoice}">
+  <voice name="${selectedVoice}"${voiceParameters}>
     ${text}
   </voice>
 </speak>`;
+  };
+
+  const handleEnhancePronunciation = () => {
+    onSsmlTextChange(generateSSML(true));
+    onSsmlModeChange(true);
   };
 
   const displayText = ssmlMode ? ssmlText : text;
@@ -371,6 +382,16 @@ export function TextInput({
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Regenerate SSML
+          </button>
+        )}
+        {isHDVoice && (
+          <button
+            onClick={handleEnhancePronunciation}
+            disabled={!text}
+            className="px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Generate SSML with enhancePronunciation=true for HD voices"
+          >
+            Enhance Pronunciation
           </button>
         )}
         <button

@@ -64,7 +64,7 @@ export function useWERTest(settings: AzureSettings): UseWERTestReturn {
         }
 
         speechConfig.speechSynthesisOutputFormat =
-          SpeechSDK.SpeechSynthesisOutputFormat.Audio48Khz192KBitRateMonoMp3;
+          SpeechSDK.SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3;
 
         // Use null audio config to get audio data without playback
         const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig, null as any);

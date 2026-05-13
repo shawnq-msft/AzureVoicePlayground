@@ -14,7 +14,7 @@ function deriveConfigKey(settings: AzureSettings): PoolConfigKey | null {
     apiKey: settings.apiKey,
     region: settings.region,
     voiceName: isPersonalVoice ? null : (settings.selectedVoice || null),
-    outputFormat: SpeechSDK.SpeechSynthesisOutputFormat.Audio48Khz192KBitRateMonoMp3,
+    outputFormat: SpeechSDK.SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3,
   };
 }
 
