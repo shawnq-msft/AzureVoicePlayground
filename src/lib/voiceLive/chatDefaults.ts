@@ -15,6 +15,12 @@ export interface AvatarConfig {
   customAvatarName?: string;
 }
 
+export interface VoiceLiveFunctionTool {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
 export interface VoiceLiveChatConfig {
   endpoint: string;
   apiKey: string;
@@ -37,6 +43,7 @@ export interface VoiceLiveChatConfig {
     enableDateTime: boolean;
     enableWeatherForecast: boolean;
   };
+  customTools?: VoiceLiveFunctionTool[];
 }
 
 export const PERSONAL_VOICE_MODELS = [
@@ -278,5 +285,6 @@ export interface ChatMessage {
   id: string;
   type: 'user' | 'assistant' | 'status' | 'error';
   content: string;
+  contentHtml?: string;
   timestamp: number;
 }

@@ -16,6 +16,7 @@ export class ChatAudioHandler {
   private dataArray: Uint8Array<ArrayBuffer> | null = null;
   private animationFrameId: number | null = null;
   private circleElement: HTMLElement | null = null;
+  private visualLevel = 0;
 
   constructor() {
     this.context = new AudioContext({ sampleRate: this.sampleRate });
@@ -198,16 +199,23 @@ export class ChatAudioHandler {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+
+    this.visualLevel = 0;
+    if (this.circleElement) {
+      this.circleElement.style.transform = 'scale(1)';
+      this.circleElement.style.boxShadow = '';
+    }
   }
 
   private updateCircle(volume: number, type: 'record' | 'play') {
     if (!this.circleElement) return;
 
-    const minSize = 120;
-    const size = minSize + volume * 0.8;
-
     // Normalize volume to 0-1 range for color interpolation
-    const intensity = Math.min(volume / 128, 1);
+    const targetLevel = Math.min(volume / 96, 1);
+    const response = type === 'record' ? 0.38 : 0.32;
+    this.visualLevel += (targetLevel - this.visualLevel) * response;
+    const intensity = this.visualLevel;
+    const scale = 1 + intensity * 0.18;
 
     // Colorful gradients based on type and intensity
     let gradient: string;
@@ -228,8 +236,9 @@ export class ChatAudioHandler {
     }
 
     this.circleElement.style.background = gradient;
-    this.circleElement.style.width = `${size}px`;
-    this.circleElement.style.height = `${size}px`;
+    this.circleElement.style.transform = `scale(${scale.toFixed(3)})`;
+    this.circleElement.style.transformOrigin = 'center';
+    this.circleElement.style.transition = 'transform 70ms ease-out, box-shadow 70ms ease-out, background 120ms linear';
     this.circleElement.style.boxShadow = `0 0 ${20 + intensity * 30}px rgba(${type === 'record' ? '20, 184, 166' : '168, 85, 247'}, ${0.3 + intensity * 0.4})`;
   }
 
@@ -237,6 +246,8 @@ export class ChatAudioHandler {
     this.stopAnimation();
     this.stopRecording();
     this.stopStreamingPlayback();
-    await this.context.close();
+    if (this.context.state !== 'closed') {
+      await this.context.close();
+    }
   }
 }

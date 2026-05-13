@@ -19,6 +19,7 @@ import { VideoTranslationPlayground } from './components/VideoTranslationPlaygro
 import { StoryLandAgentPlayground } from './components/StoryLandAgentPlayground';
 import { PodcastAgentPlayground } from './components/PodcastAgentPlayground';
 import { GeminiLivePlayground } from './components/GeminiLivePlayground';
+import { BilingualTutorAgentPlayground } from './components/BilingualTutorAgentPlayground';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -37,6 +38,7 @@ const VALID_MODES: PlaygroundMode[] = [
   'voice-live-calculator',
   'storyland-agent',
   'podcast-agent',
+  'bilingual-tutor-agent',
   'gemini-live',
 ];
 
@@ -206,6 +208,12 @@ function App() {
             addToHistory={podcastHistory.addToHistory}
             removeFromHistory={podcastHistory.removeFromHistory}
             clearHistory={podcastHistory.clearHistory}
+          />
+        );
+      case 'bilingual-tutor-agent':
+        return (
+          <BilingualTutorAgentPlayground
+            settings={settings}
           />
         );
       case 'gemini-live':

@@ -131,6 +131,17 @@ const playgroundModes: { mode: PlaygroundMode; label: string; icon: React.ReactN
     ),
   },
   {
+    mode: 'bilingual-tutor-agent',
+    label: 'Bilingual Tutor Agent',
+    category: 'agent',
+    icon: (
+      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422A12.083 12.083 0 0118.75 17.5 11.95 11.95 0 0112 20.055 11.95 11.95 0 015.25 17.5a12.083 12.083 0 01.59-6.922L12 14z" />
+      </svg>
+    ),
+  },
+  {
     mode: 'voice-live-chat',
     label: 'Voice Live Chat',
     category: 'agent',
@@ -186,7 +197,7 @@ export function NavigationSidebar({
   const logoSrc = `${import.meta.env.BASE_URL}azure-logo.png`;
   const buildDateLabel = BUILD_TIMESTAMP.split('T')[0];
 
-  const isVoiceLiveMode = activeMode === 'voice-live-chat' || activeMode === 'voice-live-translator';
+  const isVoiceLiveMode = activeMode === 'voice-live-chat' || activeMode === 'voice-live-translator' || activeMode === 'bilingual-tutor-agent';
   const supportsSidebarConfig = activeMode !== 'gemini-live' && activeMode !== 'voice-live-calculator' && activeMode !== 'storyland-agent';
   const hasSpeechConfig = settings.apiKey.trim() !== '' && settings.region.trim() !== '';
   const hasVoiceLiveConfig = (settings.voiceLiveEndpoint || '').trim() !== '' && (settings.voiceLiveApiKey || '').trim() !== '';

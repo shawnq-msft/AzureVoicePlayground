@@ -143,6 +143,44 @@ textarea {
   font: inherit;
 }
 
+.pa-word {
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.18rem;
+  font-weight: 600;
+}
+
+.pa-word-good {
+  background: rgba(34, 197, 94, 0.16);
+  color: #166534;
+}
+
+.pa-word-fair {
+  background: rgba(245, 158, 11, 0.2);
+  color: #92400e;
+}
+
+.pa-word-bad {
+  background: rgba(239, 68, 68, 0.16);
+  color: #991b1b;
+}
+
+.pa-word-omission {
+  background: rgba(148, 163, 184, 0.24);
+  color: #475569;
+  text-decoration: line-through;
+}
+
+.pa-word-insertion {
+  background: rgba(168, 85, 247, 0.16);
+  color: #6b21a8;
+}
+
+:root[data-theme='dark'] .pa-word-good { color: #86efac; }
+:root[data-theme='dark'] .pa-word-fair { color: #fcd34d; }
+:root[data-theme='dark'] .pa-word-bad { color: #fca5a5; }
+:root[data-theme='dark'] .pa-word-omission { color: #cbd5e1; }
+:root[data-theme='dark'] .pa-word-insertion { color: #d8b4fe; }
+
 @layer components {
   .theme-shell {
     position: relative;
