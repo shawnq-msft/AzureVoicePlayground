@@ -193,15 +193,16 @@ export class VoiceLiveChatClient {
     }
   }
 
-  private async createResponse() {
+  private async createResponse(additionalInstructions?: string) {
     if (!this.session) throw new Error('Not connected');
     await this.session.sendEvent({
       type: 'response.create',
       response: { modalities: ['text', 'audio'] },
+      additionalInstructions: additionalInstructions,
     });
   }
 
-  private async sendPendingFunctionResult() {
+  private async sendPendingFunctionResult(skipResponse = false) {
     if (this.pendingFunctionResult && this.session) {
       console.log('[VoiceLive Chat] Sending pending function result to server...');
       const { callId, output } = this.pendingFunctionResult;
@@ -213,11 +214,15 @@ export class VoiceLiveChatClient {
         output: output,
       } as any);
 
-      console.log('[VoiceLive Chat] Triggering response for function result...');
-      await this.session.sendEvent({
-        type: 'response.create',
-        response: { modalities: ['text', 'audio'] },
-      });
+      if (!skipResponse) {
+        console.log('[VoiceLive Chat] Triggering response for function result...');
+        await this.session.sendEvent({
+          type: 'response.create',
+          response: { modalities: ['text', 'audio'] },
+        });
+      } else {
+        console.log('[VoiceLive Chat] Skipping response.create — response already contained audio/text.');
+      }
     }
   }
 
@@ -358,6 +363,7 @@ export class VoiceLiveChatClient {
         type: config.turnDetectionType,
         removeFillerWords: config.removeFillerWords,
         createResponse: !config.asrOnly,
+        ...(config.turnDetection ?? {}),
       },
       temperature,
       inputAudioNoiseReduction: config.useNoiseSuppression
@@ -820,12 +826,16 @@ export class VoiceLiveChatClient {
 
         this.currentResponseText = '';
         this.currentResponseId = '';
+        // If the response already produced audio/text AND has a pending function
+        // result, submit the function result to keep conversation history complete
+        // but skip triggering a second response — the first one is the real content.
+        const hadContent = Boolean(this.currentResponseMessageId);
         this.currentResponseMessageId = '';
 
         // If there's a pending function result, send it now
         if (this.pendingFunctionResult) {
           console.log('[VoiceLive Chat] Response complete, sending pending function result...');
-          await this.sendPendingFunctionResult();
+          await this.sendPendingFunctionResult(hadContent);
         }
 
         // Notify that response is complete (before resetting latency)
@@ -925,8 +935,8 @@ export class VoiceLiveChatClient {
     } as any);
   }
 
-  async requestResponse() {
-    await this.createResponse();
+  async requestResponse(additionalInstructions?: string) {
+    await this.createResponse(additionalInstructions);
   }
 
   async sendAudio(pcm16leBytes: Uint8Array) {

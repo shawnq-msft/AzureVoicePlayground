@@ -44,6 +44,13 @@ export interface VoiceLiveChatConfig {
     enableWeatherForecast: boolean;
   };
   customTools?: VoiceLiveFunctionTool[];
+  turnDetection?: {
+    type: 'server_vad' | 'azure_semantic_vad';
+    threshold?: number;
+    prefixPaddingInMs?: number;
+    silenceDurationInMs?: number;
+    createResponse?: boolean;
+  };
 }
 
 export const PERSONAL_VOICE_MODELS = [

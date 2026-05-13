@@ -7,10 +7,11 @@ import {
   BILINGUAL_TUTOR_LANGUAGES,
   getBilingualTutorPrompt,
   getLanguageByValue,
+  SET_REFERENCE_TEXT_TOOL,
   type BilingualTutorLevel,
 } from '../lib/bilingualTutor';
 import { useFeatureFlags } from '../hooks/useFeatureFlags';
-import { usePronunciationAssessment } from '../hooks/usePronunciationAssessment';
+import { usePronunciationAssessment, type PronunciationAssessmentSession } from '../hooks/usePronunciationAssessment';
 import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
 import { notifySidebarConfigAttention } from '../utils/sidebarConfigAttention';
 
@@ -26,20 +27,10 @@ const LEVELS: { value: BilingualTutorLevel; label: string }[] = [
   { value: 'advanced', label: 'Advanced' },
 ];
 
-const SET_REFERENCE_TEXT_TOOL = {
-  name: 'set_reference_text',
-  description: 'Set the exact target phrase or sentence the learner should repeat next. Use this before asking the learner to repeat a phrase.',
-  parameters: {
-    type: 'object',
-    properties: {
-      reference_text: {
-        type: 'string',
-        description: 'The exact phrase or sentence to use as pronunciation assessment reference text.',
-      },
-    },
-    required: ['reference_text'],
-  },
-};
+// Silence duration that ends a learner turn. Shared between Voice Live server VAD
+// (turnDetection.silenceDurationInMs) and the pronunciation assessment recognizer
+// (Speech_SegmentationSilenceTimeoutMs) so both segment learner turns identically.
+const SILENCE_TIMEOUT_MS = 1000;
 
 function loadConfig() {
   try {
@@ -53,41 +44,6 @@ function loadConfig() {
   } catch {
     return {};
   }
-}
-
-function concatChunks(chunks: Uint8Array[]) {
-  const total = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
-  const output = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return output;
-}
-
-function encodePcm16Wav(pcm16Bytes: Uint8Array, sampleRate: number) {
-  const buffer = new ArrayBuffer(44 + pcm16Bytes.byteLength);
-  const view = new DataView(buffer);
-  const writeString = (offset: number, value: string) => {
-    for (let i = 0; i < value.length; i += 1) view.setUint8(offset + i, value.charCodeAt(i));
-  };
-
-  writeString(0, 'RIFF');
-  view.setUint32(4, 36 + pcm16Bytes.byteLength, true);
-  writeString(8, 'WAVE');
-  writeString(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeString(36, 'data');
-  view.setUint32(40, pcm16Bytes.byteLength, true);
-  new Uint8Array(buffer, 44).set(pcm16Bytes);
-  return new Blob([buffer], { type: 'audio/wav' });
 }
 
 function messageClasses(type: ChatMessage['type']) {
@@ -123,7 +79,10 @@ function buildPronunciationHtml(rawJson: string, fallbackText: string) {
       else if (errorType === 'Insertion') className = 'pa-word pa-word-insertion';
       else if (score < 60) className = 'pa-word pa-word-bad';
       else if (score < 80) className = 'pa-word pa-word-fair';
-      return `<span class="${className}" title="Score: ${Math.round(score)}, Error: ${escapeHtml(errorType)}">${escapeHtml(text)}</span>`;
+      const title = errorType === 'Omission'
+        ? `Error: ${escapeHtml(errorType)}`
+        : `Score: ${Math.round(score)}, Error: ${escapeHtml(errorType)}`;
+      return `<span class="${className}" title="${title}">${escapeHtml(text)}</span>`;
     }).join(' ');
   } catch {
     return escapeHtml(fallbackText);
@@ -156,11 +115,17 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   const circleRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const isSpeakingRef = useRef(false);
-  const speechChunksRef = useRef<Uint8Array[]>([]);
+  const paSessionRef = useRef<PronunciationAssessmentSession | null>(null);
+  // Rolling pre-roll buffer of recent mic chunks. We drain it into the PA session
+  // at speech-start to recover audio that the server-side VAD missed before firing.
+  const prerollChunksRef = useRef<Uint8Array[]>([]);
+  const prerollBytesRef = useRef(0);
+  const PREROLL_MS = 800;
   const referenceTextRef = useRef(referenceText);
-  const activeReferenceTextRef = useRef('');
   const targetLocaleRef = useRef(getLanguageByValue(l2).locale);
   const assessment = usePronunciationAssessment(settings);
+  const startStreamRef = useRef(assessment.startStream);
+  useEffect(() => { startStreamRef.current = assessment.startStream; }, [assessment.startStream]);
 
   const clientRef = useRef<VoiceLiveChatClient | null>(null);
   const assessLastTurnRef = useRef<(messageId: string, transcript: string) => Promise<void>>(async () => {});
@@ -170,15 +135,37 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
         const wasSpeaking = isSpeakingRef.current;
         isSpeakingRef.current = state.isSpeaking;
         setIsConnected(state.isConnected);
-        setIsRecording(state.isRecording);
+        // Do NOT sync isRecording from chatClient: recording is owned by ChatAudioHandler
+        // here, while chatClient.state.isRecording stays false. Overwriting it would flip
+        // the Start/Stop button back to "Start" right after we set it to "Stop".
         setIsSpeaking(state.isSpeaking);
         setMessages(state.messages);
         setStatusText(state.statusText || 'Ready');
         setSessionId(state.sessionId);
         if (!wasSpeaking && state.isSpeaking) {
-          speechChunksRef.current = [];
-          activeReferenceTextRef.current = referenceTextRef.current;
+          // Consume reference text on use: snapshot the latest model-set value, then clear.
+          const turnReferenceText = referenceTextRef.current;
           referenceTextRef.current = '';
+          setReferenceText('');
+          // Cancel any leftover session (e.g. previous turn ended without transcript).
+          paSessionRef.current?.cancel();
+          try {
+            const session = startStreamRef.current({
+              referenceText: turnReferenceText,
+              language: targetLocaleRef.current,
+              enableProsodyAssessment: true,
+              enableMiscue: turnReferenceText.length > 0,
+              sampleRate: audioHandlerRef.current?.getSampleRate() ?? 24000,
+              silenceTimeoutMs: SILENCE_TIMEOUT_MS,
+            });
+            // Drain pre-roll: server VAD fires after speech has already started,
+            // so prepend the most recent ~PREROLL_MS of mic audio to recover the head.
+            for (const chunk of prerollChunksRef.current) session.pushAudio(chunk);
+            paSessionRef.current = session;
+          } catch (error) {
+            console.warn('Failed to start PA stream:', error);
+            paSessionRef.current = null;
+          }
         }
       },
       onUserTranscriptComplete: async (messageId, transcript) => {
@@ -208,30 +195,22 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   const hasVoiceLiveConfig = Boolean(settings.voiceLiveEndpoint?.trim() && settings.voiceLiveApiKey?.trim() && !voiceLiveApiKeyLooksInvalid);
 
   const assessLastTurn = useCallback(async (messageId: string, transcript: string) => {
-    const chunks = speechChunksRef.current;
-    speechChunksRef.current = [];
-    if (chunks.length === 0) {
+    const session = paSessionRef.current;
+    paSessionRef.current = null;
+    if (!session) {
       await chatClient.requestResponse();
       return;
     }
 
-    const wavBlob = encodePcm16Wav(concatChunks(chunks), audioHandlerRef.current?.getSampleRate() ?? 24000);
-    const turnReferenceText = activeReferenceTextRef.current;
-    activeReferenceTextRef.current = '';
-    const result = await assessment.assess({
-      audioSource: wavBlob,
-      referenceText: turnReferenceText,
-      language: targetLocaleRef.current,
-      enableProsodyAssessment: true,
-      enableMiscue: turnReferenceText.trim().length > 0,
-    });
+    const result = await session.stop();
 
+    let extraInstructions: string | undefined;
     if (result?.rawJson && chatClient.snapshot.isConnected) {
       chatClient.updateMessageHtmlById(messageId, transcript, buildPronunciationHtml(result.rawJson, transcript));
-      await chatClient.addContextText(`[Pronunciation assessment result]: [${result.rawJson}]`);
+      extraInstructions = `[Pronunciation assessment result]: [${result.rawJson}]`;
     }
-    await chatClient.requestResponse();
-  }, [assessment, chatClient]);
+    await chatClient.requestResponse(extraInstructions);
+  }, [chatClient]);
 
   useEffect(() => {
     assessLastTurnRef.current = assessLastTurn;
@@ -259,6 +238,8 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
 
   useEffect(() => {
     return () => {
+      paSessionRef.current?.cancel();
+      paSessionRef.current = null;
       audioHandlerRef.current?.close().catch(console.error);
       if (chatClient.snapshot.isConnected) chatClient.disconnect().catch(console.error);
     };
@@ -267,7 +248,10 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   const stopConversation = async () => {
     audioHandlerRef.current?.stopRecording();
     setIsRecording(false);
-    speechChunksRef.current = [];
+    paSessionRef.current?.cancel();
+    paSessionRef.current = null;
+    prerollChunksRef.current = [];
+    prerollBytesRef.current = 0;
   };
 
   const handleConnect = async () => {
@@ -296,7 +280,15 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
         enableFunctionCalling: true,
         functions: { enableDateTime: false, enableWeatherForecast: false },
         customTools: [SET_REFERENCE_TEXT_TOOL],
+        temperature: 0.4,
         avatar: { ...DEFAULT_CHAT_CONFIG.avatar, enabled: false },
+        turnDetection: {
+          type: 'server_vad',
+          threshold: 0.5,
+          prefixPaddingInMs: 1000,
+          silenceDurationInMs: SILENCE_TIMEOUT_MS,
+          createResponse: false,
+        },
       });
     } catch (error) {
       setStatusText(error instanceof Error ? error.message : String(error));
@@ -315,7 +307,19 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
 
     try {
       await audioHandlerRef.current.startRecording((chunk) => {
-        if (isSpeakingRef.current) speechChunksRef.current.push(chunk.slice());
+        // Maintain a rolling pre-roll window (PREROLL_MS) of the most recent mic audio.
+        const sampleRate = audioHandlerRef.current?.getSampleRate() ?? 24000;
+        const maxPrerollBytes = Math.ceil((sampleRate * 2 * PREROLL_MS) / 1000);
+        // chunk is reused by the worklet; copy it for safe retention.
+        const copy = chunk.slice();
+        prerollChunksRef.current.push(copy);
+        prerollBytesRef.current += copy.byteLength;
+        while (prerollBytesRef.current > maxPrerollBytes && prerollChunksRef.current.length > 1) {
+          const dropped = prerollChunksRef.current.shift()!;
+          prerollBytesRef.current -= dropped.byteLength;
+        }
+
+        if (isSpeakingRef.current) paSessionRef.current?.pushAudio(chunk);
         void chatClient.sendAudio(chunk);
       });
       setIsRecording(true);
