@@ -324,7 +324,7 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
       });
       setIsRecording(true);
       chatClient.addStatusMessage('Conversation started. Start speaking.');
-      await chatClient.addSystemText('Greet the user warmly and briefly introduce the exercise. Use the set_reference_text tool before asking the learner to repeat the first practice phrase.');
+      await chatClient.addSystemText('Greet briefly, teach one L1 concept, then call set_reference_text before one short L2 repeat phrase.');
       await chatClient.requestResponse();
     } catch (error) {
       setStatusText(error instanceof Error ? error.message : String(error));
