@@ -13,12 +13,20 @@ const DEFAULT_SETTINGS: AzureSettings = {
   voiceLiveApiKey: '',
 };
 
+function looksLikeUrl(value: string) {
+  return /^https?:\/\//i.test(value.trim());
+}
+
 // Load Voice Live settings from localStorage
 function loadVoiceLiveSettings(): { endpoint: string; apiKey: string } {
   try {
     const stored = localStorage.getItem(VOICE_LIVE_STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored) as { endpoint?: string; apiKey?: string };
+      return {
+        endpoint: parsed.endpoint || '',
+        apiKey: parsed.apiKey && !looksLikeUrl(parsed.apiKey) ? parsed.apiKey : '',
+      };
     }
   } catch (error) {
     console.error('Failed to load Voice Live settings from localStorage:', error);
@@ -29,7 +37,7 @@ function loadVoiceLiveSettings(): { endpoint: string; apiKey: string } {
 // Save Voice Live settings to localStorage
 function saveVoiceLiveSettings(endpoint: string, apiKey: string) {
   try {
-    localStorage.setItem(VOICE_LIVE_STORAGE_KEY, JSON.stringify({ endpoint, apiKey }));
+    localStorage.setItem(VOICE_LIVE_STORAGE_KEY, JSON.stringify({ endpoint, apiKey: looksLikeUrl(apiKey) ? '' : apiKey }));
   } catch (error) {
     console.error('Failed to save Voice Live settings to localStorage:', error);
   }
@@ -146,6 +154,12 @@ export function useSettings() {
   }, [settings]);
 
   const updateSettings = (partial: Partial<AzureSettings>) => {
+    const sanitizedPartial = { ...partial };
+    if (sanitizedPartial.voiceLiveApiKey && looksLikeUrl(sanitizedPartial.voiceLiveApiKey)) {
+      console.warn('Ignoring Voice Live API key update because the value looks like a URL.');
+      sanitizedPartial.voiceLiveApiKey = '';
+    }
+
     // Log stack trace to see who's calling this
     console.log('=== UPDATE SETTINGS CALLED ===');
     console.trace('Called from:');
@@ -158,22 +172,22 @@ export function useSettings() {
       console.log('Previous settings:', { region: prev.region, apiKey: maskedPrevKey });
 
       // Mask the partial update if it contains an API key
-      const maskedPartial = { ...partial };
-      if (partial.apiKey) {
-        const key = partial.apiKey;
+      const maskedPartial = { ...sanitizedPartial };
+      if (sanitizedPartial.apiKey) {
+        const key = sanitizedPartial.apiKey;
         maskedPartial.apiKey = key.length > 8
           ? `${key.substring(0, 4)}...${key.substring(key.length - 4)}`
           : '****';
       }
       console.log('Partial update:', maskedPartial);
 
-      const newSettings = { ...prev, ...partial };
+      const newSettings = { ...prev, ...sanitizedPartial };
 
       // If region is changing, load the API key for the new region
       // BUT only if apiKey is not being explicitly updated in this call
-      if (partial.region && partial.region !== prev.region && !partial.apiKey) {
+      if (sanitizedPartial.region && sanitizedPartial.region !== prev.region && !sanitizedPartial.apiKey) {
         const apiKeys = loadApiKeys();
-        const regionKey = apiKeys[partial.region] || '';
+        const regionKey = apiKeys[sanitizedPartial.region] || '';
         newSettings.apiKey = regionKey;
 
         const maskedOldKey = prev.apiKey.length > 8
@@ -183,10 +197,10 @@ export function useSettings() {
           ? `${regionKey.substring(0, 4)}...${regionKey.substring(regionKey.length - 4)}`
           : '****';
 
-        console.log(`🔄 Region changed from "${prev.region}" to "${partial.region}"`);
-        console.log(`🔑 Loading saved API key for "${partial.region}": ${maskedOldKey} → ${maskedNewKey}`);
+        console.log(`🔄 Region changed from "${prev.region}" to "${sanitizedPartial.region}"`);
+        console.log(`🔑 Loading saved API key for "${sanitizedPartial.region}": ${maskedOldKey} → ${maskedNewKey}`);
         if (!regionKey) {
-          console.warn(`⚠️ No API key found for region "${partial.region}" - you'll need to enter one`);
+          console.warn(`⚠️ No API key found for region "${sanitizedPartial.region}" - you'll need to enter one`);
         }
       }
 

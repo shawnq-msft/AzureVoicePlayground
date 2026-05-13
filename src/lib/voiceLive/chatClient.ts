@@ -39,10 +39,16 @@ export type ChatClientEvents = {
   onAvatarTrack?: (event: RTCTrackEvent) => void;
   onResponseComplete?: () => void; // Called when a response is fully complete
   onResponseStart?: () => void; // Called when response starts (to pause VAD)
+  onUserTranscriptComplete?: (messageId: string, transcript: string) => void | Promise<void>;
+  onFunctionCall?: (name: string, args: string) => string | Promise<string | void> | void;
 };
 
 function generateId(): string {
   return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function looksLikeUrl(value: string) {
+  return /^https?:\/\//i.test(value.trim());
 }
 
 export class VoiceLiveChatClient {
@@ -174,7 +180,29 @@ export class VoiceLiveChatClient {
     }
   }
 
-  private async sendPendingFunctionResult() {
+  updateMessageHtmlById(messageId: string, content: string, contentHtml: string) {
+    const messages = [...this.state.messages];
+    const index = messages.findIndex(m => m.id === messageId);
+    if (index !== -1) {
+      messages[index] = {
+        ...messages[index],
+        content,
+        contentHtml,
+      };
+      this.setState({ messages });
+    }
+  }
+
+  private async createResponse(additionalInstructions?: string) {
+    if (!this.session) throw new Error('Not connected');
+    await this.session.sendEvent({
+      type: 'response.create',
+      response: { modalities: ['text', 'audio'] },
+      additionalInstructions: additionalInstructions,
+    });
+  }
+
+  private async sendPendingFunctionResult(skipResponse = false) {
     if (this.pendingFunctionResult && this.session) {
       console.log('[VoiceLive Chat] Sending pending function result to server...');
       const { callId, output } = this.pendingFunctionResult;
@@ -186,11 +214,15 @@ export class VoiceLiveChatClient {
         output: output,
       } as any);
 
-      console.log('[VoiceLive Chat] Triggering response for function result...');
-      await this.session.sendEvent({
-        type: 'response.create',
-        response: { modalities: ['text', 'audio'] },
-      });
+      if (!skipResponse) {
+        console.log('[VoiceLive Chat] Triggering response for function result...');
+        await this.session.sendEvent({
+          type: 'response.create',
+          response: { modalities: ['text', 'audio'] },
+        });
+      } else {
+        console.log('[VoiceLive Chat] Skipping response.create — response already contained audio/text.');
+      }
     }
   }
 
@@ -305,6 +337,15 @@ export class VoiceLiveChatClient {
       }
     }
 
+    for (const tool of config.customTools ?? []) {
+      tools.push({
+        type: 'function',
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+      });
+    }
+
     return {
       modalities: modalities as any,
       model: config.model,
@@ -322,6 +363,7 @@ export class VoiceLiveChatClient {
         type: config.turnDetectionType,
         removeFillerWords: config.removeFillerWords,
         createResponse: !config.asrOnly,
+        ...(config.turnDetection ?? {}),
       },
       temperature,
       inputAudioNoiseReduction: config.useNoiseSuppression
@@ -332,6 +374,7 @@ export class VoiceLiveChatClient {
         : undefined,
       avatar: avatarSdkConfig,
       tools: tools.length > 0 ? tools : undefined,
+      toolChoice: tools.length > 0 ? 'auto' : undefined,
     };
   }
 
@@ -466,6 +509,11 @@ export class VoiceLiveChatClient {
   private async executeFunction(name: string, args: string): Promise<string> {
     console.log('[VoiceLive Chat] Executing function:', name, 'with args:', args);
 
+    const customResult = await this.events.onFunctionCall?.(name, args);
+    if (customResult !== undefined) {
+      return typeof customResult === 'string' ? customResult : JSON.stringify({ success: true });
+    }
+
     if (name === 'getCurrentDateTime') {
       const now = new Date();
       const result = {
@@ -515,17 +563,23 @@ export class VoiceLiveChatClient {
   async connect(config: VoiceLiveChatConfig) {
     if (this.state.isConnected) return;
 
-    if (!config.endpoint.trim()) throw new Error('Missing endpoint');
-    if (!config.apiKey.trim()) throw new Error('Missing API key');
+    const endpoint = config.endpoint.trim();
+    const apiKey = config.apiKey.trim();
+
+    if (!endpoint) throw new Error('Missing endpoint');
+    if (!apiKey) throw new Error('Missing API key');
+    if (looksLikeUrl(apiKey)) {
+      throw new Error('Invalid Voice Live API key: the API key field contains a URL. Paste the resource key into Voice Live Config.');
+    }
 
     this.avatarConfig = config.avatar;
     this.setState({ statusText: 'Connecting...' });
 
     this.client = new VoiceLiveClient(
-      config.endpoint.trim(),
-      new AzureKeyCredential(config.apiKey.trim()),
+      endpoint,
+      new AzureKeyCredential(apiKey),
       {
-        apiVersion: '2025-05-01-preview',
+        apiVersion: '2025-10-01',
         defaultSessionOptions: { enableDebugLogging: false },
       }
     );
@@ -625,7 +679,11 @@ export class VoiceLiveChatClient {
 
         // If we didn't get deltas, add the full transcript now
         if (!this.currentUserMessageId && event.transcript?.trim()) {
-          this.addMessage('user', event.transcript);
+          this.currentUserMessageId = this.addMessage('user', event.transcript);
+        }
+
+        if (this.currentUserMessageId && event.transcript?.trim()) {
+          await this.events.onUserTranscriptComplete?.(this.currentUserMessageId, event.transcript);
         }
 
         // Reset user transcript and message ID
@@ -674,16 +732,10 @@ export class VoiceLiveChatClient {
       onResponseFunctionCallArgumentsDone: async (event: ServerEventResponseFunctionCallArgumentsDone) => {
         console.log('[VoiceLive Chat] Function call arguments done', event);
 
-        // Add function call indicator to chat
-        this.addMessage('assistant', `🔧 Calling ${event.name}()...`);
-
         // Execute the function asynchronously (don't await for long-running operations)
         // This allows the response to complete while the function runs in background
         this.executeFunction(event.name, event.arguments).then(async (result) => {
           console.log('[VoiceLive Chat] Function result:', result);
-
-          // Add completion indicator
-          this.addMessage('status', `✅ ${event.name}() completed`);
 
           // Store the pending result
           this.pendingFunctionResult = {
@@ -774,12 +826,16 @@ export class VoiceLiveChatClient {
 
         this.currentResponseText = '';
         this.currentResponseId = '';
+        // If the response already produced audio/text AND has a pending function
+        // result, submit the function result to keep conversation history complete
+        // but skip triggering a second response — the first one is the real content.
+        const hadContent = Boolean(this.currentResponseMessageId);
         this.currentResponseMessageId = '';
 
         // If there's a pending function result, send it now
         if (this.pendingFunctionResult) {
           console.log('[VoiceLive Chat] Response complete, sending pending function result...');
-          await this.sendPendingFunctionResult();
+          await this.sendPendingFunctionResult(hadContent);
         }
 
         // Notify that response is complete (before resetting latency)
@@ -852,10 +908,35 @@ export class VoiceLiveChatClient {
       content: [{ type: 'input_text', text: trimmed }],
     } as any);
 
-    await this.session.sendEvent({
-      type: 'response.create',
-      response: { modalities: ['text', 'audio'] },
-    });
+    await this.createResponse();
+  }
+
+  async addContextText(text: string) {
+    if (!this.session) throw new Error('Not connected');
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    await this.session.addConversationItem({
+      type: 'message',
+      role: 'user',
+      content: [{ type: 'input_text', text: trimmed }],
+    } as any);
+  }
+
+  async addSystemText(text: string) {
+    if (!this.session) throw new Error('Not connected');
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    await this.session.addConversationItem({
+      type: 'message',
+      role: 'system',
+      content: [{ type: 'input_text', text: trimmed }],
+    } as any);
+  }
+
+  async requestResponse(additionalInstructions?: string) {
+    await this.createResponse(additionalInstructions);
   }
 
   async sendAudio(pcm16leBytes: Uint8Array) {

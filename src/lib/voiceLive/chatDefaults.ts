@@ -15,6 +15,12 @@ export interface AvatarConfig {
   customAvatarName?: string;
 }
 
+export interface VoiceLiveFunctionTool {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
 export interface VoiceLiveChatConfig {
   endpoint: string;
   apiKey: string;
@@ -36,6 +42,14 @@ export interface VoiceLiveChatConfig {
   functions: {
     enableDateTime: boolean;
     enableWeatherForecast: boolean;
+  };
+  customTools?: VoiceLiveFunctionTool[];
+  turnDetection?: {
+    type: 'server_vad' | 'azure_semantic_vad';
+    threshold?: number;
+    prefixPaddingInMs?: number;
+    silenceDurationInMs?: number;
+    createResponse?: boolean;
   };
 }
 
@@ -278,5 +292,6 @@ export interface ChatMessage {
   id: string;
   type: 'user' | 'assistant' | 'status' | 'error';
   content: string;
+  contentHtml?: string;
   timestamp: number;
 }

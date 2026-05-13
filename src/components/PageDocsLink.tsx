@@ -5,6 +5,7 @@ export const AZURE_SPEECH_DOCS = {
   customVoice: 'https://learn.microsoft.com/en-us/azure/ai-services/speech-service/custom-neural-voice',
   voiceLive: 'https://learn.microsoft.com/en-us/azure/ai-services/speech-service/voice-live',
   speechTranslation: 'https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-translation',
+  pronunciationAssessment: 'https://learn.microsoft.com/en-us/azure/ai-services/speech-service/how-to-pronunciation-assessment',
 } as const;
 
 interface PageDocsLinkProps {
