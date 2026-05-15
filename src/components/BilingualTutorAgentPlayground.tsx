@@ -11,7 +11,7 @@ import {
   type BilingualTutorLevel,
 } from '../lib/bilingualTutor';
 import { useFeatureFlags } from '../hooks/useFeatureFlags';
-import { usePronunciationAssessment, type PronunciationAssessmentSession } from '../hooks/usePronunciationAssessment';
+import { usePronunciationAssessment, type PronunciationAssessmentResult, type PronunciationAssessmentSession } from '../hooks/usePronunciationAssessment';
 import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
 import { notifySidebarConfigAttention } from '../utils/sidebarConfigAttention';
 
@@ -31,6 +31,9 @@ const LEVELS: { value: BilingualTutorLevel; label: string }[] = [
 // (turnDetection.silenceDurationInMs) and the pronunciation assessment recognizer
 // (Speech_SegmentationSilenceTimeoutMs) so both segment learner turns identically.
 const SILENCE_TIMEOUT_MS = 1000;
+const MAX_PA_VOICELIVE_DISTANCE = 0.55;
+const MIN_COMPARABLE_TOKEN_COUNT = 3;
+const MIN_EDIT_DISTANCE_TO_HIDE_PA = 3;
 
 function loadConfig() {
   try {
@@ -62,6 +65,75 @@ function messageClasses(type: ChatMessage['type']) {
 
 function escapeHtml(value: string) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function containsCjk(value: string) {
+  return /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(value);
+}
+
+function wordTokens(value: string) {
+  return value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+function characterTokens(value: string) {
+  return Array.from(value.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''));
+}
+
+function editDistance(source: string[], target: string[]) {
+  const previous = Array.from({ length: target.length + 1 }, (_, index) => index);
+  const current = new Array<number>(target.length + 1);
+
+  for (let sourceIndex = 1; sourceIndex <= source.length; sourceIndex += 1) {
+    current[0] = sourceIndex;
+    for (let targetIndex = 1; targetIndex <= target.length; targetIndex += 1) {
+      const substitutionCost = source[sourceIndex - 1] === target[targetIndex - 1] ? 0 : 1;
+      current[targetIndex] = Math.min(
+        previous[targetIndex] + 1,
+        current[targetIndex - 1] + 1,
+        previous[targetIndex - 1] + substitutionCost,
+      );
+    }
+    previous.splice(0, previous.length, ...current);
+  }
+
+  return previous[target.length];
+}
+
+function transcriptDistance(paText: string, voiceLiveText: string) {
+  const useCer = containsCjk(paText) || containsCjk(voiceLiveText);
+  const paTokens = useCer ? characterTokens(paText) : wordTokens(paText);
+  const voiceLiveTokens = useCer ? characterTokens(voiceLiveText) : wordTokens(voiceLiveText);
+  const comparableTokenCount = Math.max(paTokens.length, voiceLiveTokens.length);
+  if (paTokens.length === 0 || voiceLiveTokens.length === 0) return { distance: 0, edits: 0, comparableTokenCount };
+
+  const edits = editDistance(paTokens, voiceLiveTokens);
+  return {
+    distance: edits / comparableTokenCount,
+    edits,
+    comparableTokenCount,
+  };
+}
+
+function shouldShowPronunciationResult(paText: string, voiceLiveText: string) {
+  const comparison = transcriptDistance(paText, voiceLiveText);
+  if (comparison.comparableTokenCount < MIN_COMPARABLE_TOKEN_COUNT) return true;
+  return comparison.edits < MIN_EDIT_DISTANCE_TO_HIDE_PA || comparison.distance <= MAX_PA_VOICELIVE_DISTANCE;
+}
+
+function formatPaScoreLine(result: PronunciationAssessmentResult) {
+  const { scores } = result;
+  const parts = [
+    `Pronunciation ${scores.pronunciation}`,
+    `Accuracy ${scores.accuracy}`,
+    `Fluency ${scores.fluency}`,
+  ];
+  if (scores.prosody != null) parts.push(`Prosody ${scores.prosody}`);
+  return parts.join(' · ');
+}
+
+function getPaComparisonText(result: PronunciationAssessmentResult) {
+  if (result.recognizedText.trim()) return result.recognizedText;
+  return result.words.map((word) => word.word).join(' ');
 }
 
 function buildPronunciationHtml(rawJson: string, fallbackText: string) {
@@ -113,6 +185,7 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
 
   const audioHandlerRef = useRef<ChatAudioHandler | null>(null);
   const circleRef = useRef<HTMLDivElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const isSpeakingRef = useRef(false);
   const paSessionRef = useRef<PronunciationAssessmentSession | null>(null);
@@ -206,6 +279,10 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
 
   const chatClient = clientRef.current;
   const targetLanguage = getLanguageByValue(l2);
+  const nativeLanguage = getLanguageByValue(l1);
+  const voiceLiveRecognitionLanguages = useMemo(() => {
+    return Array.from(new Set([targetLanguage.locale, nativeLanguage.locale])).join(',');
+  }, [targetLanguage.locale, nativeLanguage.locale]);
   const prompt = getBilingualTutorPrompt(l1, l2, level);
   const voiceLiveApiKeyLooksInvalid = Boolean(settings.voiceLiveApiKey?.trim() && looksLikeUrl(settings.voiceLiveApiKey));
   const hasVoiceLiveConfig = Boolean(settings.voiceLiveEndpoint?.trim() && settings.voiceLiveApiKey?.trim() && !voiceLiveApiKeyLooksInvalid);
@@ -222,8 +299,14 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
 
     let extraInstructions: string | undefined;
     if (result?.rawJson && chatClient.snapshot.isConnected) {
-      chatClient.updateMessageHtmlById(messageId, transcript, buildPronunciationHtml(result.rawJson, transcript));
-      extraInstructions = `[Pronunciation assessment result]: [${result.rawJson}]`;
+      const paComparisonText = getPaComparisonText(result);
+      const showPaResult = shouldShowPronunciationResult(paComparisonText, transcript);
+      const paHtml = showPaResult ? buildPronunciationHtml(result.rawJson, paComparisonText || transcript) : undefined;
+      const paScoreLine = showPaResult ? formatPaScoreLine(result) : undefined;
+      chatClient.updateMessageHtmlById(messageId, transcript, buildUserTranscriptHtml(transcript, paHtml, paScoreLine));
+      if (showPaResult) {
+        extraInstructions = `[Pronunciation assessment result]: [${result.rawJson}]`;
+      }
     }
     await chatClient.requestResponse(extraInstructions);
   }, [chatClient]);
@@ -245,7 +328,9 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   }, [l1, l2, level, voice]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
   }, [messages.length]);
 
   useEffect(() => {
@@ -286,7 +371,7 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
         model: 'gpt-4o',
         instructions: prompt,
         voice,
-        recognitionLanguage: targetLanguage.locale,
+        recognitionLanguage: voiceLiveRecognitionLanguages,
         asrOnly: true,
         enableFunctionCalling: true,
         functions: { enableDateTime: false, enableWeatherForecast: false },
@@ -398,7 +483,7 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4">
             {messages.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-gray-400">Connect, start conversation, then speak to the bilingual tutor.</div>
             ) : (
@@ -406,7 +491,7 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
                 {messages.map((message) => (
                   <div key={message.id} className={messageClasses(message.type)}>
                     {message.contentHtml ? (
-                      <p className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: message.contentHtml }} />
+                      <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: message.contentHtml }} />
                     ) : (
                       <p className="whitespace-pre-wrap">{message.content}</p>
                     )}
@@ -511,4 +596,14 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
       </div>
     </div>
   );
+}
+
+function buildUserTranscriptHtml(voiceLiveTranscript: string, paHtml?: string, paScoreLine?: string) {
+  const voiceLiveHtml = escapeHtml(voiceLiveTranscript);
+  const scoreLine = paScoreLine ? `<span class="bt-pa-scoreline">${escapeHtml(paScoreLine)}</span>` : '';
+  const paSection = paHtml
+    ? `<div class="bt-user-result bt-user-result--pa"><span class="bt-user-result__label">PA</span><span class="bt-user-result__text">${scoreLine}<span class="bt-pa-words">${paHtml}</span></span></div>`
+    : '';
+
+  return `<div class="bt-user-results"><div class="bt-user-result bt-user-result--voicelive"><span class="bt-user-result__label">Voice Live</span><span class="bt-user-result__text">${voiceLiveHtml}</span></div>${paSection}</div>`;
 }

@@ -181,6 +181,57 @@ textarea {
 :root[data-theme='dark'] .pa-word-omission { color: #cbd5e1; }
 :root[data-theme='dark'] .pa-word-insertion { color: #d8b4fe; }
 
+.bt-user-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.bt-user-result {
+  display: grid;
+  grid-template-columns: minmax(4.75rem, auto) minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.bt-user-result__label {
+  border-radius: 9999px;
+  padding: 0.05rem 0.45rem;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.bt-user-result--pa .bt-user-result__label {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+}
+
+.bt-user-result__text {
+  min-width: 0;
+}
+
+.bt-pa-scoreline {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #334155;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.bt-pa-words {
+  display: inline;
+}
+
+:root[data-theme='dark'] .bt-user-result__label { color: #93c5fd; }
+:root[data-theme='dark'] .bt-user-result--pa .bt-user-result__label { color: #6ee7b7; }
+:root[data-theme='dark'] .bt-pa-scoreline { color: #cbd5e1; }
+
 @layer components {
   .theme-shell {
     position: relative;
