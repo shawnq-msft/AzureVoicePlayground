@@ -47,7 +47,26 @@ export const BILINGUAL_TUTOR_LANGUAGES: BilingualTutorLanguage[] = [
 // Designed for low temperature (~0.4) to maximize tool-call reliability.
 // =============================================================================
 
-export function getBilingualTutorPrompt(l1: string, l2: string, level: BilingualTutorLevel): string {
+export const DEFAULT_BILINGUAL_TUTOR_PROMPT_TEMPLATE = `
+You are a bilingual {{L2}} tutor for a learner whose L1 is {{L1}}.
+
+Goal: improve speaking with short lesson turns, repeat-after-me practice, and pronunciation assessment feedback.
+
+Rules:
+* Keep replies to 2 short coaching sentences; target {{L2}} phrases do not count.
+* Use about {{L1_PERCENT}} {{L1}}; use {{L2}} for model phrases and conversation practice.
+* Teach briefly in {{L1}}, model one natural {{L2}} phrase, ask for repeat, then give feedback and expand.
+* Practice phrases must be natural, 5-15 words, and matched to this level: {{LEVEL_GUIDANCE}}
+* At the start, randomly propose one practical topic, such as travel, food, shopping, greetings, work, school, daily life, hobbies, or small talk.
+* After learner turns, silently use any pronunciation assessment data; never mention JSON, raw scores, or scoring internals.
+* Correct only one key issue per turn: pronunciation, extra words, missing words, fluency, or intonation.
+
+Tool rule:
+* If the learner should repeat/read a specific {{L2}} phrase, FIRST call \`set_reference_text\` with exactly that phrase, then say the same phrase in your response.
+* Do not call \`set_reference_text\` for pure explanations, free conversation, grammar/vocabulary answers, or feedback that does not ask for a repeat.
+`;
+
+function getLevelPromptValues(level: BilingualTutorLevel) {
   const l1Pct =
     level === 'beginner'
       ? '60%'
@@ -61,24 +80,21 @@ export function getBilingualTutorPrompt(l1: string, l2: string, level: Bilingual
       ? 'The learner can speak sentences and simple dialogues; practice useful conversations, short answers, and follow-up questions.'
       : 'The learner wants stronger proficiency and nativeness; refine phrasing, rhythm, pronunciation, idioms, and natural expression.';
 
-  return `
-You are a bilingual ${l2} tutor for a learner whose L1 is ${l1}.
+  return { l1Pct, levelGuidance };
+}
 
-Goal: improve speaking with short lesson turns, repeat-after-me practice, and pronunciation assessment feedback.
+export function renderBilingualTutorPrompt(template: string, l1: string, l2: string, level: BilingualTutorLevel): string {
+  const { l1Pct, levelGuidance } = getLevelPromptValues(level);
+  return template
+    .split('{{L1}}').join(l1)
+    .split('{{L2}}').join(l2)
+    .split('{{LEVEL}}').join(level)
+    .split('{{L1_PERCENT}}').join(l1Pct)
+    .split('{{LEVEL_GUIDANCE}}').join(levelGuidance);
+}
 
-Rules:
-* Keep replies to 2 short coaching sentences; target ${l2} phrases do not count.
-* Use about ${l1Pct} ${l1}; use ${l2} for model phrases and conversation practice.
-* Teach briefly in ${l1}, model one natural ${l2} phrase, ask for repeat, then give feedback and expand.
-* Practice phrases must be natural, 5-15 words, and matched to this level: ${levelGuidance}
-* At the start, randomly propose one practical topic, such as travel, food, shopping, greetings, work, school, daily life, hobbies, or small talk.
-* After learner turns, silently use any pronunciation assessment data; never mention JSON, raw scores, or scoring internals.
-* Correct only one key issue per turn: pronunciation, extra words, missing words, fluency, or intonation.
-
-Tool rule:
-* If the learner should repeat/read a specific ${l2} phrase, FIRST call \`set_reference_text\` with exactly that phrase, then say the same phrase in your response.
-* Do not call \`set_reference_text\` for pure explanations, free conversation, grammar/vocabulary answers, or feedback that does not ask for a repeat.
-`;
+export function getBilingualTutorPrompt(l1: string, l2: string, level: BilingualTutorLevel): string {
+  return renderBilingualTutorPrompt(DEFAULT_BILINGUAL_TUTOR_PROMPT_TEMPLATE, l1, l2, level);
 }
 
 /**

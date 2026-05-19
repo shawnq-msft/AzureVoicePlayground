@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AzureSettings } from '../types/azure';
 import { VoiceLiveChatClient, type ChatState } from '../lib/voiceLive/chatClient';
 import { ChatAudioHandler } from '../lib/voiceLive/audio/chatAudioHandler';
-import { DEFAULT_CHAT_CONFIG, getChatVoices, type ChatMessage } from '../lib/voiceLive/chatDefaults';
+import { DEFAULT_CHAT_CONFIG, getChatVoices, type ChatMessage, type VoiceLiveInputTranscriptionModel } from '../lib/voiceLive/chatDefaults';
 import {
   BILINGUAL_TUTOR_LANGUAGES,
+  DEFAULT_BILINGUAL_TUTOR_PROMPT_TEMPLATE,
   getBilingualTutorPrompt,
   getLanguageByValue,
+  renderBilingualTutorPrompt,
   SET_REFERENCE_TEXT_TOOL,
   type BilingualTutorLevel,
 } from '../lib/bilingualTutor';
@@ -27,6 +29,12 @@ const LEVELS: { value: BilingualTutorLevel; label: string }[] = [
   { value: 'advanced', label: 'Advanced' },
 ];
 
+const TRANSCRIPTION_MODEL_OPTIONS: { value: VoiceLiveInputTranscriptionModel; label: string }[] = [
+  { value: 'mai-transcribe-1', label: 'MAI Transcribe 1' },
+  { value: 'azure-speech', label: 'Azure Speech' },
+];
+const DEFAULT_TRANSCRIPTION_MODEL: VoiceLiveInputTranscriptionModel = 'mai-transcribe-1';
+
 // Silence duration that ends a learner turn. Shared between Voice Live server VAD
 // (turnDetection.silenceDurationInMs) and the pronunciation assessment recognizer
 // (Speech_SegmentationSilenceTimeoutMs) so both segment learner turns identically.
@@ -43,6 +51,8 @@ function loadConfig() {
       l2: string;
       level: BilingualTutorLevel;
       voice: string;
+      transcriptionModel: VoiceLiveInputTranscriptionModel;
+      promptTemplate: string;
     }> : {};
   } catch {
     return {};
@@ -165,6 +175,28 @@ function looksLikeUrl(value: string) {
   return /^https?:\/\//i.test(value.trim());
 }
 
+function normalizeTutorTranscriptionModel(value: VoiceLiveInputTranscriptionModel | undefined): VoiceLiveInputTranscriptionModel {
+  return value === 'azure-speech' ? value : DEFAULT_TRANSCRIPTION_MODEL;
+}
+
+function normalizePromptTemplate(storedConfig: Partial<{
+  l1: string;
+  l2: string;
+  level: BilingualTutorLevel;
+  promptTemplate: string;
+}>) {
+  const storedPrompt = storedConfig.promptTemplate;
+  if (!storedPrompt) return DEFAULT_BILINGUAL_TUTOR_PROMPT_TEMPLATE;
+  if (storedPrompt.includes('{{L1}}') || storedPrompt.includes('{{L2}}')) return storedPrompt;
+
+  const renderedDefaultPrompt = getBilingualTutorPrompt(
+    storedConfig.l1 ?? 'Chinese',
+    storedConfig.l2 ?? 'English',
+    storedConfig.level ?? 'intermediate',
+  );
+  return storedPrompt === renderedDefaultPrompt ? DEFAULT_BILINGUAL_TUTOR_PROMPT_TEMPLATE : storedPrompt;
+}
+
 export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentPlaygroundProps) {
   const { enableMAIVoices } = useFeatureFlags();
   const chatVoices = getChatVoices(enableMAIVoices);
@@ -173,6 +205,8 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   const [l2, setL2] = useState(storedConfig.l2 ?? 'English');
   const [level, setLevel] = useState<BilingualTutorLevel>(storedConfig.level ?? 'intermediate');
   const [voice, setVoice] = useState(storedConfig.voice ?? 'en-us-ava:DragonHDLatestNeural');
+  const [transcriptionModel, setTranscriptionModel] = useState<VoiceLiveInputTranscriptionModel>(() => normalizeTutorTranscriptionModel(storedConfig.transcriptionModel));
+  const [promptTemplate, setPromptTemplate] = useState(() => normalizePromptTemplate(storedConfig));
   const [referenceText, setReferenceText] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [statusText, setStatusText] = useState('Ready');
@@ -181,7 +215,7 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [textInput, setTextInput] = useState('');
-  const [showPrompt, setShowPrompt] = useState(false);
+  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
 
   const audioHandlerRef = useRef<ChatAudioHandler | null>(null);
   const circleRef = useRef<HTMLDivElement | null>(null);
@@ -283,7 +317,9 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   const voiceLiveRecognitionLanguages = useMemo(() => {
     return Array.from(new Set([targetLanguage.locale, nativeLanguage.locale])).join(',');
   }, [targetLanguage.locale, nativeLanguage.locale]);
-  const prompt = getBilingualTutorPrompt(l1, l2, level);
+  const voiceLiveRecognitionLanguage = transcriptionModel === 'mai-transcribe-1' ? 'auto' : voiceLiveRecognitionLanguages;
+  const activePromptTemplate = promptTemplate.trim() || DEFAULT_BILINGUAL_TUTOR_PROMPT_TEMPLATE;
+  const prompt = useMemo(() => renderBilingualTutorPrompt(activePromptTemplate, l1, l2, level), [activePromptTemplate, l1, l2, level]);
   const voiceLiveApiKeyLooksInvalid = Boolean(settings.voiceLiveApiKey?.trim() && looksLikeUrl(settings.voiceLiveApiKey));
   const hasVoiceLiveConfig = Boolean(settings.voiceLiveEndpoint?.trim() && settings.voiceLiveApiKey?.trim() && !voiceLiveApiKeyLooksInvalid);
 
@@ -324,8 +360,8 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   }, [referenceText]);
 
   useEffect(() => {
-    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify({ l1, l2, level, voice }));
-  }, [l1, l2, level, voice]);
+    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify({ l1, l2, level, voice, transcriptionModel, promptTemplate }));
+  }, [l1, l2, level, voice, transcriptionModel, promptTemplate]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -371,7 +407,8 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
         model: 'gpt-4o',
         instructions: prompt,
         voice,
-        recognitionLanguage: voiceLiveRecognitionLanguages,
+        recognitionLanguage: voiceLiveRecognitionLanguage,
+        inputAudioTranscriptionModel: transcriptionModel,
         asrOnly: true,
         enableFunctionCalling: true,
         functions: { enableDateTime: false, enableWeatherForecast: false },
@@ -571,6 +608,30 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
                   {referenceText || 'The tutor will set this automatically before asking you to repeat.'}
                 </div>
               </div>
+
+              <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-3">
+                <button onClick={() => setShowAdvancedConfig((value) => !value)} className="flex w-full items-center justify-between text-left text-sm font-semibold text-gray-700">
+                  <span>Advanced Configuration</span>
+                  <svg className={`h-4 w-4 transition ${showAdvancedConfig ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {showAdvancedConfig && (
+                  <div className="space-y-4 border-t border-gray-100 pt-3">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Voice Live Transcription</label>
+                      <select value={transcriptionModel} onChange={(event) => setTranscriptionModel(event.target.value as VoiceLiveInputTranscriptionModel)} disabled={isConnected} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:bg-gray-100">
+                        {TRANSCRIPTION_MODEL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <label className="block text-sm font-medium text-gray-700">Prompt Template</label>
+                        <button type="button" onClick={() => setPromptTemplate(DEFAULT_BILINGUAL_TUTOR_PROMPT_TEMPLATE)} disabled={isConnected} className="text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-gray-400">Reset</button>
+                      </div>
+                      <textarea value={promptTemplate} onChange={(event) => setPromptTemplate(event.target.value)} disabled={isConnected} className="min-h-72 w-full resize-y rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-xs leading-5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {!hasVoiceLiveConfig && (
@@ -585,12 +646,6 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
               <button onClick={handleConnect} className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition ${isConnected ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}>{isConnected ? 'Disconnect' : 'Connect'}</button>
               <button onClick={handleStartStop} disabled={!isConnected} className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${isRecording ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>{isRecording ? 'Stop Conversation' : 'Start Conversation'}</button>
             </div>
-
-            <button onClick={() => setShowPrompt((value) => !value)} className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-sm font-semibold text-gray-700">
-              <span>Generated Scenario Prompt</span>
-              <svg className={`h-4 w-4 transition ${showPrompt ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            {showPrompt && <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-950 p-3 text-xs leading-5 text-gray-100">{prompt}</pre>}
           </div>
         </aside>
       </div>

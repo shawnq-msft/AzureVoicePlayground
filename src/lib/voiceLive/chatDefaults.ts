@@ -6,6 +6,15 @@ export type AvatarType = 'none' | 'video' | 'photo';
 
 export type VoiceType = 'standard' | 'personal';
 
+export type VoiceLiveInputTranscriptionModel =
+  | 'auto'
+  | 'azure-speech'
+  | 'mai-transcribe-1'
+  | 'whisper-1'
+  | 'gpt-4o-transcribe'
+  | 'gpt-4o-mini-transcribe'
+  | 'gpt-4o-transcribe-diarize';
+
 export interface AvatarConfig {
   enabled: boolean;
   type: AvatarType;
@@ -31,6 +40,7 @@ export interface VoiceLiveChatConfig {
   personalVoiceSpeakerProfileId: string;
   personalVoiceModel: string;
   recognitionLanguage: string;
+  inputAudioTranscriptionModel: VoiceLiveInputTranscriptionModel;
   turnDetectionType: 'server_vad' | 'azure_semantic_vad';
   asrOnly: boolean;
   removeFillerWords: boolean;
@@ -77,6 +87,7 @@ export const DEFAULT_CHAT_CONFIG: VoiceLiveChatConfig = {
   personalVoiceSpeakerProfileId: '',
   personalVoiceModel: 'DragonLatestNeural',
   recognitionLanguage: 'auto',
+  inputAudioTranscriptionModel: 'auto',
   turnDetectionType: 'server_vad',
   asrOnly: false,
   removeFillerWords: false,

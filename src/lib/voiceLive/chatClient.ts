@@ -305,6 +305,14 @@ export class VoiceLiveChatClient {
     // GPT-5 models don't support custom temperature, only default (1)
     const isGpt5Model = config.model.includes('gpt-5');
     const temperature = isGpt5Model ? 1 : config.temperature;
+    const inputAudioTranscriptionModel = config.inputAudioTranscriptionModel === 'auto'
+      ? config.model.includes('gpt') && config.model.includes('realtime')
+        ? 'whisper-1'
+        : 'azure-speech'
+      : config.inputAudioTranscriptionModel;
+    const inputAudioTranscriptionLanguage = inputAudioTranscriptionModel === 'mai-transcribe-1' || config.recognitionLanguage === 'auto'
+      ? undefined
+      : config.recognitionLanguage;
 
     // Define tools for function calling based on enabled functions
     const tools: any[] = [];
@@ -354,10 +362,8 @@ export class VoiceLiveChatClient {
       inputAudioFormat: 'pcm16',
       outputAudioFormat: 'pcm16',
       inputAudioTranscription: {
-        model: config.model.includes('gpt') && config.model.includes('realtime')
-          ? 'whisper-1'
-          : 'azure-speech',
-        language: config.recognitionLanguage === 'auto' ? undefined : config.recognitionLanguage,
+        model: inputAudioTranscriptionModel,
+        language: inputAudioTranscriptionLanguage,
       },
       turnDetection: {
         type: config.turnDetectionType,
