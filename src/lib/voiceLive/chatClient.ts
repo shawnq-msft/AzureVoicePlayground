@@ -20,6 +20,7 @@ import {
   type RequestSession,
   type AvatarConfig as SdkAvatarConfig,
   type ClientEventSessionAvatarConnect,
+  TranscriptionPhrase,
 } from '@azure/ai-voicelive';
 import type { VoiceLiveChatConfig, ChatMessage, AvatarConfig } from './chatDefaults';
 import { Pcm16Player, type VolumeCallback } from './audio/pcmPlayer';
@@ -39,7 +40,7 @@ export type ChatClientEvents = {
   onAvatarTrack?: (event: RTCTrackEvent) => void;
   onResponseComplete?: () => void; // Called when a response is fully complete
   onResponseStart?: () => void; // Called when response starts (to pause VAD)
-  onUserTranscriptComplete?: (messageId: string, transcript: string) => void | Promise<void>;
+  onUserTranscriptComplete?: (messageId: string, transcript: string, phrases?: TranscriptionPhrase[]) => void | Promise<void>;
   onFunctionCall?: (name: string, args: string) => string | Promise<string | void> | void;
 };
 
@@ -381,6 +382,7 @@ export class VoiceLiveChatClient {
       avatar: avatarSdkConfig,
       tools: tools.length > 0 ? tools : undefined,
       toolChoice: tools.length > 0 ? 'auto' : undefined,
+      include: config.include ? config.include : undefined,
     };
   }
 
@@ -689,7 +691,7 @@ export class VoiceLiveChatClient {
         }
 
         if (this.currentUserMessageId && event.transcript?.trim()) {
-          await this.events.onUserTranscriptComplete?.(this.currentUserMessageId, event.transcript);
+          await this.events.onUserTranscriptComplete?.(this.currentUserMessageId, event.transcript, event.phrases);
         }
 
         // Reset user transcript and message ID

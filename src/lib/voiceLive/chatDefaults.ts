@@ -61,6 +61,7 @@ export interface VoiceLiveChatConfig {
     silenceDurationInMs?: number;
     createResponse?: boolean;
   };
+  include?: string[];
 }
 
 export const PERSONAL_VOICE_MODELS = [
@@ -151,6 +152,7 @@ const ALL_CHAT_VOICES = [
   { id: 'en-us-andrew2:DragonHDLatestNeural', name: 'Andrew2 (HD, en-US)' },
   { id: 'en-us-andrew3:DragonHDLatestNeural', name: 'Andrew3 (HD, en-US)' },
   { id: 'en-us-ava3:DragonHDLatestNeural', name: 'Ava3 (HD, en-US)' },
+  { id: 'en-us-mila:DragonHDLatestNeural', name: 'Mila (HD, en-US)' },
   // Azure HD Voices - en-US (DragonHD Omni)
   { id: 'en-us-andrew:DragonHDOmniLatestNeural', name: 'Andrew (HD Omni, en-US)' },
   { id: 'en-us-ava:DragonHDOmniLatestNeural', name: 'Ava (HD Omni, en-US)' },

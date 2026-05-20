@@ -6,4 +6,7 @@ export default defineConfig({
   plugins: [react()],
   base: '/AzureVoicePlayground/',
   assetsInclude: ['**/*.onnx'],
+  optimizeDeps: {
+    exclude: ['@azure/ai-voicelive'],
+  },
 })

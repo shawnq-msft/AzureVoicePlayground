@@ -16,6 +16,7 @@ import { useFeatureFlags } from '../hooks/useFeatureFlags';
 import { usePronunciationAssessment, type PronunciationAssessmentResult, type PronunciationAssessmentSession } from '../hooks/usePronunciationAssessment';
 import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
 import { notifySidebarConfigAttention } from '../utils/sidebarConfigAttention';
+import { TranscriptionPhrase } from '@azure/ai-voicelive';
 
 interface BilingualTutorAgentPlaygroundProps {
   settings: AzureSettings;
@@ -39,9 +40,6 @@ const DEFAULT_TRANSCRIPTION_MODEL: VoiceLiveInputTranscriptionModel = 'mai-trans
 // (turnDetection.silenceDurationInMs) and the pronunciation assessment recognizer
 // (Speech_SegmentationSilenceTimeoutMs) so both segment learner turns identically.
 const SILENCE_TIMEOUT_MS = 1000;
-const MAX_PA_VOICELIVE_DISTANCE = 0.55;
-const MIN_COMPARABLE_TOKEN_COUNT = 3;
-const MIN_EDIT_DISTANCE_TO_HIDE_PA = 3;
 
 function loadConfig() {
   try {
@@ -77,57 +75,14 @@ function escapeHtml(value: string) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function containsCjk(value: string) {
-  return /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(value);
-}
-
-function wordTokens(value: string) {
-  return value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
-}
-
-function characterTokens(value: string) {
-  return Array.from(value.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''));
-}
-
-function editDistance(source: string[], target: string[]) {
-  const previous = Array.from({ length: target.length + 1 }, (_, index) => index);
-  const current = new Array<number>(target.length + 1);
-
-  for (let sourceIndex = 1; sourceIndex <= source.length; sourceIndex += 1) {
-    current[0] = sourceIndex;
-    for (let targetIndex = 1; targetIndex <= target.length; targetIndex += 1) {
-      const substitutionCost = source[sourceIndex - 1] === target[targetIndex - 1] ? 0 : 1;
-      current[targetIndex] = Math.min(
-        previous[targetIndex] + 1,
-        current[targetIndex - 1] + 1,
-        previous[targetIndex - 1] + substitutionCost,
-      );
-    }
-    previous.splice(0, previous.length, ...current);
-  }
-
-  return previous[target.length];
-}
-
-function transcriptDistance(paText: string, voiceLiveText: string) {
-  const useCer = containsCjk(paText) || containsCjk(voiceLiveText);
-  const paTokens = useCer ? characterTokens(paText) : wordTokens(paText);
-  const voiceLiveTokens = useCer ? characterTokens(voiceLiveText) : wordTokens(voiceLiveText);
-  const comparableTokenCount = Math.max(paTokens.length, voiceLiveTokens.length);
-  if (paTokens.length === 0 || voiceLiveTokens.length === 0) return { distance: 0, edits: 0, comparableTokenCount };
-
-  const edits = editDistance(paTokens, voiceLiveTokens);
-  return {
-    distance: edits / comparableTokenCount,
-    edits,
-    comparableTokenCount,
-  };
-}
-
-function shouldShowPronunciationResult(paText: string, voiceLiveText: string) {
-  const comparison = transcriptDistance(paText, voiceLiveText);
-  if (comparison.comparableTokenCount < MIN_COMPARABLE_TOKEN_COUNT) return true;
-  return comparison.edits < MIN_EDIT_DISTANCE_TO_HIDE_PA || comparison.distance <= MAX_PA_VOICELIVE_DISTANCE;
+function shouldShowPronunciationResult(phrases: TranscriptionPhrase[] | undefined, targetLocale: string) {
+  if (!phrases || phrases.length === 0) return false;
+  const normalizedTarget = targetLocale.toLowerCase().split('-')[0];
+  const phrasesWithLocale = phrases.filter((phrase) => Boolean(phrase.locale));
+  if (phrasesWithLocale.length === 0) return false;
+  return phrasesWithLocale.every((phrase) => {
+    return phrase.locale!.toLowerCase().split('-')[0] === normalizedTarget;
+  });
 }
 
 function formatPaScoreLine(result: PronunciationAssessmentResult) {
@@ -204,7 +159,7 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   const [l1, setL1] = useState(storedConfig.l1 ?? 'Chinese');
   const [l2, setL2] = useState(storedConfig.l2 ?? 'English');
   const [level, setLevel] = useState<BilingualTutorLevel>(storedConfig.level ?? 'intermediate');
-  const [voice, setVoice] = useState(storedConfig.voice ?? 'en-us-ava:DragonHDLatestNeural');
+  const [voice, setVoice] = useState(storedConfig.voice ?? 'en-us-mila:DragonHDLatestNeural');
   const [transcriptionModel, setTranscriptionModel] = useState<VoiceLiveInputTranscriptionModel>(() => normalizeTutorTranscriptionModel(storedConfig.transcriptionModel));
   const [promptTemplate, setPromptTemplate] = useState(() => normalizePromptTemplate(storedConfig));
   const [referenceText, setReferenceText] = useState('');
@@ -247,7 +202,7 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   };
 
   const clientRef = useRef<VoiceLiveChatClient | null>(null);
-  const assessLastTurnRef = useRef<(messageId: string, transcript: string) => Promise<void>>(async () => {});
+  const assessLastTurnRef = useRef<(messageId: string, transcript: string, phrases?: TranscriptionPhrase[]) => Promise<void>>(async () => {});
   if (!clientRef.current) {
     clientRef.current = new VoiceLiveChatClient({
       onState: (state: ChatState) => {
@@ -291,8 +246,8 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
           }
         }
       },
-      onUserTranscriptComplete: async (messageId, transcript) => {
-        await assessLastTurnRef.current(messageId, transcript);
+      onUserTranscriptComplete: async (messageId, transcript, phrases) => {
+        await assessLastTurnRef.current(messageId, transcript, phrases);
       },
       onFunctionCall: (name, args) => {
         if (name !== 'set_reference_text') return undefined;
@@ -317,13 +272,12 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   const voiceLiveRecognitionLanguages = useMemo(() => {
     return Array.from(new Set([targetLanguage.locale, nativeLanguage.locale])).join(',');
   }, [targetLanguage.locale, nativeLanguage.locale]);
-  const voiceLiveRecognitionLanguage = transcriptionModel === 'mai-transcribe-1' ? 'auto' : voiceLiveRecognitionLanguages;
   const activePromptTemplate = promptTemplate.trim() || DEFAULT_BILINGUAL_TUTOR_PROMPT_TEMPLATE;
   const prompt = useMemo(() => renderBilingualTutorPrompt(activePromptTemplate, l1, l2, level), [activePromptTemplate, l1, l2, level]);
   const voiceLiveApiKeyLooksInvalid = Boolean(settings.voiceLiveApiKey?.trim() && looksLikeUrl(settings.voiceLiveApiKey));
   const hasVoiceLiveConfig = Boolean(settings.voiceLiveEndpoint?.trim() && settings.voiceLiveApiKey?.trim() && !voiceLiveApiKeyLooksInvalid);
 
-  const assessLastTurn = useCallback(async (messageId: string, transcript: string) => {
+  const assessLastTurn = useCallback(async (messageId: string, transcript: string, phrases?: TranscriptionPhrase[]) => {
     const session = paSessionRef.current;
     paSessionRef.current = null;
     if (!session) {
@@ -336,7 +290,7 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
     let extraInstructions: string | undefined;
     if (result?.rawJson && chatClient.snapshot.isConnected) {
       const paComparisonText = getPaComparisonText(result);
-      const showPaResult = shouldShowPronunciationResult(paComparisonText, transcript);
+      const showPaResult = shouldShowPronunciationResult(phrases, targetLocaleRef.current);
       const paHtml = showPaResult ? buildPronunciationHtml(result.rawJson, paComparisonText || transcript) : undefined;
       const paScoreLine = showPaResult ? formatPaScoreLine(result) : undefined;
       chatClient.updateMessageHtmlById(messageId, transcript, buildUserTranscriptHtml(transcript, paHtml, paScoreLine));
@@ -404,10 +358,10 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
         ...DEFAULT_CHAT_CONFIG,
         endpoint: settings.voiceLiveEndpoint || '',
         apiKey: settings.voiceLiveApiKey || '',
-        model: 'gpt-4o',
+        model: 'gpt-4.1',
         instructions: prompt,
         voice,
-        recognitionLanguage: voiceLiveRecognitionLanguage,
+        recognitionLanguage: voiceLiveRecognitionLanguages,
         inputAudioTranscriptionModel: transcriptionModel,
         asrOnly: true,
         enableFunctionCalling: true,
@@ -422,6 +376,10 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
           silenceDurationInMs: SILENCE_TIMEOUT_MS,
           createResponse: false,
         },
+        // `phrases` requires azure-speech or azure-fast-transcription; omit for other models.
+        include: (transcriptionModel === 'azure-speech' /* || transcriptionModel === 'azure-fast-transcription' */)
+          ? ["item.input_audio_transcription.phrases"]
+          : undefined,
       });
     } catch (error) {
       setStatusText(error instanceof Error ? error.message : String(error));
