@@ -358,7 +358,7 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
         ...DEFAULT_CHAT_CONFIG,
         endpoint: settings.voiceLiveEndpoint || '',
         apiKey: settings.voiceLiveApiKey || '',
-        model: 'gpt-4.1',
+        model: 'gpt-5.4',
         instructions: prompt,
         voice,
         recognitionLanguage: voiceLiveRecognitionLanguages,
