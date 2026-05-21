@@ -40,6 +40,9 @@ const DEFAULT_TRANSCRIPTION_MODEL: VoiceLiveInputTranscriptionModel = 'mai-trans
 // (turnDetection.silenceDurationInMs) and the pronunciation assessment recognizer
 // (Speech_SegmentationSilenceTimeoutMs) so both segment learner turns identically.
 const SILENCE_TIMEOUT_MS = 1000;
+const MAX_PA_VOICELIVE_DISTANCE = 0.55;
+const MIN_COMPARABLE_TOKEN_COUNT = 3;
+const MIN_EDIT_DISTANCE_TO_HIDE_PA = 3;
 
 function loadConfig() {
   try {
@@ -75,7 +78,54 @@ function escapeHtml(value: string) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function shouldShowPronunciationResult(phrases: TranscriptionPhrase[] | undefined, targetLocale: string) {
+function containsCjk(value: string) {
+  return /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(value);
+}
+
+function wordTokens(value: string) {
+  return value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+function characterTokens(value: string) {
+  return Array.from(value.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''));
+}
+
+function editDistance(source: string[], target: string[]) {
+  const previous = Array.from({ length: target.length + 1 }, (_, index) => index);
+  const current = new Array<number>(target.length + 1);
+
+  for (let sourceIndex = 1; sourceIndex <= source.length; sourceIndex += 1) {
+    current[0] = sourceIndex;
+    for (let targetIndex = 1; targetIndex <= target.length; targetIndex += 1) {
+      const substitutionCost = source[sourceIndex - 1] === target[targetIndex - 1] ? 0 : 1;
+      current[targetIndex] = Math.min(
+        previous[targetIndex] + 1,
+        current[targetIndex - 1] + 1,
+        previous[targetIndex - 1] + substitutionCost,
+      );
+    }
+    previous.splice(0, previous.length, ...current);
+  }
+
+  return previous[target.length];
+}
+
+function transcriptDistance(paText: string, voiceLiveText: string) {
+  const useCer = containsCjk(paText) || containsCjk(voiceLiveText);
+  const paTokens = useCer ? characterTokens(paText) : wordTokens(paText);
+  const voiceLiveTokens = useCer ? characterTokens(voiceLiveText) : wordTokens(voiceLiveText);
+  const comparableTokenCount = Math.max(paTokens.length, voiceLiveTokens.length);
+  if (paTokens.length === 0 || voiceLiveTokens.length === 0) return { distance: 0, edits: 0, comparableTokenCount };
+
+  const edits = editDistance(paTokens, voiceLiveTokens);
+  return {
+    distance: edits / comparableTokenCount,
+    edits,
+    comparableTokenCount,
+  };
+}
+
+function shouldShowPronunciationResultByLocale(phrases: TranscriptionPhrase[] | undefined, targetLocale: string) {
   if (!phrases || phrases.length === 0) return false;
   const normalizedTarget = targetLocale.toLowerCase().split('-')[0];
   const phrasesWithLocale = phrases.filter((phrase) => Boolean(phrase.locale));
@@ -83,6 +133,12 @@ function shouldShowPronunciationResult(phrases: TranscriptionPhrase[] | undefine
   return phrasesWithLocale.every((phrase) => {
     return phrase.locale!.toLowerCase().split('-')[0] === normalizedTarget;
   });
+}
+
+function shouldShowPronunciationResultByDistance(paText: string, voiceLiveText: string) {
+  const comparison = transcriptDistance(paText, voiceLiveText);
+  if (comparison.comparableTokenCount < MIN_COMPARABLE_TOKEN_COUNT) return true;
+  return comparison.edits < MIN_EDIT_DISTANCE_TO_HIDE_PA || comparison.distance <= MAX_PA_VOICELIVE_DISTANCE;
 }
 
 function formatPaScoreLine(result: PronunciationAssessmentResult) {
@@ -185,6 +241,7 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   const PREROLL_MS = 800;
   const referenceTextRef = useRef(referenceText);
   const targetLocaleRef = useRef(getLanguageByValue(l2).locale);
+  const transcriptionModelRef = useRef(transcriptionModel);
   const assessment = usePronunciationAssessment(settings);
   const startStreamRef = useRef(assessment.startStream);
   useEffect(() => { startStreamRef.current = assessment.startStream; }, [assessment.startStream]);
@@ -290,7 +347,9 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
     let extraInstructions: string | undefined;
     if (result?.rawJson && chatClient.snapshot.isConnected) {
       const paComparisonText = getPaComparisonText(result);
-      const showPaResult = shouldShowPronunciationResult(phrases, targetLocaleRef.current);
+      const showPaResult = transcriptionModelRef.current === 'azure-speech'
+        ? shouldShowPronunciationResultByLocale(phrases, targetLocaleRef.current)
+        : shouldShowPronunciationResultByDistance(paComparisonText, transcript);
       const paHtml = showPaResult ? buildPronunciationHtml(result.rawJson, paComparisonText || transcript) : undefined;
       const paScoreLine = showPaResult ? formatPaScoreLine(result) : undefined;
       chatClient.updateMessageHtmlById(messageId, transcript, buildUserTranscriptHtml(transcript, paHtml, paScoreLine));
@@ -308,6 +367,10 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   useEffect(() => {
     targetLocaleRef.current = targetLanguage.locale;
   }, [targetLanguage.locale]);
+
+  useEffect(() => {
+    transcriptionModelRef.current = transcriptionModel;
+  }, [transcriptionModel]);
 
   useEffect(() => {
     referenceTextRef.current = referenceText;
