@@ -196,7 +196,7 @@ export class VoiceLiveChatClient {
   }
 
   private get responseModalities(): string[] {
-    return this.currentModel === 'azure-realtime' ? ['audio'] : ['text', 'audio'];
+    return this.currentModel?.includes('realtime') ? ['audio'] : ['text', 'audio'];
   }
 
   private async createResponse(additionalInstructions?: string) {
@@ -308,9 +308,9 @@ export class VoiceLiveChatClient {
     }
 
     const avatarSdkConfig = this.buildAvatarConfig(config.avatar);
-    // azure-realtime model only supports ['audio'] or ['text'], not combined
-    const isAzureRealtimeModel = config.model === 'azure-realtime';
-    const modalities: string[] = isAzureRealtimeModel ? ['audio'] : ['text', 'audio'];
+    // Realtime models only support ['audio'] or ['text'], not combined
+    const isRealtimeModel = config.model.includes('realtime');
+    const modalities: string[] = isRealtimeModel ? ['audio'] : ['text', 'audio'];
     if (avatarSdkConfig) {
       modalities.push('avatar');
     }
