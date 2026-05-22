@@ -30,11 +30,54 @@ const LEVELS: { value: BilingualTutorLevel; label: string }[] = [
   { value: 'advanced', label: 'Advanced' },
 ];
 
+const MODEL_OPTIONS: { value: string; label: string; group: string }[] = [
+  { value: 'gpt-realtime-1.5', label: 'GPT Realtime 1.5', group: 'GPT Realtime' },
+  { value: 'azure-realtime', label: 'Azure Realtime', group: 'GPT Realtime' },
+  { value: 'gpt-realtime', label: 'GPT Realtime', group: 'GPT Realtime' },
+  { value: 'gpt-realtime-mini', label: 'GPT Realtime Mini', group: 'GPT Realtime' },
+  { value: 'gpt-5.4', label: 'GPT-5.4 (Cascaded)', group: 'GPT-5 (Cascaded)' },
+  { value: 'gpt-5.3-chat', label: 'GPT-5.3 Chat (Cascaded)', group: 'GPT-5 (Cascaded)' },
+  { value: 'gpt-5.2', label: 'GPT-5.2 (Cascaded)', group: 'GPT-5 (Cascaded)' },
+  { value: 'gpt-5.2-chat', label: 'GPT-5.2 Chat (Cascaded)', group: 'GPT-5 (Cascaded)' },
+  { value: 'gpt-5.1', label: 'GPT-5.1 (Cascaded)', group: 'GPT-5 (Cascaded)' },
+  { value: 'gpt-5.1-chat', label: 'GPT-5.1 Chat (Cascaded)', group: 'GPT-5 (Cascaded)' },
+  { value: 'gpt-5', label: 'GPT-5 (Cascaded)', group: 'GPT-5 (Cascaded)' },
+  { value: 'gpt-5-mini', label: 'GPT-5 Mini (Cascaded)', group: 'GPT-5 (Cascaded)' },
+  { value: 'gpt-5-nano', label: 'GPT-5 Nano (Cascaded)', group: 'GPT-5 (Cascaded)' },
+  { value: 'gpt-5-chat', label: 'GPT-5 Chat (Cascaded)', group: 'GPT-5 (Cascaded)' },
+];
+const DEFAULT_MODEL = 'gpt-5.4';
+
 const TRANSCRIPTION_MODEL_OPTIONS: { value: VoiceLiveInputTranscriptionModel; label: string }[] = [
   { value: 'mai-transcribe-1', label: 'MAI Transcribe 1' },
   { value: 'azure-speech', label: 'Azure Speech' },
 ];
 const DEFAULT_TRANSCRIPTION_MODEL: VoiceLiveInputTranscriptionModel = 'mai-transcribe-1';
+
+const AZURE_REALTIME_VOICES = [
+  { value: 'ava', label: 'Ava' },
+  { value: 'andrew', label: 'Andrew' },
+  { value: 'aarti', label: 'Aarti' },
+  { value: 'denise', label: 'Denise' },
+  { value: 'elsa', label: 'Elsa' },
+  { value: 'florian', label: 'Florian' },
+  { value: 'francisca', label: 'Francisca' },
+  { value: 'meera', label: 'Meera' },
+  { value: 'xiaoxiao', label: 'Xiaoxiao' },
+  { value: 'ximena', label: 'Ximena' },
+  { value: 'yunxi', label: 'Yunxi' },
+];
+
+const CASCADED_MODELS = new Set([
+  'gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano',
+  'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5-chat',
+  'gpt-5.1', 'gpt-5.1-chat', 'gpt-5.2', 'gpt-5.2-chat', 'gpt-5.3-chat', 'gpt-5.4',
+]);
+
+const EOU_OPTIONS: { value: string; label: string }[] = [
+  { value: 'none', label: 'Disabled' },
+  { value: 'semantic_detection_v1', label: 'Semantic Detection' },
+];
 
 // Silence duration that ends a learner turn. Shared between Voice Live server VAD
 // (turnDetection.silenceDurationInMs) and the pronunciation assessment recognizer
@@ -52,8 +95,12 @@ function loadConfig() {
       l2: string;
       level: BilingualTutorLevel;
       voice: string;
+      model: string;
       transcriptionModel: VoiceLiveInputTranscriptionModel;
       promptTemplate: string;
+      useNoiseSuppression: boolean;
+      useEchoCancellation: boolean;
+      eouDetection: string;
     }> : {};
   } catch {
     return {};
@@ -216,8 +263,12 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   const [l2, setL2] = useState(storedConfig.l2 ?? 'English');
   const [level, setLevel] = useState<BilingualTutorLevel>(storedConfig.level ?? 'intermediate');
   const [voice, setVoice] = useState(storedConfig.voice ?? 'en-us-mila:DragonHDLatestNeural');
+  const [model, setModel] = useState(storedConfig.model && MODEL_OPTIONS.some((o) => o.value === storedConfig.model) ? storedConfig.model : DEFAULT_MODEL);
   const [transcriptionModel, setTranscriptionModel] = useState<VoiceLiveInputTranscriptionModel>(() => normalizeTutorTranscriptionModel(storedConfig.transcriptionModel));
   const [promptTemplate, setPromptTemplate] = useState(() => normalizePromptTemplate(storedConfig));
+  const [useNoiseSuppression, setUseNoiseSuppression] = useState(storedConfig.useNoiseSuppression ?? false);
+  const [useEchoCancellation, setUseEchoCancellation] = useState(storedConfig.useEchoCancellation ?? true);
+  const [eouDetection, setEouDetection] = useState(storedConfig.eouDetection ?? 'none');
   const [referenceText, setReferenceText] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [statusText, setStatusText] = useState('Ready');
@@ -227,6 +278,9 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [textInput, setTextInput] = useState('');
   const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
+
+  const isAzureRealtimeModel = model === 'azure-realtime';
+  const isCascadedModel = CASCADED_MODELS.has(model);
 
   const audioHandlerRef = useRef<ChatAudioHandler | null>(null);
   const circleRef = useRef<HTMLDivElement | null>(null);
@@ -377,8 +431,8 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
   }, [referenceText]);
 
   useEffect(() => {
-    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify({ l1, l2, level, voice, transcriptionModel, promptTemplate }));
-  }, [l1, l2, level, voice, transcriptionModel, promptTemplate]);
+    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify({ l1, l2, level, voice, model, transcriptionModel, promptTemplate, useNoiseSuppression, useEchoCancellation, eouDetection }));
+  }, [l1, l2, level, voice, model, transcriptionModel, promptTemplate, useNoiseSuppression, useEchoCancellation, eouDetection]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -417,13 +471,19 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
     }
 
     try {
+      // azure-speech transcription requires azure_semantic_vad; other models use server_vad.
+      const effectiveTurnDetectionType = transcriptionModel === 'azure-speech'
+        ? 'azure_semantic_vad' as const
+        : 'server_vad' as const;
+
       await chatClient.connect({
         ...DEFAULT_CHAT_CONFIG,
         endpoint: settings.voiceLiveEndpoint || '',
         apiKey: settings.voiceLiveApiKey || '',
-        model: 'gpt-5.4',
+        model,
         instructions: prompt,
-        voice,
+        voice: isAzureRealtimeModel ? (voice || 'ava') : voice,
+        voiceType: isAzureRealtimeModel ? 'azure-realtime-native' : 'standard',
         recognitionLanguage: voiceLiveRecognitionLanguages,
         inputAudioTranscriptionModel: transcriptionModel,
         asrOnly: true,
@@ -431,14 +491,17 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
         functions: { enableDateTime: false, enableWeatherForecast: false },
         customTools: [SET_REFERENCE_TEXT_TOOL],
         temperature: 0.4,
+        useNoiseSuppression,
+        useEchoCancellation,
         avatar: { ...DEFAULT_CHAT_CONFIG.avatar, enabled: false },
         turnDetection: {
-          type: 'server_vad',
+          type: effectiveTurnDetectionType,
           threshold: 0.5,
           prefixPaddingInMs: 1000,
           silenceDurationInMs: SILENCE_TIMEOUT_MS,
           createResponse: false,
         },
+        endOfUtteranceDetection: isCascadedModel && eouDetection !== 'none' ? eouDetection : undefined,
         // `phrases` requires azure-speech or azure-fast-transcription; omit for other models.
         include: (transcriptionModel === 'azure-speech' /* || transcriptionModel === 'azure-fast-transcription' */)
           ? ["item.input_audio_transcription.phrases"]
@@ -617,10 +680,35 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Tutor Voice</label>
-                <select value={voice} onChange={(event) => setVoice(event.target.value)} disabled={isConnected} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:bg-gray-100">
-                  {chatVoices.map((chatVoice) => <option key={chatVoice.id} value={chatVoice.id}>{chatVoice.name}</option>)}
+                <label className="mb-1 block text-sm font-medium text-gray-700">Model</label>
+                <select value={model} onChange={(event) => {
+                  const newModel = event.target.value;
+                  setModel(newModel);
+                  if (newModel === 'azure-realtime') {
+                    setVoice('ava');
+                  } else if (model === 'azure-realtime') {
+                    setVoice('en-us-mila:DragonHDLatestNeural');
+                  }
+                }} disabled={isConnected} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:bg-gray-100">
+                  {Array.from(new Set(MODEL_OPTIONS.map((o) => o.group))).map((group) => (
+                    <optgroup key={group} label={group}>
+                      {MODEL_OPTIONS.filter((o) => o.group === group).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </optgroup>
+                  ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Tutor Voice</label>
+                {isAzureRealtimeModel ? (
+                  <select value={voice} onChange={(event) => setVoice(event.target.value)} disabled={isConnected} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:bg-gray-100">
+                    {AZURE_REALTIME_VOICES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+                  </select>
+                ) : (
+                  <select value={voice} onChange={(event) => setVoice(event.target.value)} disabled={isConnected} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:bg-gray-100">
+                    {chatVoices.map((chatVoice) => <option key={chatVoice.id} value={chatVoice.id}>{chatVoice.name}</option>)}
+                  </select>
+                )}
               </div>
 
               <div>
@@ -643,6 +731,30 @@ export function BilingualTutorAgentPlayground({ settings }: BilingualTutorAgentP
                         {TRANSCRIPTION_MODEL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                       </select>
                     </div>
+
+                    {isCascadedModel && (
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">EOU Detection</label>
+                        <select value={eouDetection} onChange={(event) => setEouDetection(event.target.value)} disabled={isConnected} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:bg-gray-100">
+                          {EOU_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Noise Suppression</label>
+                      <button type="button" role="switch" aria-checked={useNoiseSuppression} onClick={() => setUseNoiseSuppression((v) => !v)} disabled={isConnected} className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${useNoiseSuppression ? 'bg-blue-600' : 'bg-gray-200'}`}>
+                        <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${useNoiseSuppression ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Echo Cancellation</label>
+                      <button type="button" role="switch" aria-checked={useEchoCancellation} onClick={() => setUseEchoCancellation((v) => !v)} disabled={isConnected} className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${useEchoCancellation ? 'bg-blue-600' : 'bg-gray-200'}`}>
+                        <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${useEchoCancellation ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
+
                     <div>
                       <div className="mb-1 flex items-center justify-between gap-2">
                         <label className="block text-sm font-medium text-gray-700">Prompt Template</label>

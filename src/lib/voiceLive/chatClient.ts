@@ -60,6 +60,7 @@ export class VoiceLiveChatClient {
   private peerConnection?: RTCPeerConnection;
   private avatarConfig?: AvatarConfig;
   private pendingIceServers?: RTCIceServer[];
+  private currentModel?: string;
 
   private state: ChatState = {
     isConnected: false,
@@ -194,11 +195,15 @@ export class VoiceLiveChatClient {
     }
   }
 
+  private get responseModalities(): string[] {
+    return this.currentModel === 'azure-realtime' ? ['audio'] : ['text', 'audio'];
+  }
+
   private async createResponse(additionalInstructions?: string) {
     if (!this.session) throw new Error('Not connected');
     await this.session.sendEvent({
       type: 'response.create',
-      response: { modalities: ['text', 'audio'] },
+      response: { modalities: this.responseModalities },
       additionalInstructions: additionalInstructions,
     });
   }
@@ -219,7 +224,7 @@ export class VoiceLiveChatClient {
         console.log('[VoiceLive Chat] Triggering response for function result...');
         await this.session.sendEvent({
           type: 'response.create',
-          response: { modalities: ['text', 'audio'] },
+          response: { modalities: this.responseModalities },
         });
       } else {
         console.log('[VoiceLive Chat] Skipping response.create — response already contained audio/text.');
@@ -278,7 +283,12 @@ export class VoiceLiveChatClient {
     // Determine voice configuration based on voice type
     let voiceConfig: string | { type: string; name: string; model?: string };
 
-    if (config.voiceType === 'personal') {
+    if (config.voiceType === 'azure-realtime-native') {
+      voiceConfig = {
+        type: 'azure-realtime-native',
+        name: config.voice || 'ava',
+      };
+    } else if (config.voiceType === 'personal') {
       // Personal voice uses azure-personal type with speaker profile ID
       voiceConfig = {
         type: 'azure-personal',
@@ -298,7 +308,9 @@ export class VoiceLiveChatClient {
     }
 
     const avatarSdkConfig = this.buildAvatarConfig(config.avatar);
-    const modalities: string[] = ['text', 'audio'];
+    // azure-realtime model only supports ['audio'] or ['text'], not combined
+    const isAzureRealtimeModel = config.model === 'azure-realtime';
+    const modalities: string[] = isAzureRealtimeModel ? ['audio'] : ['text', 'audio'];
     if (avatarSdkConfig) {
       modalities.push('avatar');
     }
@@ -371,6 +383,9 @@ export class VoiceLiveChatClient {
         removeFillerWords: config.removeFillerWords,
         createResponse: !config.asrOnly,
         ...(config.turnDetection ?? {}),
+        ...(config.endOfUtteranceDetection && config.endOfUtteranceDetection !== 'none'
+          ? { endOfUtteranceDetection: { model: config.endOfUtteranceDetection } }
+          : {}),
       },
       temperature,
       inputAudioNoiseReduction: config.useNoiseSuppression
@@ -587,7 +602,7 @@ export class VoiceLiveChatClient {
       endpoint,
       new AzureKeyCredential(apiKey),
       {
-        apiVersion: '2025-10-01',
+        apiVersion: '2026-01-01-preview',
         defaultSessionOptions: { enableDebugLogging: false },
       }
     );
@@ -596,6 +611,7 @@ export class VoiceLiveChatClient {
     console.log('[VoiceLive Chat] Session config:', JSON.stringify(sessionConfig, null, 2));
 
     // Create session without connecting first so we can subscribe to handlers
+    this.currentModel = config.model;
     this.session = this.client.createSession(config.model, { connectionTimeoutInMs: 30000 });
     console.log('[VoiceLive Chat] Session created, subscribing to handlers...');
 
@@ -867,8 +883,30 @@ export class VoiceLiveChatClient {
     try {
       await this.session.connect();
       console.log('[VoiceLive Chat] WebSocket connected, sending session config...');
-      await this.session.updateSession(sessionConfig);
-      console.log('[VoiceLive Chat] Session config sent successfully');
+
+      // The SDK's voice serializer only supports known Azure voice types (azure-standard,
+      // azure-custom, azure-personal, avatar-voice-sync). For unknown types like
+      // azure-realtime-native, the serializer drops all fields except 'type', losing 'name'.
+      // Work around: send session config without voice via updateSession, then send a raw
+      // JSON session.update directly on the WebSocket to bypass the serializer entirely.
+      const needsRawVoiceUpdate = typeof sessionConfig.voice === 'object'
+        && sessionConfig.voice !== null
+        && 'type' in sessionConfig.voice
+        && !['azure-custom', 'azure-standard', 'azure-personal', 'avatar-voice-sync', 'openai'].includes((sessionConfig.voice as any).type);
+
+      if (needsRawVoiceUpdate) {
+        const { voice: rawVoice, ...configWithoutVoice } = sessionConfig;
+        await this.session.updateSession(configWithoutVoice as RequestSession);
+        // Bypass SDK serializer by sending raw JSON through the underlying WebSocket
+        const cm = (this.session as any)._connectionManager;
+        if (cm) {
+          await cm.send(JSON.stringify({ type: 'session.update', session: { voice: rawVoice } }));
+        }
+        console.log('[VoiceLive Chat] Session config sent (voice via raw WebSocket)');
+      } else {
+        await this.session.updateSession(sessionConfig);
+        console.log('[VoiceLive Chat] Session config sent successfully');
+      }
     } catch (error) {
       console.error('[VoiceLive Chat] Failed to connect or update session:', error);
       throw error;

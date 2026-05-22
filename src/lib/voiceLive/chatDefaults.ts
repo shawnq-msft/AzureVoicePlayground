@@ -4,7 +4,7 @@
 
 export type AvatarType = 'none' | 'video' | 'photo';
 
-export type VoiceType = 'standard' | 'personal';
+export type VoiceType = 'standard' | 'personal' | 'azure-realtime-native';
 
 export type VoiceLiveInputTranscriptionModel =
   | 'auto'
@@ -61,6 +61,7 @@ export interface VoiceLiveChatConfig {
     silenceDurationInMs?: number;
     createResponse?: boolean;
   };
+  endOfUtteranceDetection?: string;
   include?: string[];
 }
 
