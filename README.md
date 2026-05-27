@@ -1,5 +1,9 @@
 # Azure Voice Playground
 
+Azure Voice Playground is a developer playground for testing Azure Voice Live, Azure Speech, real-time voice agents, speech-to-text, text-to-speech, and browser-based AI voice interactions.
+
+中文：Azure Voice Playground 是一个面向 AI 开发者的语音实验场，用于测试 Azure Voice Live、Azure Speech、实时语音 Agent、语音识别、语音合成和浏览器语音交互。
+
 A feature-rich web application showcasing Microsoft Azure's voice and speech AI capabilities. Built with React, TypeScript, and Tailwind CSS.
 
 **Live Demo**: [https://shawnq-msft.github.io/AzureVoicePlayground/](https://shawnq-msft.github.io/AzureVoicePlayground/)
@@ -59,6 +63,30 @@ npm run build
 # Deploy to GitHub Pages
 npm run deploy
 ```
+
+## Browser and Microphone Permissions
+
+- Use a modern Chromium-based browser, Microsoft Edge, or Chrome for the best WebRTC and microphone support.
+- Allow microphone access when the browser prompts for permission.
+- Use `https://` or `localhost`; browsers block microphone access on most insecure origins.
+- If the microphone has no input, check the operating system input device, browser site permissions, and whether another app is already using the device.
+
+## Use Cases
+
+- Prototype Azure Voice Live real-time voice agents in the browser.
+- Compare Azure Speech STT, TTS, voice conversion, and translation workflows.
+- Test latency, VAD behavior, and browser audio handling before integrating voice into an app.
+- Build demos for AI voice assistants, multilingual voice experiences, and speech productivity tools.
+
+## FAQ
+
+**No microphone input**: Confirm browser microphone permission, operating system input permission, and the selected recording device.
+
+**Token or API configuration errors**: Recheck the Azure Speech key, Voice Live endpoint, API key, region, and model/deployment settings.
+
+**High latency**: Test with a nearby Azure region, a stable network, and a headset microphone. Enable latency metrics to separate VAD delay from service latency.
+
+**Browser compatibility**: WebRTC and microphone behavior differ by browser. Use Edge or Chrome first when debugging.
 
 ## GitHub Pages Deployment
 
@@ -227,3 +255,7 @@ Each API reference includes:
 ## License
 
 MIT
+
+If this project helps you build AI voice agents, consider starring the repo.
+
+如果这个项目帮你跑通了 AI 语音 Agent，欢迎 Star，也欢迎提交 Issue 交流复现问题。
