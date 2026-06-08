@@ -30,6 +30,8 @@ const LLM_SPEECH_REGIONS = [
   'westus',
 ];
 
+const MAI_TRANSCRIBE_15_LANGUAGE_COUNT = 43;
+
 // All regions support Realtime STT, so no need for a separate list
 
 interface STTModelSelectorProps {
@@ -76,10 +78,10 @@ const MODELS: ModelInfo[] = [
   {
     id: 'mai-transcribe-1.5',
     name: 'MAI-Transcribe 1.5 (Preview)',
-    description: 'Newest MAI model with transcribe style support',
+    description: 'Domain-aware transcripts across noisy audio and accents',
     icon: '🎯',
-    useCases: 'High-accuracy transcription with broad language support',
-    features: ['High accuracy', 'High efficiency', 'Transcribe style', 'Max 300 MB', `${MAI_TRANSCRIBE_LANGUAGES.length} languages`],
+    useCases: 'High-accuracy transcription across 43 languages',
+    features: ['Leading accuracy', 'Domain-aware', 'Automatic language detection', 'Max 300 MB', `${MAI_TRANSCRIBE_15_LANGUAGE_COUNT} languages`],
     isNew: true,
   },
   {
