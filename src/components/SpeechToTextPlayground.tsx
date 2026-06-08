@@ -16,6 +16,7 @@ import { AudioUploader } from './AudioUploader';
 import { AudioRecorder } from './AudioRecorder';
 import { getAudioDuration } from '../utils/audioUtils';
 import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
+import { MAITranscribeModel } from '../hooks/useMAITranscribe';
 
 interface SpeechToTextPlaygroundProps {
   settings: AzureSettings;
@@ -36,7 +37,7 @@ export function SpeechToTextPlayground({
   removeFromHistory,
   clearHistory,
 }: SpeechToTextPlaygroundProps) {
-  const [selectedModel, setSelectedModel] = useState<STTModel>('realtime');
+  const [selectedModel, setSelectedModel] = useState<STTModel>('mai-transcribe-1.5');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('auto');
   const [audioSource, setAudioSource] = useState<File | Blob | null>(null);
   const [audioFileName, setAudioFileName] = useState<string>('');
@@ -61,6 +62,7 @@ export function SpeechToTextPlayground({
         return fastTranscription;
       case 'llm-speech':
         return llmSpeech;
+      case 'mai-transcribe-1.5':
       case 'mai-transcribe':
         return maiTranscribe;
       case 'whisper':
@@ -89,7 +91,7 @@ export function SpeechToTextPlayground({
             text: llmSpeech.transcript.fullText,
             segments: llmSpeech.transcript.segments
           };
-        } else if (selectedModel === 'mai-transcribe' && maiTranscribe.transcript) {
+        } else if ((selectedModel === 'mai-transcribe-1.5' || selectedModel === 'mai-transcribe') && maiTranscribe.transcript) {
           return {
             text: maiTranscribe.transcript.fullText,
             segments: maiTranscribe.transcript.segments
@@ -163,8 +165,11 @@ export function SpeechToTextPlayground({
           maxSpeakers,
           prompt: llmPrompt.trim() ? llmPrompt.split('\n').filter(line => line.trim()) : undefined
         });
-      } else if (selectedModel === 'mai-transcribe') {
-        await maiTranscribe.transcribe(audioSource, selectedLanguage);
+      } else if (selectedModel === 'mai-transcribe-1.5' || selectedModel === 'mai-transcribe') {
+        const maiModel: MAITranscribeModel = selectedModel === 'mai-transcribe-1.5'
+          ? 'mai-transcribe-1.5'
+          : 'mai-transcribe-1';
+        await maiTranscribe.transcribe(audioSource, selectedLanguage, maiModel);
       } else if (selectedModel === 'whisper') {
         await whisperTranscription.transcribe(audioSource, selectedLanguage);
       }
@@ -210,7 +215,7 @@ export function SpeechToTextPlayground({
         isStreaming: false,
         detectedLanguage: llmSpeech.transcript.language
       };
-    } else if (selectedModel === 'mai-transcribe' && maiTranscribe.transcript) {
+    } else if ((selectedModel === 'mai-transcribe-1.5' || selectedModel === 'mai-transcribe') && maiTranscribe.transcript) {
       return {
         segments: maiTranscribe.transcript.segments,
         fullText: maiTranscribe.transcript.fullText,
@@ -351,7 +356,7 @@ export function SpeechToTextPlayground({
               isStreaming={displayData.isStreaming}
               audioSource={audioSource}
               detectedLanguage={displayData.detectedLanguage}
-              showConfidence={selectedModel !== 'llm-speech' && selectedModel !== 'mai-transcribe'}
+              showConfidence={selectedModel !== 'llm-speech' && selectedModel !== 'mai-transcribe-1.5' && selectedModel !== 'mai-transcribe'}
             />
 
             {/* Export Options */}

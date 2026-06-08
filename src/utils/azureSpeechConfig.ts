@@ -20,6 +20,17 @@ export function getTTSEndpoint(region: string): string {
 }
 
 /**
+ * Gets the TTS REST endpoint for a given region
+ */
+export function getTTSRestEndpoint(region: string): string {
+  const r = region.toLowerCase();
+  if (isChinaRegion(r)) {
+    return `https://${r}.tts.speech.azure.cn/cognitiveservices/v1`;
+  }
+  return `https://${r}.tts.speech.microsoft.com/cognitiveservices/v1`;
+}
+
+/**
  * Gets the STT WebSocket endpoint for a given region
  */
 export function getSTTEndpoint(region: string): string {

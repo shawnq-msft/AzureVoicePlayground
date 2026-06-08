@@ -39,7 +39,7 @@ export function VoiceConversionSelector({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-800">Target Voice</h3>
+      <h3 className="text-lg font-semibold text-[var(--text-strong)]">Target Voice</h3>
 
       {/* Gender filter buttons */}
       <div className="flex gap-2 flex-wrap">
@@ -50,7 +50,7 @@ export function VoiceConversionSelector({
             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
               genderFilter === gender
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-[var(--surface-muted)] text-[var(--text-body)] hover:bg-[var(--surface-elevated)]'
             }`}
           >
             {gender}
@@ -64,34 +64,34 @@ export function VoiceConversionSelector({
         placeholder="Search voices..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        className="w-full px-3 py-2 border border-[var(--border-soft)] bg-[var(--surface-elevated)] text-[var(--text-strong)] placeholder:text-[var(--text-muted)] rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
       />
 
       {/* Selected voice display */}
       {selectedVoice && (
-        <div className="p-2 bg-blue-50 border border-blue-200 rounded-md">
-          <div className="text-xs text-blue-600 font-medium">Selected:</div>
-          <div className="text-sm text-blue-800 truncate">{selectedVoice.displayName}</div>
+        <div className="p-2 bg-[rgba(59,130,246,0.14)] border border-blue-500/50 rounded-md">
+          <div className="text-xs text-blue-400 font-medium">Selected:</div>
+          <div className="text-sm text-[var(--text-strong)] truncate">{selectedVoice.displayName}</div>
         </div>
       )}
 
       {/* Voice list */}
-      <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-md">
+      <div className="max-h-96 overflow-y-auto border border-[var(--border-soft)] rounded-md">
         {filteredVoices.length === 0 ? (
-          <div className="p-4 text-center text-gray-500 text-sm">No voices found</div>
+          <div className="p-4 text-center text-[var(--text-muted)] text-sm">No voices found</div>
         ) : (
           filteredVoices.map((voice) => (
             <button
               key={voice.name}
               onClick={() => onVoiceChange(voice)}
-              className={`w-full px-4 py-3 text-left border-b border-gray-100 last:border-b-0 transition-colors ${
+              className={`w-full px-4 py-3 text-left border-b border-[var(--border-soft)] last:border-b-0 transition-colors ${
                 selectedVoice?.name === voice.name
-                  ? 'bg-blue-50 border-l-4 border-l-blue-600'
-                  : 'hover:bg-gray-50'
+                  ? 'bg-[rgba(59,130,246,0.16)] border-l-4 border-l-blue-500'
+                  : 'hover:bg-[var(--surface-muted)]'
               }`}
             >
-              <div className="font-medium text-gray-800">{voice.displayName}</div>
-              <div className="text-xs text-gray-500 flex items-center gap-2">
+              <div className="font-medium text-[var(--text-strong)]">{voice.displayName}</div>
+              <div className="text-xs text-[var(--text-muted)] flex items-center gap-2">
                 <span
                   className={`inline-block px-1.5 py-0.5 rounded text-xs ${
                     voice.gender === 'Female'
@@ -103,14 +103,14 @@ export function VoiceConversionSelector({
                 >
                   {voice.gender}
                 </span>
-                <span className="text-gray-400">en-US</span>
+                <span className="text-[var(--text-muted)]">en-US</span>
               </div>
             </button>
           ))
         )}
       </div>
 
-      <div className="text-xs text-gray-500">
+      <div className="text-xs text-[var(--text-muted)]">
         {filteredVoices.length} voice{filteredVoices.length !== 1 ? 's' : ''} available
       </div>
     </div>

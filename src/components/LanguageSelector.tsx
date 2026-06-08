@@ -35,8 +35,8 @@ export function LanguageSelector({ selectedLanguage, onLanguageChange, selectedM
       // LLM Speech has its own language list (auto-detect is supported)
       return [AUTO_DETECT, ...llmSpeechLanguagesAsSTT];
     }
-    if (selectedModel === 'mai-transcribe') {
-      // MAI-Transcribe-1 has its own language list (auto-detect is supported)
+    if (selectedModel === 'mai-transcribe-1.5' || selectedModel === 'mai-transcribe') {
+      // MAI-Transcribe has its own language list (auto-detect is supported)
       return [AUTO_DETECT, ...maiTranscribeLanguagesAsSTT];
     }
     const modelType = selectedModel === 'fast-transcription' ? 'fast-transcription' : 'realtime';

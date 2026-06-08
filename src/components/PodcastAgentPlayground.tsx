@@ -820,20 +820,20 @@ export function PodcastAgentPlayground({
         </div>
 
         {/* Right Panel - Settings */}
-        <div className="w-96 border-l border-gray-200 overflow-auto p-6">
+        <div className="w-96 border-l border-[var(--border-soft)] overflow-auto p-6">
           <div className="space-y-6">
             <div>
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Podcast Configuration</h2>
+              <h2 className="text-lg font-medium text-[var(--text-strong)] mb-4">Podcast Configuration</h2>
             </div>
 
             {/* Locale */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
+              <label className="block text-sm font-medium text-[var(--text-body)] mb-2">Language</label>
               <select
                 value={locale}
                 onChange={(e) => setLocale(e.target.value)}
                 disabled={isProcessing}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 border border-[var(--border-soft)] bg-[var(--surface-elevated)] text-[var(--text-strong)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed"
               >
                 {availableLocales.map((l) => (
                   <option key={l.code} value={l.code}>
@@ -841,7 +841,7 @@ export function PodcastAgentPlayground({
                   </option>
                 ))}
               </select>
-              <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+              <div className="mt-1 text-xs text-[var(--text-muted)] space-y-0.5">
                 <div className="flex items-center gap-1">
                   <span>👥 Supports OneHost and TwoHosts</span>
                 </div>
@@ -858,15 +858,15 @@ export function PodcastAgentPlayground({
 
             {/* Host Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Host Type</label>
+              <label className="block text-sm font-medium text-[var(--text-body)] mb-2">Host Type</label>
               <div className="space-y-2">
                 {HOST_TYPES.map((type) => (
                   <label
                     key={type.value}
                     className={`flex items-start p-3 border rounded-md cursor-pointer transition-colors ${
                       hostType === type.value
-                        ? 'border-purple-600 bg-purple-50'
-                        : 'border-gray-200 hover:border-purple-300'
+                        ? 'border-purple-500 bg-purple-500/15'
+                        : 'border-[var(--border-soft)] bg-[var(--surface)] hover:border-purple-400'
                     } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <input
@@ -878,8 +878,8 @@ export function PodcastAgentPlayground({
                       className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500"
                     />
                     <div className="ml-3">
-                      <div className="text-sm font-medium text-gray-900">{type.label}</div>
-                      <div className="text-xs text-gray-500">{type.description}</div>
+                      <div className="text-sm font-medium text-[var(--text-strong)]">{type.label}</div>
+                      <div className="text-xs text-[var(--text-muted)]">{type.description}</div>
                     </div>
                   </label>
                 ))}
@@ -934,8 +934,8 @@ export function PodcastAgentPlayground({
 
             {/* Note when voice is selected */}
             {hostType === 'OneHost' && (selectedVoice || manualOneHostVoiceName) && (
-              <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
-                <p className="text-xs text-gray-600">
+              <div className="p-3 bg-[var(--surface-muted)] border border-[var(--border-soft)] rounded-md">
+                <p className="text-xs text-[var(--text-body)]">
                   <span className="font-medium">Note:</span> Gender preference is not available when a specific voice is selected. 
                   {manualOneHostVoiceName ? ' Clear the manual input' : ' Select "Auto"'} to use gender preference instead.
                 </p>
@@ -945,10 +945,10 @@ export function PodcastAgentPlayground({
             {/* Gender Preference (only for OneHost when no voice is selected) */}
             {hostType === 'OneHost' && !selectedVoice && !manualOneHostVoiceName && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Gender Preference <span className="text-gray-500 font-normal">- Optional</span>
+                <label className="block text-sm font-medium text-[var(--text-body)] mb-2">
+                  Gender Preference <span className="text-[var(--text-muted)] font-normal">- Optional</span>
                 </label>
-                <p className="text-xs text-gray-500 -mt-1 mb-2">
+                <p className="text-xs text-[var(--text-muted)] -mt-1 mb-2">
                   Guide automatic voice selection by gender
                 </p>
                 <div className="space-y-2">
@@ -961,8 +961,8 @@ export function PodcastAgentPlayground({
                       key={option.value || 'auto'}
                       className={`flex items-start p-3 border rounded-md cursor-pointer transition-colors ${
                         genderPreference === option.value
-                          ? 'border-purple-600 bg-purple-50'
-                          : 'border-gray-200 hover:border-purple-300'
+                          ? 'border-purple-500 bg-purple-500/15'
+                          : 'border-[var(--border-soft)] bg-[var(--surface)] hover:border-purple-400'
                       } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <input
@@ -973,8 +973,8 @@ export function PodcastAgentPlayground({
                         className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500"
                       />
                       <div className="ml-3">
-                        <div className="text-sm font-medium text-gray-900">{option.label}</div>
-                        <div className="text-xs text-gray-500">{option.description}</div>
+                        <div className="text-sm font-medium text-[var(--text-strong)]">{option.label}</div>
+                        <div className="text-xs text-[var(--text-muted)]">{option.description}</div>
                       </div>
                     </label>
                   ))}
@@ -984,12 +984,12 @@ export function PodcastAgentPlayground({
 
             {/* Style */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Style</label>
+              <label className="block text-sm font-medium text-[var(--text-body)] mb-2">Style</label>
               <select
                 value={style}
                 onChange={(e) => setStyle(e.target.value as PodcastStyle)}
                 disabled={isProcessing}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 border border-[var(--border-soft)] bg-[var(--surface-elevated)] text-[var(--text-strong)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed"
               >
                 {STYLES.map((s) => (
                   <option key={s.value} value={s.value}>
@@ -1001,12 +1001,12 @@ export function PodcastAgentPlayground({
 
             {/* Length */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Length</label>
+              <label className="block text-sm font-medium text-[var(--text-body)] mb-2">Length</label>
               <select
                 value={length}
                 onChange={(e) => setLength(e.target.value as PodcastLength)}
                 disabled={isProcessing}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 border border-[var(--border-soft)] bg-[var(--surface-elevated)] text-[var(--text-strong)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed"
               >
                 {LENGTHS.map((l) => (
                   <option key={l.value} value={l.value}>
@@ -1018,9 +1018,9 @@ export function PodcastAgentPlayground({
 
             {/* Additional Instructions */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-body)] mb-2">
                 Additional Instructions
-                <span className="text-gray-400 font-normal ml-1">(optional)</span>
+                <span className="text-[var(--text-muted)] font-normal ml-1">(optional)</span>
               </label>
               <textarea
                 value={additionalInstructions}
@@ -1035,21 +1035,21 @@ export function PodcastAgentPlayground({
                 disabled={isProcessing}
                 placeholder="e.g., Focus on technical details, use casual tone, include examples..."
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
+                className="w-full px-3 py-2 border border-[var(--border-soft)] bg-[var(--surface-elevated)] text-[var(--text-strong)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed resize-none"
               />
-              <div className="mt-1 text-xs text-gray-500">
+              <div className="mt-1 text-xs text-[var(--text-muted)]">
                 {additionalInstructions.length} / {template === 'custom' ? '100,000' : (TEMPLATES.find(t => t.value === template)?.maxChars.toLocaleString() || '1,000')} characters
               </div>
             </div>
 
             {/* Advanced Settings */}
-            <div className="pt-4 border-t border-gray-200">
+            <div className="pt-4 border-t border-[var(--border-soft)]">
               <button
                 onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
                 className="w-full flex items-center justify-between text-left"
               >
                 <div className="flex items-center space-x-2">
-                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -1063,7 +1063,7 @@ export function PodcastAgentPlayground({
                       d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                     />
                   </svg>
-                  <span className="text-sm font-medium text-gray-700">Advanced Settings</span>
+                  <span className="text-sm font-medium text-[var(--text-body)]">Advanced Settings</span>
                 </div>
                 <svg
                   className={`w-4 h-4 text-gray-400 transform transition-transform ${
@@ -1081,7 +1081,7 @@ export function PodcastAgentPlayground({
                 <div className="mt-4 space-y-4">
                   {/* Dialog Generation Prompt Template */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--text-body)] mb-2">
                       Dialog Generation Prompt Template
                     </label>
                     <select
@@ -1102,7 +1102,7 @@ export function PodcastAgentPlayground({
                         }
                       }}
                       disabled={isProcessing}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="w-full px-3 py-2 border border-[var(--border-soft)] bg-[var(--surface-elevated)] text-[var(--text-strong)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-[var(--surface-muted)] disabled:cursor-not-allowed"
                     >
                       {TEMPLATES.map((t) => (
                         <option key={t.value} value={t.value}>
@@ -1140,12 +1140,12 @@ export function PodcastAgentPlayground({
                     
                     {/* Template description - only show for predefined templates */}
                     {template !== 'custom' && (
-                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                        <p className="text-xs text-blue-700">
+                      <div className="mt-2 p-3 bg-[rgba(59,130,246,0.14)] border border-blue-500/40 rounded-md">
+                        <p className="text-xs text-[var(--text-body)]">
                           <strong>{TEMPLATES.find(t => t.value === template)?.label}:</strong>{' '}
                           {TEMPLATES.find(t => t.value === template)?.description}
                         </p>
-                        <p className="text-xs text-blue-600 mt-1">
+                        <p className="text-xs text-[var(--text-muted)] mt-1">
                           Instruction length limit: {TEMPLATES.find(t => t.value === template)?.maxChars.toLocaleString()} characters
                         </p>
                       </div>
@@ -1159,13 +1159,13 @@ export function PodcastAgentPlayground({
       </div>
 
       {/* History Panel */}
-      <div className="border-t border-gray-200">
+      <div className="border-t border-[var(--border-soft)]">
         <button
           onClick={() => setShowHistory(!showHistory)}
-          className="w-full px-6 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
+          className="w-full px-6 py-3 flex items-center justify-between bg-[var(--surface-muted)] hover:bg-[var(--surface-elevated)] transition-colors"
         >
           <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -1173,8 +1173,8 @@ export function PodcastAgentPlayground({
                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span className="font-medium text-gray-700">Generation History</span>
-            <span className="text-xs text-gray-500">({history.length})</span>
+            <span className="font-medium text-[var(--text-body)]">Generation History</span>
+            <span className="text-xs text-[var(--text-muted)]">({history.length})</span>
           </div>
           <svg
             className={`w-5 h-5 text-gray-400 transform transition-transform ${
@@ -1189,16 +1189,16 @@ export function PodcastAgentPlayground({
         </button>
 
         {showHistory && (
-          <div className="max-h-96 overflow-auto bg-white">
+          <div className="max-h-96 overflow-auto bg-[var(--surface-elevated)]">
             {history.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
+              <div className="p-8 text-center text-[var(--text-muted)]">
                 <p>No podcast generations yet</p>
                 <p className="text-sm mt-1">Your generated podcasts will appear here</p>
               </div>
             ) : (
               <div>
-                <div className="px-6 py-3 border-b border-gray-200 flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">
+                <div className="px-6 py-3 border-b border-[var(--border-soft)] flex justify-between items-center">
+                  <span className="text-sm font-medium text-[var(--text-body)]">
                     {history.length} generation{history.length !== 1 ? 's' : ''}
                   </span>
                   <button
@@ -1208,13 +1208,13 @@ export function PodcastAgentPlayground({
                     Clear All
                   </button>
                 </div>
-                <div className="divide-y divide-gray-200">
+                <div className="divide-y divide-[var(--border-soft)]">
                   {history.map((entry) => (
-                    <div key={entry.id} className="p-4 hover:bg-gray-50">
+                    <div key={entry.id} className="p-4 hover:bg-[var(--surface-muted)]">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
-                            <span className="text-sm font-medium text-gray-900">
+                            <span className="text-sm font-medium text-[var(--text-strong)]">
                               {entry.displayName}
                             </span>
                             <span
@@ -1227,7 +1227,7 @@ export function PodcastAgentPlayground({
                               {entry.status}
                             </span>
                           </div>
-                          <div className="text-xs text-gray-500 space-y-0.5">
+                          <div className="text-xs text-[var(--text-muted)] space-y-0.5">
                             <div>
                               {entry.locale} • {entry.hostType} • {entry.style} • {entry.length}
                             </div>

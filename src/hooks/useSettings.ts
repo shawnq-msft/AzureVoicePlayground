@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { AzureSettings } from '../types/azure';
+import { DEFAULT_MAI_VOICE_2 } from '../utils/maiVoice2';
 
 const STORAGE_KEY = 'azure-tts-settings';
 const API_KEYS_STORAGE_KEY = 'azure-tts-api-keys';
 const VOICE_LIVE_STORAGE_KEY = 'azure-voice-live-settings';
+const OLD_DEFAULT_SELECTED_VOICE = 'en-US-JennyNeural';
 
 const DEFAULT_SETTINGS: AzureSettings = {
   apiKey: '',
   region: 'eastus',
-  selectedVoice: 'en-US-JennyNeural',
+  selectedVoice: DEFAULT_MAI_VOICE_2,
   voiceLiveEndpoint: '',
   voiceLiveApiKey: '',
 };
@@ -101,6 +103,9 @@ export function useSettings() {
         return {
           ...DEFAULT_SETTINGS,
           ...parsedSettings,
+          selectedVoice: !parsedSettings.selectedVoice || parsedSettings.selectedVoice === OLD_DEFAULT_SELECTED_VOICE
+            ? DEFAULT_SETTINGS.selectedVoice
+            : parsedSettings.selectedVoice,
           apiKey,
           voiceLiveEndpoint: voiceLiveSettings.endpoint,
           voiceLiveApiKey: voiceLiveSettings.apiKey,

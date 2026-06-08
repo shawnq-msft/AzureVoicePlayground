@@ -20,10 +20,19 @@ import {
   type RequestSession,
   type AvatarConfig as SdkAvatarConfig,
   type ClientEventSessionAvatarConnect,
-  TranscriptionPhrase,
 } from '@azure/ai-voicelive';
 import type { VoiceLiveChatConfig, ChatMessage, AvatarConfig } from './chatDefaults';
 import { Pcm16Player, type VolumeCallback } from './audio/pcmPlayer';
+
+export interface TranscriptionPhrase {
+  text?: string;
+  locale?: string;
+  [key: string]: unknown;
+}
+
+type RequestSessionWithInclude = RequestSession & {
+  include?: string[];
+};
 
 export type ChatState = {
   isConnected: boolean;
@@ -279,7 +288,7 @@ export class VoiceLiveChatClient {
     };
   }
 
-  private buildSessionConfig(config: VoiceLiveChatConfig): RequestSession {
+  private buildSessionConfig(config: VoiceLiveChatConfig): RequestSessionWithInclude {
     // Determine voice configuration based on voice type
     let voiceConfig: string | { type: string; name: string; model?: string };
 
@@ -398,7 +407,7 @@ export class VoiceLiveChatClient {
       tools: tools.length > 0 ? tools : undefined,
       toolChoice: tools.length > 0 ? 'auto' : undefined,
       include: config.include ? config.include : undefined,
-    };
+    } satisfies RequestSessionWithInclude;
   }
 
   private async initPeerConnectionWithIceServers(iceServers: RTCIceServer[]): Promise<void> {
@@ -707,7 +716,8 @@ export class VoiceLiveChatClient {
         }
 
         if (this.currentUserMessageId && event.transcript?.trim()) {
-          await this.events.onUserTranscriptComplete?.(this.currentUserMessageId, event.transcript, event.phrases);
+          const phrases = (event as ServerEventConversationItemInputAudioTranscriptionCompleted & { phrases?: TranscriptionPhrase[] }).phrases;
+          await this.events.onUserTranscriptComplete?.(this.currentUserMessageId, event.transcript, phrases);
         }
 
         // Reset user transcript and message ID

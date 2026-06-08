@@ -2,8 +2,26 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
 import { AzureSettings, WordBoundary, SynthesisState } from '../types/azure';
 import { buildPersonalVoiceSsml } from '../lib/personalVoice/personalVoiceClient';
-import { createSpeechConfig } from '../utils/azureSpeechConfig';
+import { createSpeechConfig, getTTSRestEndpoint } from '../utils/azureSpeechConfig';
 import { useSynthesizerPool } from './useSynthesizerPool';
+import { isMaiVoice2 } from '../utils/maiVoice2';
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function buildVoiceSsml(text: string, voice: string, locale: string): string {
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang="${locale}">
+  <voice name="${voice}">
+    ${escapeXml(text)}
+  </voice>
+</speak>`;
+}
 
 function logSynthesisLatencies(result: SpeechSDK.SpeechSynthesisResult): void {
   console.log('=== SDK Synthesis Result ===');
@@ -48,6 +66,8 @@ export function useAzureTTS(settings: AzureSettings) {
 
   const synthesizerRef = useRef<SpeechSDK.SpeechSynthesizer | null>(null);
   const playerRef = useRef<SpeechSDK.SpeakerAudioDestination | null>(null);
+  const htmlAudioRef = useRef<HTMLAudioElement | null>(null);
+  const htmlAudioUrlRef = useRef<string | null>(null);
   const audioChunksRef = useRef<Uint8Array[]>([]);
   const playbackStartTimeRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
@@ -178,6 +198,89 @@ export function useAzureTTS(settings: AzureSettings) {
       inputTextRef.current = text;
       setLatencyMs(null);
       setResultId(null);
+
+      const currentSettings = settingsRef.current;
+      const isPersonalVoice = currentSettings.personalVoiceInfo?.isPersonalVoice && currentSettings.personalVoiceInfo?.speakerProfileId;
+
+      const synthesizeMaiVoice2WithRest = async (ssmlPayload: string, sdkFailureReason: string) => {
+        try {
+          console.warn('MAI-Voice-2 SDK synthesis failed; falling back to REST:', sdkFailureReason);
+          setState('synthesizing');
+          setError('');
+          setWordBoundaries([]);
+          setCurrentWordIndex(-1);
+          audioChunksRef.current = [];
+          boundariesRef.current = [];
+          isPlayingRef.current = false;
+          useFallbackPlaybackRef.current = false;
+
+          if (synthesizerRef.current) {
+            synthesizerRef.current.close();
+            synthesizerRef.current = null;
+          }
+          if (playerRef.current) {
+            playerRef.current.pause();
+            playerRef.current = null;
+          }
+
+          if (htmlAudioRef.current) {
+            htmlAudioRef.current.pause();
+            htmlAudioRef.current = null;
+          }
+          if (htmlAudioUrlRef.current) {
+            URL.revokeObjectURL(htmlAudioUrlRef.current);
+            htmlAudioUrlRef.current = null;
+          }
+
+          synthesisStartTimeRef.current = Date.now();
+
+          const response = await fetch(getTTSRestEndpoint(currentSettings.region), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/ssml+xml',
+              'Ocp-Apim-Subscription-Key': currentSettings.apiKey,
+              'X-Microsoft-OutputFormat': 'audio-24khz-160kbitrate-mono-mp3',
+              'User-Agent': 'azure-voice-playground',
+            },
+            body: ssmlPayload,
+          });
+
+          if (!response.ok) {
+            const details = await response.text();
+            throw new Error(details || `MAI-Voice-2 synthesis failed: ${response.status} ${response.statusText}`);
+          }
+
+          const requestId = response.headers.get('x-requestid') || response.headers.get('x-ms-requestid');
+          if (requestId) {
+            setResultId(requestId);
+          }
+
+          const buffer = await response.arrayBuffer();
+          setLatencyMs(Date.now() - synthesisStartTimeRef.current);
+          setAudioData(buffer);
+
+          const audioUrl = URL.createObjectURL(new Blob([buffer], { type: 'audio/mpeg' }));
+          htmlAudioUrlRef.current = audioUrl;
+
+          const audio = new Audio(audioUrl);
+          htmlAudioRef.current = audio;
+          audio.addEventListener('ended', () => {
+            isPlayingRef.current = false;
+            setState('idle');
+            setCurrentWordIndex(-1);
+          });
+
+          setState('playing');
+          isPlayingRef.current = true;
+          await audio.play();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error('MAI-Voice-2 synthesis error:', error);
+          setError(`SDK failed (${sdkFailureReason}); REST fallback failed (${message})`);
+          setState('error');
+          isPlayingRef.current = false;
+        }
+      };
 
       const synthesizer = await initializeSynthesizer();
 
@@ -335,9 +438,6 @@ export function useAzureTTS(settings: AzureSettings) {
 
       // Start synthesis - use user-provided SSML if given, else SSML for personal voices, else plain text
       // Use settingsRef.current to get the latest settings value
-      const currentSettings = settingsRef.current;
-      const isPersonalVoice = currentSettings.personalVoiceInfo?.isPersonalVoice && currentSettings.personalVoiceInfo?.speakerProfileId;
-
       console.log('=== SYNTHESIS DEBUG ===');
       console.log('currentSettings.personalVoiceInfo:', currentSettings.personalVoiceInfo);
       console.log('isPersonalVoice:', isPersonalVoice);
@@ -349,7 +449,35 @@ export function useAzureTTS(settings: AzureSettings) {
       // Record start time for latency measurement (time to first audio byte)
       synthesisStartTimeRef.current = Date.now();
 
-      if (ssml) {
+      if (isMaiVoice2(currentSettings.selectedVoice) && !isPersonalVoice) {
+        const ssmlPayload = ssml?.trim() || buildVoiceSsml(text, currentSettings.selectedVoice, locale || 'en-US');
+        console.log('Trying MAI-Voice-2 synthesis with Azure Speech SDK first');
+        console.log('SSML:', ssmlPayload);
+
+        synthesizer.speakSsmlAsync(
+          ssmlPayload,
+          (result) => {
+            logSynthesisLatencies(result);
+            if (result.resultId) {
+              setResultId(result.resultId);
+            }
+            if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
+              console.log('MAI-Voice-2 SDK synthesis completed successfully');
+            } else {
+              const details = result.errorDetails || `SDK result reason: ${result.reason}`;
+              console.error('MAI-Voice-2 SDK synthesis failed:', details);
+              clearTimeout(fallbackTimeout);
+              void synthesizeMaiVoice2WithRest(ssmlPayload, details);
+            }
+          },
+          (error) => {
+            const details = String(error);
+            console.error('MAI-Voice-2 SDK synthesis error:', error);
+            clearTimeout(fallbackTimeout);
+            void synthesizeMaiVoice2WithRest(ssmlPayload, details);
+          }
+        );
+      } else if (ssml) {
         // User-edited SSML mode
         console.log('Using user-provided SSML');
         console.log('SSML:', ssml);
@@ -436,6 +564,13 @@ export function useAzureTTS(settings: AzureSettings) {
   );
 
   const pause = useCallback(() => {
+    if (htmlAudioRef.current && state === 'playing') {
+      htmlAudioRef.current.pause();
+      setState('paused');
+      isPlayingRef.current = false;
+      return;
+    }
+
     if (playerRef.current && state === 'playing') {
       playerRef.current.pause();
       setState('paused');
@@ -448,6 +583,13 @@ export function useAzureTTS(settings: AzureSettings) {
   }, [state]);
 
   const resume = useCallback(() => {
+    if (htmlAudioRef.current && state === 'paused') {
+      htmlAudioRef.current.play();
+      setState('playing');
+      isPlayingRef.current = true;
+      return;
+    }
+
     if (playerRef.current && state === 'paused') {
       playerRef.current.resume();
       setState('playing');
@@ -466,6 +608,15 @@ export function useAzureTTS(settings: AzureSettings) {
     }
     if (playerRef.current) {
       playerRef.current.pause();
+    }
+    if (htmlAudioRef.current) {
+      htmlAudioRef.current.pause();
+      htmlAudioRef.current.currentTime = 0;
+      htmlAudioRef.current = null;
+    }
+    if (htmlAudioUrlRef.current) {
+      URL.revokeObjectURL(htmlAudioUrlRef.current);
+      htmlAudioUrlRef.current = null;
     }
     if (synthesizerRef.current) {
       synthesizerRef.current.close();

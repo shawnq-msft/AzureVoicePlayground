@@ -59,7 +59,16 @@ export const ALL_TTS_REGIONS = [
   { value: 'chinanorth3', label: 'China North 3' },
 ];
 
-const playgroundModes: { mode: PlaygroundMode; label: string; icon: React.ReactNode; category: 'content' | 'agent' }[] = [
+const playgroundModes: {
+  mode: PlaygroundMode;
+  label: string;
+  icon: React.ReactNode;
+  category: 'content' | 'agent';
+  update?: {
+    title: string;
+    href: string;
+  };
+}[] = [
   {
     mode: 'voice-creation',
     label: 'Voice Creation',
@@ -74,6 +83,10 @@ const playgroundModes: { mode: PlaygroundMode; label: string; icon: React.ReactN
     mode: 'text-to-speech',
     label: 'Text to Speech',
     category: 'content',
+    update: {
+      title: 'Introducing MAI-Voice-2',
+      href: 'https://microsoft.ai/news/mai-voice-2/',
+    },
     icon: (
       <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -104,6 +117,10 @@ const playgroundModes: { mode: PlaygroundMode; label: string; icon: React.ReactN
     mode: 'speech-to-text',
     label: 'Speech to Text',
     category: 'content',
+    update: {
+      title: 'MAI-Transcribe-1.5',
+      href: 'https://microsoft.ai/models/mai-transcribe-1-5/',
+    },
     icon: (
       <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
@@ -364,7 +381,7 @@ export function NavigationSidebar({
           <div className="theme-sidebar__section">
             {!isCollapsed && <p className="theme-section-label px-1">Content Generation</p>}
             <nav className="mt-3 space-y-2">
-              {contentModes.map(({ mode, label, icon }) => (
+              {contentModes.map(({ mode, label, icon, update }) => (
                 <div
                   key={mode}
                   className={`theme-sidebar__nav-button text-sm ${
@@ -381,19 +398,44 @@ export function NavigationSidebar({
                   </button>
 
                   {!isCollapsed && (
-                    <a
-                      href={`${window.location.origin}${window.location.pathname}#${mode}`}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        copyPlaygroundLink(mode);
-                      }}
-                      className="theme-sidebar__copy-link theme-sidebar__copy-link--inline"
-                      title="Copy direct link"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                      </svg>
-                    </a>
+                    <div className="ml-auto flex items-center gap-1.5">
+                      {update && (
+                        <div className="group/update relative">
+                          <span
+                            tabIndex={0}
+                            className="inline-flex cursor-default items-center rounded-full border border-cyan-200/80 bg-[radial-gradient(circle_at_30%_20%,rgba(103,232,249,0.95),rgba(168,85,247,0.28)_42%,rgba(59,130,246,0.12)_70%)] px-2 py-0.5 text-[0.58rem] font-bold uppercase tracking-[0.14em] text-cyan-950 shadow-[0_0_16px_rgba(34,211,238,0.45)] outline-none ring-1 ring-white/70 transition-transform hover:scale-105 focus:scale-105"
+                          >
+                            New
+                          </span>
+                          <div className="pointer-events-none absolute right-0 top-[calc(100%+0.35rem)] z-[200] w-52 translate-y-1 rounded-lg border border-cyan-300/50 bg-[var(--surface-elevated)] p-2.5 text-left opacity-0 shadow-[0_18px_48px_rgba(8,47,73,0.34)] ring-1 ring-cyan-300/20 backdrop-blur transition group-hover/update:pointer-events-auto group-hover/update:translate-y-0 group-hover/update:opacity-100 group-focus-within/update:pointer-events-auto group-focus-within/update:translate-y-0 group-focus-within/update:opacity-100">
+                            <p className="text-xs font-semibold text-[var(--text-strong)]">{update.title}</p>
+                            <p className="mt-1 text-xs leading-5 text-[var(--text-body)]">New Microsoft AI model update is available for this playground.</p>
+                            <a
+                              href={update.href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 inline-flex text-xs font-semibold text-cyan-500 hover:text-cyan-300"
+                            >
+                              Read update
+                            </a>
+                          </div>
+                        </div>
+                      )}
+
+                      <a
+                        href={`${window.location.origin}${window.location.pathname}#${mode}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          copyPlaygroundLink(mode);
+                        }}
+                        className="theme-sidebar__copy-link theme-sidebar__copy-link--inline"
+                        title="Copy direct link"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                      </a>
+                    </div>
                   )}
                 </div>
               ))}
@@ -401,7 +443,26 @@ export function NavigationSidebar({
           </div>
 
           <div className="theme-sidebar__section pt-4">
-            {!isCollapsed && <p className="theme-section-label px-1">Voice Agents</p>}
+            {!isCollapsed && (
+              <div className="flex items-center justify-between gap-3 px-1">
+                <p className="theme-section-label">Voice Agents</p>
+                <a
+                  href={`${window.location.origin}${window.location.pathname}#voice-live-calculator`}
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.18em] transition-colors ${
+                    activeMode === 'voice-live-calculator'
+                      ? 'border-blue-500 bg-blue-600 text-white shadow-sm'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700'
+                  }`}
+                  title="Open Voice Live price calculator"
+                  aria-label="Open Voice Live price calculator"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m-6 4h.01M12 11h.01M15 11h.01M9 15h.01M12 15h.01M15 15h.01M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
+                  </svg>
+                  CALC
+                </a>
+              </div>
+            )}
             <nav className="mt-3 space-y-2">
               {agentModes.map(({ mode, label, icon }) => (
                 <div
@@ -421,19 +482,6 @@ export function NavigationSidebar({
 
                   {!isCollapsed && (
                     <div className="ml-auto flex items-center">
-                      {mode === 'voice-live-chat' && (
-                        <a
-                          href={`${window.location.origin}${window.location.pathname}#voice-live-calculator`}
-                          className="theme-sidebar__copy-link theme-sidebar__copy-link--inline"
-                          title="Open Voice Live price calculator"
-                          aria-label="Open Voice Live price calculator"
-                        >
-                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m-6 4h.01M12 11h.01M15 11h.01M9 15h.01M12 15h.01M15 15h.01M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
-                          </svg>
-                        </a>
-                      )}
-
                       <a
                         href={`${window.location.origin}${window.location.pathname}#${mode}`}
                         onClick={(event) => {

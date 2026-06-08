@@ -1,5 +1,6 @@
 import { VoiceInfo } from '../types/azure';
 import { isChinaRegion } from './azureSpeechConfig';
+import { getMaiVoice2FallbackVoices } from './maiVoice2';
 
 /**
  * Gets the voice list REST API endpoint for a given region
@@ -84,6 +85,16 @@ export async function fetchVoiceList(
         voiceTag: voice.VoiceTag || {},
       };
     });
+
+    const existingVoiceNames = new Set(voices.map((voice) => voice.name.toLowerCase()));
+    const missingMaiVoice2Voices = getMaiVoice2FallbackVoices().filter(
+      (voice) => !existingVoiceNames.has(voice.name.toLowerCase())
+    );
+
+    if (missingMaiVoice2Voices.length > 0) {
+      console.log('Adding MAI-Voice-2 fallback voices:', missingMaiVoice2Voices.map((voice) => voice.name));
+      voices.unshift(...missingMaiVoice2Voices);
+    }
 
     // Add hardcoded featured voices for East US region only (not in API yet)
     if (enableMAIVoices && (region.toLowerCase() === 'eastus' || region === 'East US')) {

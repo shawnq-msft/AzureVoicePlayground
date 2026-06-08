@@ -399,11 +399,16 @@ textarea {
   }
 
   .theme-sidebar__nav-button:hover {
+    z-index: 20;
     transform: translateY(-1px);
     background: var(--sidebar-hover);
     border-color: var(--border-soft);
     color: var(--text-strong);
     box-shadow: var(--shadow-sm);
+  }
+
+  .theme-sidebar__nav-button:focus-within {
+    z-index: 20;
   }
 
   .theme-sidebar__nav-button--active {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AzureSettings } from '../types/azure';
-import { VoiceLiveChatClient, type ChatState } from '../lib/voiceLive/chatClient';
+import { VoiceLiveChatClient, type ChatState, type TranscriptionPhrase } from '../lib/voiceLive/chatClient';
 import { ChatAudioHandler } from '../lib/voiceLive/audio/chatAudioHandler';
 import { DEFAULT_CHAT_CONFIG, getChatVoices, type ChatMessage, type VoiceLiveInputTranscriptionModel } from '../lib/voiceLive/chatDefaults';
 import {
@@ -16,7 +16,6 @@ import { useFeatureFlags } from '../hooks/useFeatureFlags';
 import { usePronunciationAssessment, type PronunciationAssessmentResult, type PronunciationAssessmentSession } from '../hooks/usePronunciationAssessment';
 import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
 import { notifySidebarConfigAttention } from '../utils/sidebarConfigAttention';
-import { TranscriptionPhrase } from '@azure/ai-voicelive';
 
 interface BilingualTutorAgentPlaygroundProps {
   settings: AzureSettings;

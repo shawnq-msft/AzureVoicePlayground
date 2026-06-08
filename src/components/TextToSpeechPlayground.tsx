@@ -14,6 +14,7 @@ import { listBaseModels } from '../lib/personalVoice/personalVoiceClient';
 import { getLanguageFromVoice } from '../utils/languagePresets';
 import { useFeatureFlags } from '../hooks/useFeatureFlags';
 import { PageDocsLink, AZURE_SPEECH_DOCS } from './PageDocsLink';
+import { getMaiVoice2ForLocale } from '../utils/maiVoice2';
 
 interface TextToSpeechPlaygroundProps {
   settings: AzureSettings;
@@ -124,6 +125,23 @@ export function TextToSpeechPlayground({
     }
   }, [text, synthesisLocale, runWERTest]);
 
+  const handlePresetLanguageChange = useCallback((language: string) => {
+    setSelectedPresetLanguage(language);
+
+    const maiVoice = getMaiVoice2ForLocale(language);
+    if (maiVoice && maiVoice !== settings.selectedVoice) {
+      onSettingsChange({
+        selectedVoice: maiVoice,
+        personalVoiceInfo: {
+          isPersonalVoice: false,
+          speakerProfileId: undefined,
+          locale: language,
+          model: undefined,
+        },
+      });
+    }
+  }, [onSettingsChange, settings.selectedVoice]);
+
   // Add to history when synthesis completes successfully with NEW audio
   useEffect(() => {
     if (audioData && audioData !== previousAudioDataRef.current) {
@@ -203,7 +221,7 @@ export function TextToSpeechPlayground({
               state={state}
               personalVoiceInfo={settings.personalVoiceInfo}
               selectedPresetLanguage={selectedPresetLanguage}
-              onPresetLanguageChange={setSelectedPresetLanguage}
+              onPresetLanguageChange={handlePresetLanguageChange}
               ssmlMode={ssmlMode}
               onSsmlModeChange={setSsmlMode}
               ssmlText={ssmlText}
