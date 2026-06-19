@@ -11,7 +11,6 @@ import type {
   CreateConsentParams,
   CreatePersonalVoiceParams,
   BaseModel,
-  DesignVoiceResponse,
 } from '../../types/personalVoice';
 
 const API_VERSION = '2024-02-01-preview';
@@ -283,46 +282,6 @@ export async function deletePersonalVoice(
     headers: getHeaders(config.apiKey),
   });
   await handleResponse<void>(response);
-}
-
-// ============ Text-Prompt Voice Design ============
-
-export async function designVoice(
-  config: PersonalVoiceClientConfig,
-  voicePrompt: string,
-  sampleText: string,
-): Promise<DesignVoiceResponse> {
-  const url = `${getBaseUrl(config.region)}/personalvoices:design?api-version=${API_VERSION}`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: getJsonHeaders(config.apiKey),
-    body: JSON.stringify({
-      VoicePrompt: voicePrompt,
-      SampleText: sampleText,
-      candidateCount: 3,
-    }),
-  });
-  return handleResponse<DesignVoiceResponse>(response);
-}
-
-export async function createPersonalVoiceFromCandidate(
-  config: PersonalVoiceClientConfig,
-  personalVoiceId: string,
-  projectId: string,
-  candidateId: string,
-  displayName: string,
-): Promise<PersonalVoice> {
-  const url = `${getBaseUrl(config.region)}/personalvoices/${personalVoiceId}?api-version=${API_VERSION}`;
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers: getJsonHeaders(config.apiKey),
-    body: JSON.stringify({
-      projectId,
-      candidateId,
-      displayName,
-    }),
-  });
-  return handleResponse<PersonalVoice>(response);
 }
 
 // ============ Polling Helpers ============

@@ -99,20 +99,6 @@ export interface BaseModel {
   capabilities: string[];
 }
 
-// ============ Text-Prompt Voice Design Types ============
-
-export interface VoiceCandidate {
-  id: string;
-  uri: string;
-  expiresAt: string;
-}
-
-export interface DesignVoiceResponse {
-  voicePrompt: string;
-  sampleText: string;
-  candidates: VoiceCandidate[];
-}
-
 export interface VoiceExample {
   title: string;
   prompt: string;
