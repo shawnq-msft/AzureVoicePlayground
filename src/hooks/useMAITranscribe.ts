@@ -1,4 +1,4 @@
-// Hook for MAI-Transcribe-1 model via LLM Speech API
+// Hook for MAI-Transcribe-1.5 model via LLM Speech API
 // https://learn.microsoft.com/en-us/azure/ai-services/speech-service/mai-transcribe
 
 import { useState, useCallback } from 'react';
@@ -7,35 +7,53 @@ import { FastTranscript, TranscriptSegment, WordTiming } from '../types/transcri
 import { STTState } from '../types/stt';
 import { convertToWav16kHz } from '../utils/audioConversion';
 
-const MAI_TRANSCRIBE_MODEL = 'mai-transcribe-1';
-const MAI_TRANSCRIBE_MAX_FILE_SIZE_BYTES = 70 * 1024 * 1024;
+const MAI_TRANSCRIBE_MODEL = 'mai-transcribe-1.5';
+const MAI_TRANSCRIBE_MAX_FILE_SIZE_BYTES = 300 * 1024 * 1024;
 
-// MAI-Transcribe-1 supported languages (25 languages)
+// MAI-Transcribe-1.5 supported languages (42 languages)
 export const MAI_TRANSCRIBE_LANGUAGES = [
   { code: 'ar-SA', name: 'Arabic', nativeName: 'العربية' },
+  { code: 'as-IN', name: 'Assamese', nativeName: 'অসমীয়া' },
+  { code: 'bg-BG', name: 'Bulgarian', nativeName: 'Български' },
+  { code: 'bn-IN', name: 'Bengali', nativeName: 'বাংলা' },
+  { code: 'ca-ES', name: 'Catalan', nativeName: 'Català' },
   { code: 'zh-CN', name: 'Chinese', nativeName: '中文 (简体)' },
   { code: 'cs-CZ', name: 'Czech', nativeName: 'Čeština' },
   { code: 'da-DK', name: 'Danish', nativeName: 'Dansk' },
   { code: 'nl-NL', name: 'Dutch', nativeName: 'Nederlands' },
   { code: 'en-US', name: 'English', nativeName: 'English (United States)' },
+  { code: 'et-EE', name: 'Estonian', nativeName: 'Eesti' },
   { code: 'fi-FI', name: 'Finnish', nativeName: 'Suomi' },
   { code: 'fr-FR', name: 'French', nativeName: 'Français (France)' },
   { code: 'de-DE', name: 'German', nativeName: 'Deutsch (Deutschland)' },
+  { code: 'el-GR', name: 'Greek', nativeName: 'Ελληνικά' },
+  { code: 'gu-IN', name: 'Gujarati', nativeName: 'ગુજરાતી' },
   { code: 'hi-IN', name: 'Hindi', nativeName: 'हिन्दी' },
   { code: 'hu-HU', name: 'Hungarian', nativeName: 'Magyar' },
   { code: 'id-ID', name: 'Indonesian', nativeName: 'Bahasa Indonesia' },
   { code: 'it-IT', name: 'Italian', nativeName: 'Italiano (Italia)' },
   { code: 'ja-JP', name: 'Japanese', nativeName: '日本語 (日本)' },
+  { code: 'kn-IN', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
   { code: 'ko-KR', name: 'Korean', nativeName: '한국어 (대한민국)' },
+  { code: 'lt-LT', name: 'Lithuanian', nativeName: 'Lietuvių' },
+  { code: 'ml-IN', name: 'Malayalam', nativeName: 'മലയാളം' },
+  { code: 'mr-IN', name: 'Marathi', nativeName: 'मराठी' },
   { code: 'nb-NO', name: 'Norwegian Bokmål', nativeName: 'Norsk bokmål' },
+  { code: 'or-IN', name: 'Odia', nativeName: 'ଓଡ଼ିଆ' },
+  { code: 'pa-IN', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ' },
   { code: 'pl-PL', name: 'Polish', nativeName: 'Polski' },
   { code: 'pt-BR', name: 'Portuguese', nativeName: 'Português (Brasil)' },
   { code: 'ro-RO', name: 'Romanian', nativeName: 'Română' },
   { code: 'ru-RU', name: 'Russian', nativeName: 'Русский' },
+  { code: 'sk-SK', name: 'Slovak', nativeName: 'Slovenčina' },
+  { code: 'sl-SI', name: 'Slovenian', nativeName: 'Slovenščina' },
   { code: 'es-ES', name: 'Spanish', nativeName: 'Español (España)' },
   { code: 'sv-SE', name: 'Swedish', nativeName: 'Svenska' },
+  { code: 'ta-IN', name: 'Tamil', nativeName: 'தமிழ்' },
+  { code: 'te-IN', name: 'Telugu', nativeName: 'తెలుగు' },
   { code: 'th-TH', name: 'Thai', nativeName: 'ไทย' },
   { code: 'tr-TR', name: 'Turkish', nativeName: 'Türkçe' },
+  { code: 'uk-UA', name: 'Ukrainian', nativeName: 'Українська' },
   { code: 'vi-VN', name: 'Vietnamese', nativeName: 'Tiếng Việt' },
 ];
 
@@ -55,7 +73,7 @@ interface TranscriptionApiError extends Error {
 }
 
 /**
- * Hook for MAI-Transcribe-1 speech transcription via LLM Speech API
+ * Hook for MAI-Transcribe-1.5 speech transcription via LLM Speech API
  */
 export function useMAITranscribe(settings: AzureSettings): UseMAITranscribeReturn {
   const [state, setState] = useState<STTState>('idle');
@@ -72,9 +90,9 @@ export function useMAITranscribe(settings: AzureSettings): UseMAITranscribeRetur
       setError('');
       setProgress(0);
 
-      // Validate file size (70 MB limit)
+      // Validate file size (300 MB limit)
       if (audioFile.size > MAI_TRANSCRIBE_MAX_FILE_SIZE_BYTES) {
-        throw new Error('Audio file must be less than 70 MB for MAI-Transcribe-1');
+        throw new Error('Audio file must be less than 300 MB for MAI-Transcribe-1.5');
       }
 
       setProgress(10);
@@ -83,13 +101,13 @@ export function useMAITranscribe(settings: AzureSettings): UseMAITranscribeRetur
       const wavBlob = await convertToWav16kHz(audioFile);
       setProgress(30);
 
-      // Call LLM Speech API endpoint with MAI-Transcribe-1 model
+      // Call LLM Speech API endpoint with MAI-Transcribe-1.5 model
       const endpoint = `https://${settings.region}.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15`;
 
       setProgress(50);
 
       const definition = buildMAITranscribeDefinition(language, true);
-      console.log('MAI-Transcribe-1 API Request:', definition);
+      console.log('MAI-Transcribe-1.5 API Request:', definition);
 
       let result: any;
       try {
@@ -100,15 +118,15 @@ export function useMAITranscribe(settings: AzureSettings): UseMAITranscribeRetur
         }
 
         const fallbackDefinition = buildMAITranscribeDefinition(language, false);
-        console.warn('MAI-Transcribe-1 model flag is not supported by this API/resource yet; retrying enhanced transcription without model.', err.responseText || err.message);
-        console.log('MAI-Transcribe-1 API Fallback Request:', fallbackDefinition);
+        console.warn('MAI-Transcribe-1.5 model flag is not supported by this API/resource yet; retrying enhanced transcription without model.', err.responseText || err.message);
+        console.log('MAI-Transcribe-1.5 API Fallback Request:', fallbackDefinition);
         result = await postTranscription(endpoint, settings.apiKey, wavBlob, fallbackDefinition);
       }
 
       setProgress(70);
       setProgress(90);
 
-      console.log('MAI-Transcribe-1 API Response:', result);
+      console.log('MAI-Transcribe-1.5 API Response:', result);
 
       // Parse the transcription result
       const parsedTranscript = parseTranscriptResult(result, language);
@@ -212,7 +230,7 @@ function isEnhancedModelUnsupportedError(error: TranscriptionApiError): boolean 
 }
 
 /**
- * Parse MAI-Transcribe-1 API response (same format as LLM Speech)
+ * Parse MAI-Transcribe-1.5 API response (same format as LLM Speech)
  */
 function parseTranscriptResult(apiResponse: any, language: string): FastTranscript {
   let fullText = '';

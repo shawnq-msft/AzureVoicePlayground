@@ -74,7 +74,7 @@ const MODELS: ModelInfo[] = [
   },
   {
     id: 'mai-transcribe',
-    name: 'MAI-Transcribe-1 (Preview)',
+    name: 'MAI-Transcribe-1.5 (Preview)',
     description: 'High accuracy & efficiency by Microsoft AI',
     icon: '🎯',
     useCases: 'High-accuracy transcription with broad language support',
