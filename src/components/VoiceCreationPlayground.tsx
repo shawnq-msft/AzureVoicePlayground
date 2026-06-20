@@ -339,7 +339,7 @@ Bonjour, ceci est ma voix personnelle.`);
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="text-amber-800">
-                          Audio-based voice creation requires gating approval.{' '}
+                          Audio-based voice creation requires gating approval. You must have consent of the speaker to create the voice.{' '}
                           <a
                             href="https://learn.microsoft.com/en-us/azure/ai-services/speech-service/custom-neural-voice"
                             target="_blank"
