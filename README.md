@@ -16,7 +16,6 @@ A feature-rich web application showcasing Microsoft Azure's voice and speech AI 
 | **Voice Changer** | Transform audio to different voices using 28+ conversion targets including Turbo Multilingual models. Supports audio upload and download |
 | **Speech to Text** | Transcribe audio with 4 models: Realtime (145 locales), Fast Transcription (95 languages), LLM Speech, and Whisper. Speaker diarization, word-level timestamps, WER testing, export to TXT/SRT/VTT |
 | **Video Translation** | Translate video content with voice dubbing and lip-sync. Subtitle generation, speaker count configuration, iteration support for refinement |
-| **Podcast Agent** | AI-powered podcast generation from text, URLs, or files. OneHost/TwoHosts modes, 3 styles, 5 length options, multi-talker voice pairs. Supports 14 locales. Video generation with Bing wallpaper backgrounds |
 
 ### Voice Agent
 
@@ -39,9 +38,7 @@ A feature-rich web application showcasing Microsoft Azure's voice and speech AI 
 
 - **Azure Speech Services** - TTS (400+ voices), STT (4 models), Voice Conversion, Multi-talker, Personal Voice
 - **Azure Voice Live** - Real-time voice chat, Translation, Avatars via WebRTC
-- **Azure Podcast API** (2026-01-01-preview) - AI podcast generation with multi-speaker synthesis
 - **Azure Video Translation API** (2024-05-20-preview) - Video dubbing with lip-sync
-- **Azure OpenAI** (Optional) - Podcast script generation from documents
 - **Azure Blob Storage** (Optional) - Voice changer audio storage
 
 ## Getting Started
@@ -86,8 +83,6 @@ Configure in the sidebar settings panel:
 | **Middle East & Africa** | Qatar Central, South Africa North, UAE North |
 | **China** | China North 3 |
 
-**Podcast Agent regions**: eastus, westeurope, southeastasia
-
 ## Performance Metrics
 
 ### Response Latency Tracking
@@ -117,8 +112,6 @@ Enable in settings: **Show response latency**
 
 ## Multi-Talker Voice Names
 
-The Podcast Agent uses the following multi-talker voices:
-
 | Voice Name | Speakers | Language |
 |------------|----------|----------|
 | `en-Multitalker-1:DragonHDLatestNeural` (Default) | ava, ada, emma, jane, andrew, brian, davis, steffan | English |
@@ -134,7 +127,6 @@ Direct links to playgrounds via URL hash:
 - `#voice-changer`
 - `#speech-to-text`
 - `#video-translation`
-- `#podcast-agent`
 - `#voice-live-chat`
 - `#voice-live-translator`
 
