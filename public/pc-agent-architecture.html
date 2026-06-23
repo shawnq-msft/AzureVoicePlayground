@@ -1,0 +1,944 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PC Agent Architecture</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #102033;
+      --muted: #5b6b7d;
+      --line: rgba(40, 80, 120, 0.36);
+      --azure: #2f7fd0;
+      --agent: #7c5bd6;
+      --device: #278463;
+      --amber: #b67818;
+      --rose: #b45b78;
+      --glass: rgba(255, 255, 255, 0.42);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 14% 12%, rgba(90, 170, 255, 0.34), transparent 28rem),
+        radial-gradient(circle at 82% 18%, rgba(105, 216, 178, 0.26), transparent 30rem),
+        radial-gradient(circle at 54% 86%, rgba(255, 205, 111, 0.24), transparent 30rem),
+        linear-gradient(135deg, #eaf5ff 0%, #f8fbff 38%, #eef8f1 66%, #fff7e9 100%);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.42) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.42) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,0.78), transparent 86%);
+    }
+
+    .page-shell {
+      width: min(1500px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 18px 0 22px;
+    }
+
+    .aero {
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.82);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.31)),
+        var(--glass);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        inset 0 -1px 0 rgba(255,255,255,0.24),
+        0 18px 44px rgba(57, 88, 125, 0.18);
+      backdrop-filter: blur(22px) saturate(1.35);
+      -webkit-backdrop-filter: blur(22px) saturate(1.35);
+    }
+
+    .aero::before {
+      content: "";
+      position: absolute;
+      inset: 1px 1px auto 1px;
+      height: 42%;
+      border-radius: inherit;
+      background: linear-gradient(180deg, rgba(255,255,255,0.62), rgba(255,255,255,0.04));
+      pointer-events: none;
+    }
+
+    .zone {
+      position: relative;
+      border-radius: 28px;
+      padding: 16px;
+      min-height: 0;
+    }
+
+    .zone-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.58);
+      border: 1px solid rgba(255,255,255,0.8);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+      color: #17314c;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .badge-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      box-shadow: 0 0 0 4px rgba(255,255,255,0.65);
+    }
+
+    .glass-card {
+      position: relative;
+      border-radius: 18px;
+      padding: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.35));
+      border: 1px solid rgba(255,255,255,0.78);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.95),
+        0 12px 30px rgba(44, 73, 108, 0.13);
+      backdrop-filter: blur(18px) saturate(1.22);
+      -webkit-backdrop-filter: blur(18px) saturate(1.22);
+      min-width: 0;
+    }
+
+    .glass-card.soft-blue { background: linear-gradient(180deg, rgba(234,247,255,0.82), rgba(255,255,255,0.36)); }
+    .glass-card.soft-green { background: linear-gradient(180deg, rgba(234,250,241,0.82), rgba(255,255,255,0.36)); }
+    .glass-card.soft-amber { background: linear-gradient(180deg, rgba(255,246,226,0.88), rgba(255,255,255,0.35)); }
+    .glass-card.soft-rose { background: linear-gradient(180deg, rgba(255,237,244,0.78), rgba(255,255,255,0.35)); }
+    .glass-card.soft-purple { background: linear-gradient(180deg, rgba(242,238,255,0.84), rgba(255,255,255,0.36)); }
+
+    .card-title,
+    .compact-card-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 9px;
+      font-weight: 800;
+      color: #102a43;
+      letter-spacing: 0.01em;
+    }
+
+    .tiny-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 19px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.58);
+      border: 1px solid rgba(255,255,255,0.8);
+      color: var(--muted);
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      text-align: center;
+      overflow-wrap: anywhere;
+      flex-shrink: 1;
+    }
+
+    .pill {
+      display: flex;
+      min-height: 34px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 9px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.58);
+      border: 1px solid rgba(255,255,255,0.76);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
+      font-size: 0.78rem;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    .pill small {
+      color: var(--muted);
+      font-size: 0.66rem;
+      font-weight: 650;
+    }
+
+    .stack { display: grid; gap: 6px; }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 24px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.76);
+      font-size: 0.7rem;
+      color: #40566b;
+      font-weight: 700;
+    }
+
+    .swatch { width: 10px; height: 10px; border-radius: 999px; }
+
+    .cloud-grid {
+      display: grid;
+      grid-template-columns: minmax(230px, 0.9fr) 32px minmax(430px, 1.45fr) 32px minmax(230px, 0.9fr);
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 12px;
+    }
+
+    .pc-grid {
+      display: grid;
+      grid-template-columns: minmax(210px, 0.85fr) 32px minmax(520px, 1.65fr) 32px minmax(210px, 0.85fr);
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 12px;
+    }
+
+    .router-local-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .agent-col {
+      border-radius: 14px;
+      padding: 10px;
+      background: rgba(255,255,255,0.48);
+      border: 1px solid rgba(255,255,255,0.76);
+      min-height: 168px;
+    }
+
+    .agent-col h3 {
+      margin: 0 0 8px;
+      font-size: 0.78rem;
+      font-weight: 850;
+      color: #17314c;
+    }
+
+    .agent-col ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 5px;
+    }
+
+    .agent-col li {
+      min-height: 28px;
+      padding: 5px 8px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(255,255,255,0.65);
+      color: #20364a;
+      font-size: 0.72rem;
+      line-height: 1.18;
+      font-weight: 680;
+    }
+
+    .connector {
+      position: relative;
+      height: 4px;
+      align-self: center;
+      background: linear-gradient(90deg, transparent, rgba(47,127,208,0.78), transparent);
+      border-radius: 999px;
+      filter: drop-shadow(0 3px 7px rgba(50,100,150,0.18));
+      min-width: 20px;
+    }
+
+    .connector::after {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 50%;
+      width: 0;
+      height: 0;
+      border-top: 7px solid transparent;
+      border-bottom: 7px solid transparent;
+      border-left: 10px solid rgba(47,127,208,0.82);
+      transform: translateY(-50%);
+    }
+
+    .bridge-row {
+      display: grid;
+      grid-template-columns: minmax(190px, 0.9fr) minmax(350px, 1.45fr) minmax(190px, 0.9fr);
+      gap: 22px;
+      align-items: center;
+      padding: 2px 24px 0;
+    }
+
+    .vertical-link {
+      justify-self: center;
+      width: 4px;
+      height: 34px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(47,127,208,0.78), rgba(39,132,99,0.72));
+      position: relative;
+      box-shadow: 0 6px 16px rgba(52, 95, 120, 0.18);
+    }
+
+    .vertical-link::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -4px;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 11px solid rgba(39,132,99,0.76);
+      transform: translateX(-50%);
+    }
+
+    .vertical-link.up {
+      background: linear-gradient(180deg, rgba(39,132,99,0.72), rgba(47,127,208,0.78));
+    }
+
+    .vertical-link.up::after {
+      top: -4px;
+      bottom: auto;
+      border-top: 0;
+      border-bottom: 11px solid rgba(47,127,208,0.78);
+    }
+
+    .link-label,
+    .arrow-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.62);
+      border: 1px solid rgba(255,255,255,0.84);
+      color: #315269;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      text-align: center;
+      white-space: nowrap;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+      text-decoration: none;
+    }
+
+    .arrow-label {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      max-width: 150px;
+      font-size: 0.62rem;
+      line-height: 1.05;
+    }
+
+    .scenario-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .soft-divider {
+      height: 1px;
+      margin: 9px 0;
+      background: linear-gradient(90deg, transparent, rgba(31, 74, 116, 0.18), transparent);
+    }
+
+    .highlight-target {
+      position: relative;
+      cursor: pointer;
+      transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .highlight-target:hover {
+      border-color: rgba(47,127,208,0.36);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.95),
+        0 10px 24px rgba(47,127,208,0.12);
+    }
+
+    .highlight-target.is-highlighted {
+      border-color: rgba(47,127,208,0.86) !important;
+      background: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(232,244,255,0.62)) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.98),
+        0 0 0 2px rgba(47,127,208,0.18),
+        0 14px 30px rgba(47,127,208,0.18) !important;
+      transform: translateY(-1px);
+    }
+
+    .language-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      min-height: 24px;
+      padding: 2px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.76);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.86);
+    }
+
+    .language-toggle button {
+      min-height: 20px;
+      padding: 2px 8px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: #40566b;
+      font-size: 0.68rem;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .language-toggle button.is-active {
+      background: rgba(47,127,208,0.16);
+      color: #14304a;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+
+    @media (max-width: 1180px) {
+      .router-local-grid,
+      .scenario-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 900px) {
+      .cloud-grid,
+      .pc-grid,
+      .bridge-row,
+      .agent-grid,
+      .router-local-grid,
+      .scenario-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .connector {
+        width: 4px;
+        height: 34px;
+        justify-self: center;
+        background: linear-gradient(180deg, rgba(47,127,208,0.78), rgba(47,127,208,0.28));
+      }
+
+      .connector::after {
+        right: auto;
+        left: 50%;
+        top: auto;
+        bottom: -7px;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 11px solid rgba(47,127,208,0.8);
+        border-bottom: 0;
+        transform: translateX(-50%);
+      }
+
+      .bridge-row .link-label { display: none; }
+    }
+
+    @media (max-width: 680px) {
+      .page-shell { width: min(100vw - 18px, 1500px); padding-top: 14px; }
+      .zone { padding: 14px; border-radius: 20px; }
+      .glass-card { padding: 13px; border-radius: 15px; }
+      .card-title,
+      .compact-card-title,
+      .pill { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+    <header class="aero rounded-[24px] px-5 py-4 mb-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <div>
+        <p class="text-[0.72rem] uppercase tracking-[0.18em] font-black text-slate-500">Azure VoiceLive + Foundry Local Reference Architecture</p>
+        <h1 class="text-3xl md:text-4xl font-black tracking-normal text-slate-900 mt-0.5">PC Agent Architecture</h1>
+        <p class="mt-1.5 max-w-4xl text-sm md:text-base text-slate-600 font-medium leading-snug">Edge-first real-time dialogue on the PC, using local models and cloud managed agents together through policy-driven routing.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <div class="language-toggle" aria-label="Language selector">
+          <button type="button" class="is-active" data-lang="en" aria-pressed="true">EN</button>
+          <button type="button" data-lang="zh" aria-pressed="false">中文</button>
+        </div>
+        <span class="legend-item"><span class="swatch bg-[#2f7fd0]"></span>Cloud managed</span>
+        <span class="legend-item"><span class="swatch bg-[#7c5bd6]"></span>Hybrid policy</span>
+        <span class="legend-item"><span class="swatch bg-[#278463]"></span>PC device</span>
+      </div>
+    </header>
+
+    <section class="zone aero mb-0">
+      <div class="zone-title"><span class="badge-dot bg-[#2f7fd0]"></span>Cloud Managed Agent Plane</div>
+      <div class="cloud-grid">
+        <article class="glass-card soft-blue">
+          <div class="card-title">
+            <span>Managed Agents</span>
+            <span class="tiny-label">cloud copilots</span>
+          </div>
+          <div class="stack">
+            <div class="pill"><span>GitHub Copilot</span><small>developer agent</small></div>
+            <div class="pill"><span>M365 Copilot</span><small>productivity agent</small></div>
+            <div class="pill"><span>OpenClaw Cloud</span><small>managed companion</small></div>
+          </div>
+        </article>
+
+        <div class="connector" aria-hidden="true"></div>
+
+        <article class="glass-card soft-purple">
+          <div class="card-title">
+            <span>Foundry Router on Cloud</span>
+            <span class="tiny-label">managed path</span>
+          </div>
+          <div class="agent-grid">
+            <section class="agent-col">
+              <h3>Intent Dispatch</h3>
+              <ul>
+                <li>Route expert turns to Copilot agents</li>
+                <li>Keep low-latency dialogue on device</li>
+                <li>Escalate cloud-only tools and data</li>
+              </ul>
+            </section>
+            <section class="agent-col">
+              <h3>Cloud Harnessing</h3>
+              <ul>
+                <li>Agent identity and tenant controls</li>
+                <li>MCP and enterprise connectors</li>
+                <li>Memory, grounding, and audit traces</li>
+              </ul>
+            </section>
+            <section class="agent-col">
+              <h3>Return Channel</h3>
+              <ul>
+                <li>Structured agent events</li>
+                <li>Text, action, and state deltas</li>
+                <li>Speech response hints for local voice</li>
+              </ul>
+            </section>
+          </div>
+        </article>
+
+        <div class="connector" aria-hidden="true"></div>
+
+        <article class="glass-card soft-rose">
+          <div class="card-title">
+            <span>Cloud Models + Tools</span>
+            <span class="tiny-label">elastic capability</span>
+          </div>
+          <div class="stack">
+            <div class="pill"><span>Foundry Agent Service</span><small>managed runtime</small></div>
+            <div class="pill"><span>Enterprise MCPs</span><small>business actions</small></div>
+            <div class="pill"><span>Large Reasoning Models</span><small>heavy tasks</small></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="bridge-row" aria-label="Cloud and PC links">
+      <div class="flex flex-col items-center gap-2">
+        <div class="vertical-link up"><span class="arrow-label">agent events up</span></div>
+      </div>
+      <span class="link-label">hybrid real-time conversation loop</span>
+      <div class="flex flex-col items-center gap-2">
+        <div class="vertical-link"><span class="arrow-label">policy + responses down</span></div>
+      </div>
+    </div>
+
+    <section class="zone aero mb-3">
+      <div class="zone-title"><span class="badge-dot bg-[#278463]"></span>PC Device - Edge Conversation Runtime</div>
+      <div class="pc-grid">
+        <article class="glass-card soft-blue">
+          <div class="card-title">
+            <span>Device Input</span>
+            <span class="tiny-label">voice front end</span>
+          </div>
+          <div class="stack">
+            <div class="pill"><span>Microphone + System Audio</span><small>capture</small></div>
+            <div class="pill"><span>Foundry Voice Live ASR</span><small>streaming recognition</small></div>
+            <div class="pill"><span>Smart VAD</span><small>turn detection</small></div>
+            <div class="pill"><span>ECNR</span><small>echo cancellation + noise reduction</small></div>
+            <div class="pill"><span>Foundry Voice Live TTS</span><small>spoken output</small></div>
+          </div>
+        </article>
+
+        <div class="connector" aria-hidden="true"></div>
+
+        <div class="stack">
+          <article class="glass-card soft-green">
+            <div class="card-title">
+              <span>Foundry Voice Agent on PC</span>
+              <span class="tiny-label">VoiceLive Embedded</span>
+            </div>
+            <div class="router-local-grid">
+              <section class="glass-card soft-purple">
+                <div class="compact-card-title">
+                  <span>Device Router</span>
+                  <span class="tiny-label">inside policies</span>
+                </div>
+                <div class="stack">
+                  <div class="pill"><span>Custom Policy</span><small>privacy + cost + latency</small></div>
+                  <div class="pill"><span>Hybrid Usage</span><small>local first / cloud assist</small></div>
+                  <div class="pill"><span>Consent Gates</span><small>approval before cloud</small></div>
+                </div>
+              </section>
+
+              <section class="glass-card soft-amber">
+                <div class="compact-card-title">
+                  <span>Foundry Local</span>
+                  <span class="tiny-label">on PC</span>
+                </div>
+                <div class="stack">
+                  <div class="pill"><span>ASUS Managed OSS Models</span><small>Phi / Qwen / Gemma</small></div>
+                  <div class="pill"><span>Managed Runtime</span><small>NPU / GPU / CPU</small></div>
+                  <div class="pill"><span>Local Tools</span><small>files + shell + app state</small></div>
+                </div>
+              </section>
+
+              <section class="glass-card soft-blue">
+                <div class="compact-card-title">
+                  <span>Foundry Router on Cloud</span>
+                  <span class="tiny-label">side by side</span>
+                </div>
+                <div class="stack">
+                  <div class="pill"><span>Cloud Escalation</span><small>managed agent calls</small></div>
+                  <div class="pill"><span>Capability Discovery</span><small>cloud model selection</small></div>
+                  <div class="pill"><span>Response Fusion</span><small>local voice delivery</small></div>
+                </div>
+              </section>
+            </div>
+          </article>
+
+          <article class="glass-card soft-green">
+            <div class="card-title">
+              <span>Embedded Speech + Foundry Tools</span>
+              <span class="tiny-label">local skills</span>
+            </div>
+            <div class="agent-grid">
+              <section class="agent-col">
+                <h3>Speech</h3>
+                <ul>
+                  <li>Transcription</li>
+                  <li>Translation</li>
+                  <li>Conversation turns</li>
+                </ul>
+              </section>
+              <section class="agent-col">
+                <h3>Creation</h3>
+                <ul>
+                  <li>Content drafting</li>
+                  <li>Summaries and notes</li>
+                  <li>Local document grounding</li>
+                </ul>
+              </section>
+              <section class="agent-col">
+                <h3>Control</h3>
+                <ul>
+                  <li>App automation</li>
+                  <li>Device state awareness</li>
+                  <li>Offline fallback</li>
+                </ul>
+              </section>
+            </div>
+          </article>
+        </div>
+
+        <div class="connector" aria-hidden="true"></div>
+
+        <article class="glass-card soft-amber">
+          <div class="card-title">
+            <span>PC Integration</span>
+            <span class="tiny-label">user context</span>
+          </div>
+          <div class="stack">
+            <div class="pill"><span>OpenClaw on Device</span><small>real-time operator</small></div>
+            <div class="pill"><span>Desktop Apps</span><small>screen + app state</small></div>
+            <div class="pill"><span>Files + Knowledge</span><small>local grounding</small></div>
+            <div class="pill"><span>Audio Output</span><small>speaker / headset</small></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="zone aero">
+      <div class="zone-title"><span class="badge-dot bg-[#7c5bd6]"></span>Implementation Scenarios</div>
+      <div class="scenario-grid">
+        <article class="glass-card soft-green">
+          <div class="card-title"><span>1. Embedded Speech</span><span class="tiny-label">Foundry Tools</span></div>
+          <div class="stack">
+            <div class="pill"><span>Transcription</span><small>meetings + dictation</small></div>
+            <div class="pill"><span>Translation</span><small>bilingual turns</small></div>
+            <div class="pill"><span>Content Creation</span><small>draft locally</small></div>
+            <div class="pill"><span>Conversation</span><small>voice agent loop</small></div>
+          </div>
+        </article>
+
+        <article class="glass-card soft-amber">
+          <div class="card-title"><span>2. Foundry Local</span><span class="tiny-label">ASUS managed</span></div>
+          <div class="stack">
+            <div class="pill"><span>OSS Model Pack</span><small>managed distribution</small></div>
+            <div class="pill"><span>Runtime Policy</span><small>NPU/GPU/CPU fit</small></div>
+            <div class="pill"><span>Offline UX</span><small>no-network continuity</small></div>
+          </div>
+        </article>
+
+        <article class="glass-card soft-purple">
+          <div class="card-title"><span>3. Router / Policy</span><span class="tiny-label">hybrid usage</span></div>
+          <div class="stack">
+            <div class="pill"><span>Local First</span><small>latency + privacy</small></div>
+            <div class="pill"><span>Cloud Assist</span><small>managed agents</small></div>
+            <div class="pill"><span>Custom Rules</span><small>cost + identity + data</small></div>
+          </div>
+        </article>
+
+        <article class="glass-card soft-blue">
+          <div class="card-title"><span>Core Scenario</span><span class="tiny-label">edge + cloud</span></div>
+          <div class="stack">
+            <div class="pill"><span>PC Voice Agent</span><small>real-time dialogue</small></div>
+            <div class="pill"><span>Drive Copilot in Cloud</span><small>GitHub / M365</small></div>
+            <div class="pill"><span>OpenClaw Pattern</span><small>edge OpenClaw, cloud Copilot</small></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <footer class="mt-3 grid lg:grid-cols-3 gap-2 text-xs text-slate-600 font-semibold">
+      <div class="glass-card">The core experience is an endpoint-side conversation loop: speech capture, local understanding, local voice response, and policy-based cloud escalation only when needed.</div>
+      <div class="glass-card">Foundry Voice Live Embedded provides ASR, TTS, Smart VAD, and ECNR so the PC can keep the turn-taking experience real time.</div>
+      <div class="glass-card">The new pattern lets an edge real-time agent drive managed cloud agents such as GitHub Copilot, M365 Copilot, or cloud-side OpenClaw.</div>
+    </footer>
+  </main>
+
+  <script>
+    (() => {
+      const translations = {
+        zh: {
+          'Azure VoiceLive + Foundry Local Reference Architecture': 'Azure VoiceLive + Foundry Local 参考架构',
+          'PC Agent Architecture': 'PC 智能体架构',
+          'Edge-first real-time dialogue on the PC, using local models and cloud managed agents together through policy-driven routing.': '以端侧为核心的 PC 实时对话体验，通过策略路由把本地模型和云端托管智能体结合起来。',
+          'Cloud managed': '云端托管',
+          'Hybrid policy': '混合策略',
+          'PC device': 'PC 设备',
+          'Cloud Managed Agent Plane': '云端托管智能体平面',
+          'Managed Agents': '托管智能体',
+          'cloud copilots': '云端 Copilot',
+          'GitHub Copilot': 'GitHub Copilot',
+          'developer agent': '开发者智能体',
+          'M365 Copilot': 'M365 Copilot',
+          'productivity agent': '生产力智能体',
+          'OpenClaw Cloud': '云端 OpenClaw',
+          'managed companion': '托管伴随智能体',
+          'Foundry Router on Cloud': '云端 Foundry Router',
+          'managed path': '托管路径',
+          'Intent Dispatch': '意图分发',
+          'Route expert turns to Copilot agents': '将专家轮次路由到 Copilot 智能体',
+          'Keep low-latency dialogue on device': '低延迟对话保留在端侧',
+          'Escalate cloud-only tools and data': '升级到仅云端可用的工具和数据',
+          'Cloud Harnessing': '云端编排',
+          'Agent identity and tenant controls': '智能体身份与租户控制',
+          'MCP and enterprise connectors': 'MCP 与企业连接器',
+          'Memory, grounding, and audit traces': '记忆、知识锚定与审计追踪',
+          'Return Channel': '返回通道',
+          'Structured agent events': '结构化智能体事件',
+          'Text, action, and state deltas': '文本、动作与状态增量',
+          'Speech response hints for local voice': '面向本地语音的响应提示',
+          'Cloud Models + Tools': '云端模型 + 工具',
+          'elastic capability': '弹性能力',
+          'Foundry Agent Service': 'Foundry Agent Service',
+          'managed runtime': '托管运行时',
+          'Enterprise MCPs': '企业 MCP',
+          'business actions': '业务动作',
+          'Large Reasoning Models': '大型推理模型',
+          'heavy tasks': '复杂任务',
+          'agent events up': '智能体事件上行',
+          'hybrid real-time conversation loop': '混合实时对话闭环',
+          'policy + responses down': '策略 + 响应下行',
+          'PC Device - Edge Conversation Runtime': 'PC 设备 - 端侧对话运行时',
+          'Device Input': '设备输入',
+          'voice front end': '语音前端',
+          'Microphone + System Audio': '麦克风 + 系统音频',
+          'capture': '采集',
+          'Foundry Voice Live ASR': 'Foundry Voice Live ASR',
+          'streaming recognition': '流式识别',
+          'Smart VAD': '智能 VAD',
+          'turn detection': '轮次检测',
+          'ECNR': 'ECNR',
+          'echo cancellation + noise reduction': '回声消除 + 降噪',
+          'Foundry Voice Live TTS': 'Foundry Voice Live TTS',
+          'spoken output': '语音输出',
+          'Foundry Voice Agent on PC': 'PC 上的 Foundry Voice Agent',
+          'VoiceLive Embedded': 'VoiceLive Embedded',
+          'Device Router': '设备 Router',
+          'inside policies': '位于策略内部',
+          'Custom Policy': '自定义策略',
+          'privacy + cost + latency': '隐私 + 成本 + 延迟',
+          'Hybrid Usage': '混合使用',
+          'local first / cloud assist': '本地优先 / 云端辅助',
+          'Consent Gates': '授权门控',
+          'approval before cloud': '上云前授权',
+          'Foundry Local': 'Foundry Local',
+          'on PC': '在 PC 上',
+          'ASUS Managed OSS Models': 'ASUS 托管 OSS 模型',
+          'Phi / Qwen / Gemma': 'Phi / Qwen / Gemma',
+          'Managed Runtime': '托管运行时',
+          'NPU / GPU / CPU': 'NPU / GPU / CPU',
+          'Local Tools': '本地工具',
+          'files + shell + app state': '文件 + Shell + 应用状态',
+          'side by side': '并列',
+          'Cloud Escalation': '云端升级',
+          'managed agent calls': '托管智能体调用',
+          'Capability Discovery': '能力发现',
+          'cloud model selection': '云端模型选择',
+          'Response Fusion': '响应融合',
+          'local voice delivery': '本地语音输出',
+          'Embedded Speech + Foundry Tools': 'Embedded Speech + Foundry Tools',
+          'local skills': '本地技能',
+          'Speech': '语音',
+          'Transcription': '转写',
+          'Translation': '翻译',
+          'Conversation turns': '对话轮次',
+          'Creation': '创作',
+          'Content drafting': '内容起草',
+          'Summaries and notes': '总结和笔记',
+          'Local document grounding': '本地文档锚定',
+          'Control': '控制',
+          'App automation': '应用自动化',
+          'Device state awareness': '设备状态感知',
+          'Offline fallback': '离线兜底',
+          'PC Integration': 'PC 集成',
+          'user context': '用户上下文',
+          'OpenClaw on Device': '端侧 OpenClaw',
+          'real-time operator': '实时操作者',
+          'Desktop Apps': '桌面应用',
+          'screen + app state': '屏幕 + 应用状态',
+          'Files + Knowledge': '文件 + 知识',
+          'local grounding': '本地锚定',
+          'Audio Output': '音频输出',
+          'speaker / headset': '扬声器 / 耳机',
+          'Implementation Scenarios': '实现路径',
+          '1. Embedded Speech': '1. Embedded Speech',
+          'Foundry Tools': 'Foundry Tools',
+          'meetings + dictation': '会议 + 听写',
+          'bilingual turns': '双语轮次',
+          'Content Creation': '内容创作',
+          'draft locally': '本地起草',
+          'Conversation': '对话',
+          'voice agent loop': '语音智能体闭环',
+          '2. Foundry Local': '2. Foundry Local',
+          'ASUS managed': 'ASUS 托管',
+          'OSS Model Pack': 'OSS 模型包',
+          'managed distribution': '托管分发',
+          'Runtime Policy': '运行时策略',
+          'NPU/GPU/CPU fit': '适配 NPU/GPU/CPU',
+          'Offline UX': '离线体验',
+          'no-network continuity': '无网络连续性',
+          '3. Router / Policy': '3. Router / Policy',
+          'hybrid usage': '混合使用',
+          'Local First': '本地优先',
+          'latency + privacy': '延迟 + 隐私',
+          'Cloud Assist': '云端辅助',
+          'managed agents': '托管智能体',
+          'Custom Rules': '自定义规则',
+          'cost + identity + data': '成本 + 身份 + 数据',
+          'Core Scenario': '核心场景',
+          'edge + cloud': '端侧 + 云侧',
+          'PC Voice Agent': 'PC 语音智能体',
+          'real-time dialogue': '实时对话',
+          'Drive Copilot in Cloud': '驱动云端 Copilot',
+          'GitHub / M365': 'GitHub / M365',
+          'OpenClaw Pattern': 'OpenClaw 模式',
+          'edge OpenClaw, cloud Copilot': '端侧 OpenClaw，云侧 Copilot',
+          'The core experience is an endpoint-side conversation loop: speech capture, local understanding, local voice response, and policy-based cloud escalation only when needed.': '核心体验是端侧对话闭环：语音采集、本地理解、本地语音响应，并且仅在需要时按策略升级到云端。',
+          'Foundry Voice Live Embedded provides ASR, TTS, Smart VAD, and ECNR so the PC can keep the turn-taking experience real time.': 'Foundry Voice Live Embedded 提供 ASR、TTS、Smart VAD 和 ECNR，让 PC 保持实时轮次体验。',
+          'The new pattern lets an edge real-time agent drive managed cloud agents such as GitHub Copilot, M365 Copilot, or cloud-side OpenClaw.': '这个新模式让端侧实时智能体驱动云端托管智能体，例如 GitHub Copilot、M365 Copilot 或云侧 OpenClaw。'
+        }
+      };
+
+      const textNodes = [];
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          const text = node.nodeValue.trim();
+          if (!text) return NodeFilter.FILTER_REJECT;
+          if (node.parentElement?.closest('script, style')) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+
+      while (walker.nextNode()) {
+        textNodes.push({ node: walker.currentNode, source: walker.currentNode.nodeValue.trim() });
+      }
+
+      const buttons = Array.from(document.querySelectorAll('.language-toggle button'));
+
+      const setLanguage = (language) => {
+        const dictionary = translations[language] || {};
+        textNodes.forEach(({ node, source }) => {
+          node.nodeValue = node.nodeValue.replace(node.nodeValue.trim(), dictionary[source] || source);
+        });
+        buttons.forEach((button) => {
+          const active = button.dataset.lang === language;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-pressed', String(active));
+        });
+        document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
+        document.title = language === 'zh' ? 'PC 智能体架构' : 'PC Agent Architecture';
+        localStorage.setItem('pcAgentArchitectureLanguage', language);
+      };
+
+      buttons.forEach((button) => {
+        button.addEventListener('click', () => setLanguage(button.dataset.lang));
+      });
+
+      setLanguage(localStorage.getItem('pcAgentArchitectureLanguage') || 'en');
+    })();
+
+    (() => {
+      const selector = '.glass-card, .pill, .agent-col, .agent-col li';
+      const targets = Array.from(document.querySelectorAll(selector));
+
+      targets.forEach((target) => {
+        target.classList.add('highlight-target');
+        target.tabIndex = 0;
+        target.setAttribute('role', 'button');
+        target.setAttribute('aria-pressed', 'false');
+
+        const toggleHighlight = (event) => {
+          event.stopPropagation();
+          const highlighted = target.classList.toggle('is-highlighted');
+          target.setAttribute('aria-pressed', String(highlighted));
+        };
+
+        target.addEventListener('click', toggleHighlight);
+        target.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleHighlight(event);
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
