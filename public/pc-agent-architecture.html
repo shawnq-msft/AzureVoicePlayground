@@ -476,82 +476,57 @@
   <main class="page-shell">
     <header class="aero rounded-[24px] px-5 py-4 mb-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
       <div>
-        <p class="text-[0.72rem] uppercase tracking-[0.18em] font-black text-slate-500">Azure VoiceLive + Foundry Local Reference Architecture</p>
-        <h1 class="text-3xl md:text-4xl font-black tracking-normal text-slate-900 mt-0.5">PC Agent Architecture</h1>
-        <p class="mt-1.5 max-w-4xl text-sm md:text-base text-slate-600 font-medium leading-snug">Edge-first real-time dialogue on the PC, using local models and cloud managed agents together through policy-driven routing.</p>
+        <p class="text-[0.72rem] uppercase tracking-[0.18em] font-black text-slate-500">PC Application -> Agent Middleware -> HW Reference Architecture</p>
+        <h1 class="text-3xl md:text-4xl font-black tracking-normal text-slate-900 mt-0.5">PC Agent Layered Architecture</h1>
+        <p class="mt-1.5 max-w-4xl text-sm md:text-base text-slate-600 font-medium leading-snug">三层结构：最上层是 AI Work / AI Life / AI Learn 应用与 AIGC workflow；中间层是 Foundry Voice Agent、Copilot CLI Agent、Hermes、OpenClaw 和本地/云端模型路由；底层是 PC 硬件配置，提供 CPU、内存、RTX 5070 VRAM 与 Phison SSD 能力。</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <div class="language-toggle" aria-label="Language selector">
           <button type="button" class="is-active" data-lang="en" aria-pressed="true">EN</button>
           <button type="button" data-lang="zh" aria-pressed="false">中文</button>
         </div>
-        <span class="legend-item"><span class="swatch bg-[#2f7fd0]"></span>Cloud managed</span>
-        <span class="legend-item"><span class="swatch bg-[#7c5bd6]"></span>Hybrid policy</span>
-        <span class="legend-item"><span class="swatch bg-[#278463]"></span>PC device</span>
+        <span class="legend-item"><span class="swatch bg-[#2f7fd0]"></span>Application scenarios</span>
+        <span class="legend-item"><span class="swatch bg-[#7c5bd6]"></span>Agent middleware</span>
+        <span class="legend-item"><span class="swatch bg-[#278463]"></span>PC hardware</span>
       </div>
     </header>
 
     <section class="zone aero mb-0">
-      <div class="zone-title"><span class="badge-dot bg-[#2f7fd0]"></span>Cloud Managed Agent Plane</div>
-      <div class="cloud-grid">
+      <div class="zone-title"><span class="badge-dot bg-[#2f7fd0]"></span>Top Layer - Applications, Agent Tools, AIGC Workflow, Scenario Apps</div>
+      <div class="scenario-grid">
         <article class="glass-card soft-blue">
-          <div class="card-title">
-            <span>Managed Agents</span>
-            <span class="tiny-label">cloud copilots</span>
-          </div>
+          <div class="card-title"><span>AI Work</span><span class="tiny-label">productivity + dev</span></div>
           <div class="stack">
-            <div class="pill"><span>GitHub Copilot</span><small>developer agent</small></div>
-            <div class="pill"><span>M365 Copilot</span><small>productivity agent</small></div>
-            <div class="pill"><span>OpenClaw Cloud</span><small>managed companion</small></div>
+            <div class="pill"><span>M365 Workflow</span><small>mail / docs / calendar</small></div>
+            <div class="pill"><span>Developer Workflow</span><small>IDE / repo / terminal</small></div>
+            <div class="pill"><span>Copilot CLI Tasks</span><small>agent tools</small></div>
           </div>
         </article>
 
-        <div class="connector" aria-hidden="true"></div>
+        <article class="glass-card soft-green">
+          <div class="card-title"><span>AI Life</span><span class="tiny-label">personal assistant</span></div>
+          <div class="stack">
+            <div class="pill"><span>Voice Companion</span><small>daily planning</small></div>
+            <div class="pill"><span>Local PC Control</span><small>files / settings / browser</small></div>
+            <div class="pill"><span>ASUS Device Care</span><small>support + tuning</small></div>
+          </div>
+        </article>
+
+        <article class="glass-card soft-amber">
+          <div class="card-title"><span>AI Learn</span><span class="tiny-label">education + coaching</span></div>
+          <div class="stack">
+            <div class="pill"><span>Tutor Agent</span><small>language / subject</small></div>
+            <div class="pill"><span>Learning Coach</span><small>plan + feedback</small></div>
+            <div class="pill"><span>Content Creation</span><small>notes / quiz / summary</small></div>
+          </div>
+        </article>
 
         <article class="glass-card soft-purple">
-          <div class="card-title">
-            <span>Foundry Router on Cloud</span>
-            <span class="tiny-label">managed path</span>
-          </div>
-          <div class="agent-grid">
-            <section class="agent-col">
-              <h3>Intent Dispatch</h3>
-              <ul>
-                <li>Route expert turns to Copilot agents</li>
-                <li>Keep low-latency dialogue on device</li>
-                <li>Escalate cloud-only tools and data</li>
-              </ul>
-            </section>
-            <section class="agent-col">
-              <h3>Cloud Harnessing</h3>
-              <ul>
-                <li>Agent identity and tenant controls</li>
-                <li>MCP and enterprise connectors</li>
-                <li>Memory, grounding, and audit traces</li>
-              </ul>
-            </section>
-            <section class="agent-col">
-              <h3>Return Channel</h3>
-              <ul>
-                <li>Structured agent events</li>
-                <li>Text, action, and state deltas</li>
-                <li>Speech response hints for local voice</li>
-              </ul>
-            </section>
-          </div>
-        </article>
-
-        <div class="connector" aria-hidden="true"></div>
-
-        <article class="glass-card soft-rose">
-          <div class="card-title">
-            <span>Cloud Models + Tools</span>
-            <span class="tiny-label">elastic capability</span>
-          </div>
+          <div class="card-title"><span>AIGC Workflow</span><span class="tiny-label">scenario apps</span></div>
           <div class="stack">
-            <div class="pill"><span>Foundry Agent Service</span><small>managed runtime</small></div>
-            <div class="pill"><span>Enterprise MCPs</span><small>business actions</small></div>
-            <div class="pill"><span>Large Reasoning Models</span><small>heavy tasks</small></div>
+            <div class="pill"><span>Text / Image / Audio</span><small>creative generation</small></div>
+            <div class="pill"><span>Scenario Apps</span><small>vertical experiences</small></div>
+            <div class="pill"><span>Agent Tool Surface</span><small>commands + automation</small></div>
           </div>
         </article>
       </div>
@@ -559,28 +534,27 @@
 
     <div class="bridge-row" aria-label="Cloud and PC links">
       <div class="flex flex-col items-center gap-2">
-        <div class="vertical-link up"><span class="arrow-label">agent events up</span></div>
+        <div class="vertical-link up"><span class="arrow-label">app intent down</span></div>
       </div>
-      <span class="link-label">hybrid real-time conversation loop</span>
+      <span class="link-label">applications call the agent middle layer, which chooses local or cloud execution</span>
       <div class="flex flex-col items-center gap-2">
-        <div class="vertical-link"><span class="arrow-label">policy + responses down</span></div>
+        <div class="vertical-link"><span class="arrow-label">results up</span></div>
       </div>
     </div>
 
     <section class="zone aero mb-3">
-      <div class="zone-title"><span class="badge-dot bg-[#278463]"></span>PC Device - Edge Conversation Runtime</div>
+      <div class="zone-title"><span class="badge-dot bg-[#7c5bd6]"></span>Middle Layer - Agent Middleware, Local Models, Cloud Agents</div>
       <div class="pc-grid">
-        <article class="glass-card soft-blue">
+        <article class="glass-card soft-green">
           <div class="card-title">
-            <span>Device Input</span>
-            <span class="tiny-label">voice front end</span>
+            <span>Local Model Pool</span>
+            <span class="tiny-label">runs on PC</span>
           </div>
           <div class="stack">
-            <div class="pill"><span>Microphone + System Audio</span><small>capture</small></div>
-            <div class="pill"><span>Foundry Voice Live ASR</span><small>streaming recognition</small></div>
-            <div class="pill"><span>Smart VAD</span><small>turn detection</small></div>
-            <div class="pill"><span>ECNR</span><small>echo cancellation + noise reduction</small></div>
-            <div class="pill"><span>Foundry Voice Live TTS</span><small>spoken output</small></div>
+            <div class="pill"><span>Qwen 3.6</span><small>24B / 35B</small></div>
+            <div class="pill"><span>Gemma 4</span><small>26B / 31B</small></div>
+            <div class="pill"><span>Phi Silica</span><small>Windows local model</small></div>
+            <div class="pill"><span>Foundry Local Runtime</span><small>model lifecycle</small></div>
           </div>
         </article>
 
@@ -589,43 +563,43 @@
         <div class="stack">
           <article class="glass-card soft-green">
             <div class="card-title">
-              <span>Foundry Voice Agent on PC</span>
-              <span class="tiny-label">VoiceLive Embedded</span>
+              <span>Agent Middle Layer</span>
+              <span class="tiny-label">voice + CLI + desktop agents</span>
             </div>
             <div class="router-local-grid">
               <section class="glass-card soft-purple">
                 <div class="compact-card-title">
-                  <span>Device Router</span>
-                  <span class="tiny-label">inside policies</span>
+                  <span>Foundry Voice Agent</span>
+                  <span class="tiny-label">VoiceLive Embedded</span>
                 </div>
                 <div class="stack">
-                  <div class="pill"><span>Custom Policy</span><small>privacy + cost + latency</small></div>
-                  <div class="pill"><span>Hybrid Usage</span><small>local first / cloud assist</small></div>
-                  <div class="pill"><span>Consent Gates</span><small>approval before cloud</small></div>
+                  <div class="pill"><span>ASR / TTS</span><small>realtime speech loop</small></div>
+                  <div class="pill"><span>Smart VAD / ECNR</span><small>turn + audio quality</small></div>
+                  <div class="pill"><span>Conversation State</span><small>session memory</small></div>
                 </div>
               </section>
 
               <section class="glass-card soft-amber">
                 <div class="compact-card-title">
-                  <span>Foundry Local</span>
-                  <span class="tiny-label">on PC</span>
+                  <span>Endpoint Agents</span>
+                  <span class="tiny-label">local action brain</span>
                 </div>
                 <div class="stack">
-                  <div class="pill"><span>ASUS Managed OSS Models</span><small>Phi / Qwen / Gemma</small></div>
-                  <div class="pill"><span>Managed Runtime</span><small>NPU / GPU / CPU</small></div>
-                  <div class="pill"><span>Local Tools</span><small>files + shell + app state</small></div>
+                  <div class="pill"><span>Copilot CLI Agent</span><small>terminal + dev tasks</small></div>
+                  <div class="pill"><span>Hermes</span><small>local skill orchestration</small></div>
+                  <div class="pill"><span>OpenClaw</span><small>desktop action loop</small></div>
                 </div>
               </section>
 
               <section class="glass-card soft-blue">
                 <div class="compact-card-title">
-                  <span>Foundry Router on Cloud</span>
-                  <span class="tiny-label">side by side</span>
+                  <span>Hybrid Policy Router</span>
+                  <span class="tiny-label">local first / cloud assist</span>
                 </div>
                 <div class="stack">
-                  <div class="pill"><span>Cloud Escalation</span><small>managed agent calls</small></div>
-                  <div class="pill"><span>Capability Discovery</span><small>cloud model selection</small></div>
-                  <div class="pill"><span>Response Fusion</span><small>local voice delivery</small></div>
+                  <div class="pill"><span>Local Model Selection</span><small>Qwen / Gemma / Phi</small></div>
+                  <div class="pill"><span>Cloud Agent Escalation</span><small>M365 / GitHub</small></div>
+                  <div class="pill"><span>Consent + Redaction</span><small>privacy boundary</small></div>
                 </div>
               </section>
             </div>
@@ -633,32 +607,32 @@
 
           <article class="glass-card soft-green">
             <div class="card-title">
-              <span>Embedded Speech + Foundry Tools</span>
-              <span class="tiny-label">local skills</span>
+              <span>Middleware Responsibilities</span>
+              <span class="tiny-label">normalize + decide + execute</span>
             </div>
             <div class="agent-grid">
               <section class="agent-col">
-                <h3>Speech</h3>
+                <h3>Normalize HW</h3>
                 <ul>
-                  <li>Transcription</li>
-                  <li>Translation</li>
-                  <li>Conversation turns</li>
+                  <li>Audio, screen, PC config</li>
+                  <li>ASR and turn boundaries</li>
+                  <li>Context packing</li>
                 </ul>
               </section>
               <section class="agent-col">
-                <h3>Creation</h3>
+                <h3>Plan and Route</h3>
                 <ul>
-                  <li>Content drafting</li>
-                  <li>Summaries and notes</li>
-                  <li>Local document grounding</li>
+                  <li>Local model vs cloud agent</li>
+                  <li>Copilot CLI / Hermes / OpenClaw</li>
+                  <li>AIGC workflow routing</li>
                 </ul>
               </section>
               <section class="agent-col">
-                <h3>Control</h3>
+                <h3>Return to Apps</h3>
                 <ul>
-                  <li>App automation</li>
-                  <li>Device state awareness</li>
-                  <li>Offline fallback</li>
+                  <li>Execute local app action</li>
+                  <li>Update UI and user state</li>
+                  <li>Speak final response</li>
                 </ul>
               </section>
             </div>
@@ -669,65 +643,64 @@
 
         <article class="glass-card soft-amber">
           <div class="card-title">
-            <span>PC Integration</span>
-            <span class="tiny-label">user context</span>
+            <span>Cloud Agent Pool</span>
+            <span class="tiny-label">primary cloud agents</span>
           </div>
           <div class="stack">
-            <div class="pill"><span>OpenClaw on Device</span><small>real-time operator</small></div>
-            <div class="pill"><span>Desktop Apps</span><small>screen + app state</small></div>
-            <div class="pill"><span>Files + Knowledge</span><small>local grounding</small></div>
-            <div class="pill"><span>Audio Output</span><small>speaker / headset</small></div>
+            <div class="pill"><span>M365 Copilot</span><small>work graph agent</small></div>
+            <div class="pill"><span>GitHub Copilot</span><small>developer agent</small></div>
+            <div class="pill"><span>Foundry Managed Agent</span><small>ASUS Branding Agent</small></div>
+            <div class="pill"><span>Cloud Model Runtime</span><small>complex reasoning</small></div>
           </div>
         </article>
       </div>
     </section>
 
     <section class="zone aero">
-      <div class="zone-title"><span class="badge-dot bg-[#7c5bd6]"></span>Implementation Scenarios</div>
+      <div class="zone-title"><span class="badge-dot bg-[#278463]"></span>Bottom Layer - PC Hardware Configuration</div>
       <div class="scenario-grid">
         <article class="glass-card soft-green">
-          <div class="card-title"><span>1. Embedded Speech</span><span class="tiny-label">Foundry Tools</span></div>
+          <div class="card-title"><span>CPU + Memory</span><span class="tiny-label">PC config</span></div>
           <div class="stack">
-            <div class="pill"><span>Transcription</span><small>meetings + dictation</small></div>
-            <div class="pill"><span>Translation</span><small>bilingual turns</small></div>
-            <div class="pill"><span>Content Creation</span><small>draft locally</small></div>
-            <div class="pill"><span>Conversation</span><small>voice agent loop</small></div>
+            <div class="pill"><span>CPU</span><small>general compute</small></div>
+            <div class="pill"><span>Memory 16GB</span><small>mainstream config</small></div>
+            <div class="pill"><span>Memory 32GB</span><small>larger local models</small></div>
           </div>
         </article>
 
         <article class="glass-card soft-amber">
-          <div class="card-title"><span>2. Foundry Local</span><span class="tiny-label">ASUS managed</span></div>
+          <div class="card-title"><span>NVIDIA RTX 5070</span><span class="tiny-label">GPU inference</span></div>
           <div class="stack">
-            <div class="pill"><span>OSS Model Pack</span><small>managed distribution</small></div>
-            <div class="pill"><span>Runtime Policy</span><small>NPU/GPU/CPU fit</small></div>
-            <div class="pill"><span>Offline UX</span><small>no-network continuity</small></div>
+            <div class="pill"><span>16GB VRAM</span><small>local model tier</small></div>
+            <div class="pill"><span>24GB VRAM</span><small>larger local model tier</small></div>
+            <div class="pill"><span>CUDA / Tensor Acceleration</span><small>AIGC workloads</small></div>
           </div>
         </article>
 
         <article class="glass-card soft-purple">
-          <div class="card-title"><span>3. Router / Policy</span><span class="tiny-label">hybrid usage</span></div>
+          <div class="card-title"><span>Phison SSD</span><span class="tiny-label">model + data IO</span></div>
           <div class="stack">
-            <div class="pill"><span>Local First</span><small>latency + privacy</small></div>
-            <div class="pill"><span>Cloud Assist</span><small>managed agents</small></div>
-            <div class="pill"><span>Custom Rules</span><small>cost + identity + data</small></div>
+            <div class="pill"><span>Model Storage</span><small>local weights</small></div>
+            <div class="pill"><span>Fast Loading</span><small>agent startup</small></div>
+            <div class="pill"><span>RAG Cache</span><small>local knowledge</small></div>
           </div>
         </article>
 
         <article class="glass-card soft-blue">
-          <div class="card-title"><span>Core Scenario</span><span class="tiny-label">edge + cloud</span></div>
+          <div class="card-title"><span>Voice + Display IO</span><span class="tiny-label">interaction HW</span></div>
           <div class="stack">
-            <div class="pill"><span>PC Voice Agent</span><small>real-time dialogue</small></div>
-            <div class="pill"><span>Drive Copilot in Cloud</span><small>GitHub / M365</small></div>
-            <div class="pill"><span>OpenClaw Pattern</span><small>edge OpenClaw, cloud Copilot</small></div>
+            <div class="pill"><span>Mic + Speaker</span><small>Voice Live loop</small></div>
+            <div class="pill"><span>Screen Context</span><small>app awareness</small></div>
+            <div class="pill"><span>Network</span><small>cloud agent path</small></div>
           </div>
         </article>
       </div>
     </section>
 
     <footer class="mt-3 grid lg:grid-cols-3 gap-2 text-xs text-slate-600 font-semibold">
-      <div class="glass-card">The core experience is an endpoint-side conversation loop: speech capture, local understanding, local voice response, and policy-based cloud escalation only when needed.</div>
-      <div class="glass-card">Foundry Voice Live Embedded provides ASR, TTS, Smart VAD, and ECNR so the PC can keep the turn-taking experience real time.</div>
-      <div class="glass-card">The new pattern lets an edge real-time agent drive managed cloud agents such as GitHub Copilot, M365 Copilot, or cloud-side OpenClaw.</div>
+      <div class="glass-card">应用层分为 AI Work、AI Life、AI Learn，并承载 Agent 工具、AIGC workflow 和面向场景的应用体验。</div>
+      <div class="glass-card">Agent 中间层运行 Copilot CLI Agent、Hermes、OpenClaw、Foundry Voice Agent，并在 Qwen / Gemma / Phi Silica 本地模型和 M365 / GitHub Copilot 云端 Agent 之间做策略路由。</div>
+      <div class="glass-card">HW 层重点展示 PC 配置：CPU、16/32GB Memory、NVIDIA RTX 5070 16/24GB VRAM、Phison SSD，以及语音、屏幕和网络 IO。</div>
     </footer>
   </main>
 
