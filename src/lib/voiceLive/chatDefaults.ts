@@ -91,6 +91,7 @@ export const CHAT_MODEL_OPTIONS = [
   { id: 'gpt-5-chat', name: 'GPT-5' },
   { id: 'gpt-5-mini', name: 'GPT-5 Mini' },
   { id: 'gpt-5.4', name: 'GPT-5.4' },
+  { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini' },
 ];
 
 // ASR (input audio transcription) model options for non-realtime chat models.
