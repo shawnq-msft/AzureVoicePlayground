@@ -6,6 +6,8 @@ export type AvatarType = 'none' | 'video' | 'photo';
 
 export type VoiceType = 'standard' | 'personal';
 
+export type AsrModel = 'azure-speech' | 'mai-transcribe';
+
 export interface AvatarConfig {
   enabled: boolean;
   type: AvatarType;
@@ -25,6 +27,7 @@ export interface VoiceLiveChatConfig {
   personalVoiceSpeakerProfileId: string;
   personalVoiceModel: string;
   recognitionLanguage: string;
+  asrModel: AsrModel;
   turnDetectionType: 'server_vad' | 'azure_semantic_vad';
   asrOnly: boolean;
   removeFillerWords: boolean;
@@ -63,6 +66,7 @@ export const DEFAULT_CHAT_CONFIG: VoiceLiveChatConfig = {
   personalVoiceSpeakerProfileId: '',
   personalVoiceModel: 'DragonLatestNeural',
   recognitionLanguage: 'auto',
+  asrModel: 'azure-speech',
   turnDetectionType: 'server_vad',
   asrOnly: false,
   removeFillerWords: false,
@@ -86,6 +90,14 @@ export const CHAT_MODEL_OPTIONS = [
   { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini' },
   { id: 'gpt-5-chat', name: 'GPT-5' },
   { id: 'gpt-5-mini', name: 'GPT-5 Mini' },
+  { id: 'gpt-5.4', name: 'GPT-5.4' },
+];
+
+// ASR (input audio transcription) model options for non-realtime chat models.
+// See https://learn.microsoft.com/en-us/azure/ai-services/speech-service/voice-live-how-to#audio-input-transcription
+export const ASR_MODEL_OPTIONS: { id: AsrModel; name: string }[] = [
+  { id: 'azure-speech', name: 'Fast Transcription' },
+  { id: 'mai-transcribe', name: 'MAI-Transcribe 1.5' },
 ];
 
 export const RECOGNITION_LANGUAGES = [

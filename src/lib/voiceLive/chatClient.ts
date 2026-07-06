@@ -315,7 +315,7 @@ export class VoiceLiveChatClient {
       inputAudioTranscription: {
         model: config.model.includes('gpt') && config.model.includes('realtime')
           ? 'whisper-1'
-          : 'azure-speech',
+          : config.asrModel,
         language: config.recognitionLanguage === 'auto' ? undefined : config.recognitionLanguage,
       },
       turnDetection: {

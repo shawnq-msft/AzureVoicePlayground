@@ -3,6 +3,7 @@ import {
   DEFAULT_CHAT_CONFIG,
   CHAT_MODEL_OPTIONS,
   RECOGNITION_LANGUAGES,
+  ASR_MODEL_OPTIONS,
   getChatVoices,
   VIDEO_AVATARS,
   PHOTO_AVATARS,
@@ -11,6 +12,7 @@ import {
   type ChatMessage,
   type AvatarType,
   type VoiceType,
+  type AsrModel,
 } from '../lib/voiceLive/chatDefaults';
 import { VoiceLiveChatClient, type ChatState } from '../lib/voiceLive/chatClient';
 import { ChatAudioHandler } from '../lib/voiceLive/audio/chatAudioHandler';
@@ -821,7 +823,24 @@ export function VoiceLiveChatPlayground({ endpoint, apiKey }: VoiceLiveChatPlayg
             </div>
           )}
 
-          {/* Function Calling */}
+          {/* ASR Model - only show for text models (non-realtime) */}
+          {!config.model.includes('realtime') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ASR Model</label>
+              <select
+                value={config.asrModel}
+                onChange={(e) => setConfig((c) => ({ ...c, asrModel: e.target.value as AsrModel }))}
+                disabled={isConnected}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+              >
+                {ASR_MODEL_OPTIONS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="border-t border-gray-200 pt-4">
             <label className="flex items-center gap-2 mb-3">
               <input
