@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { getAllLanguages, searchLanguages, STTLanguage, AUTO_DETECT } from '../utils/sttLanguages';
 import { STTModel } from '../types/stt';
 import { LLM_SPEECH_LANGUAGES } from '../hooks/useLLMSpeech';
-import { MAI_TRANSCRIBE_LANGUAGES } from '../hooks/useMAITranscribe';
+import { MAI_TRANSCRIBE_15_LANGUAGES, MAI_TRANSCRIBE_LANGUAGES } from '../hooks/useMAITranscribe';
 
 interface LanguageSelectorProps {
   selectedLanguage: string;
@@ -26,6 +26,12 @@ const maiTranscribeLanguagesAsSTT: STTLanguage[] = MAI_TRANSCRIBE_LANGUAGES.map(
   nativeName: lang.nativeName,
 }));
 
+const maiTranscribe15LanguagesAsSTT: STTLanguage[] = MAI_TRANSCRIBE_15_LANGUAGES.map(lang => ({
+  code: lang.code,
+  name: lang.name,
+  nativeName: lang.nativeName,
+}));
+
 export function LanguageSelector({ selectedLanguage, onLanguageChange, selectedModel }: LanguageSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -35,8 +41,14 @@ export function LanguageSelector({ selectedLanguage, onLanguageChange, selectedM
       // LLM Speech has its own language list (auto-detect is supported)
       return [AUTO_DETECT, ...llmSpeechLanguagesAsSTT];
     }
-    if (selectedModel === 'mai-transcribe-1.5' || selectedModel === 'mai-transcribe') {
-      // MAI-Transcribe has its own language list (auto-detect is supported)
+    if (selectedModel === 'mai-transcribe-2') {
+      // The private-preview announcement doesn't publish a locale list yet.
+      return [AUTO_DETECT];
+    }
+    if (selectedModel === 'mai-transcribe-1.5') {
+      return [AUTO_DETECT, ...maiTranscribe15LanguagesAsSTT];
+    }
+    if (selectedModel === 'mai-transcribe') {
       return [AUTO_DETECT, ...maiTranscribeLanguagesAsSTT];
     }
     const modelType = selectedModel === 'fast-transcription' ? 'fast-transcription' : 'realtime';

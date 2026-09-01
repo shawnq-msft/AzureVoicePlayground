@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { STTModel } from '../types/stt';
 import { FAST_TRANSCRIPTION_LANGUAGES, REALTIME_LANGUAGES } from '../utils/sttLanguages';
 import { LLM_SPEECH_LANGUAGES } from '../hooks/useLLMSpeech';
-import { MAI_TRANSCRIBE_LANGUAGES } from '../hooks/useMAITranscribe';
+import { MAI_TRANSCRIBE_15_LANGUAGES, MAI_TRANSCRIBE_LANGUAGES } from '../hooks/useMAITranscribe';
 
 // Regions supporting Fast Transcription
 // https://learn.microsoft.com/en-us/azure/ai-services/speech-service/regions?tabs=stt
@@ -28,9 +28,24 @@ const LLM_SPEECH_REGIONS = [
   'northeurope',
   'southeastasia',
   'westus',
+  'westus2',
 ];
 
-const MAI_TRANSCRIBE_15_LANGUAGE_COUNT = 43;
+const MAI_TRANSCRIBE_REGIONS = [
+  'eastus',
+  'northeurope',
+  'southeastasia',
+  'westus',
+];
+
+const MAI_TRANSCRIBE_2_REGIONS = [
+  'centralindia',
+  'eastus',
+  'northeurope',
+  'southeastasia',
+  'westus',
+  'westus2',
+];
 
 // All regions support Realtime STT, so no need for a separate list
 
@@ -76,13 +91,21 @@ const MODELS: ModelInfo[] = [
     features: ['LLM-enhanced', 'Prompt tuning', 'Translation', 'Diarization', `${LLM_SPEECH_LANGUAGES.length} locales`]
   },
   {
+    id: 'mai-transcribe-2',
+    name: 'MAI-Transcribe-2 (Private Preview)',
+    description: 'Latest MAI model with full transcription features',
+    icon: '✨',
+    useCases: 'High-accuracy transcription, diarization, and post-processing',
+    features: ['Latest MAI model', 'Diarization', 'Phrase list', 'Word/segment timestamps', 'Verbatim or clean style', 'Max 300 MB'],
+    isNew: true,
+  },
+  {
     id: 'mai-transcribe-1.5',
     name: 'MAI-Transcribe 1.5 (Preview)',
     description: 'Domain-aware transcripts across noisy audio and accents',
     icon: '🎯',
     useCases: 'High-accuracy transcription across 43 languages',
-    features: ['Leading accuracy', 'Domain-aware', 'Automatic language detection', 'Max 300 MB', `${MAI_TRANSCRIBE_15_LANGUAGE_COUNT} languages`],
-    isNew: true,
+    features: ['Leading accuracy', 'Domain-aware', 'Automatic language detection', 'Max 300 MB', `${MAI_TRANSCRIBE_15_LANGUAGES.length} languages`],
   },
   {
     id: 'mai-transcribe',
@@ -113,9 +136,12 @@ function isModelSupportedInRegion(modelId: STTModel, region: string): boolean {
     case 'fast-transcription':
       return FAST_TRANSCRIPTION_REGIONS.includes(regionLower);
     case 'llm-speech':
+      return LLM_SPEECH_REGIONS.includes(regionLower);
+    case 'mai-transcribe-2':
+      return MAI_TRANSCRIBE_2_REGIONS.includes(regionLower);
     case 'mai-transcribe-1.5':
     case 'mai-transcribe':
-      return LLM_SPEECH_REGIONS.includes(regionLower);
+      return MAI_TRANSCRIBE_REGIONS.includes(regionLower);
     case 'whisper':
       return true; // Whisper has its own region handling
     default:

@@ -7,11 +7,11 @@ import { FastTranscript, TranscriptSegment, WordTiming } from '../types/transcri
 import { STTState } from '../types/stt';
 import { convertToWav16kHz } from '../utils/audioConversion';
 
-export type MAITranscribeModel = 'mai-transcribe-1.5' | 'mai-transcribe-1';
-const DEFAULT_MAI_TRANSCRIBE_MODEL: MAITranscribeModel = 'mai-transcribe-1.5';
+export type MAITranscribeModel = 'mai-transcribe-2' | 'mai-transcribe-1.5' | 'mai-transcribe-1';
+const DEFAULT_MAI_TRANSCRIBE_MODEL: MAITranscribeModel = 'mai-transcribe-2';
 const MAI_TRANSCRIBE_MAX_FILE_SIZE_BYTES = 300 * 1024 * 1024;
 
-// MAI-Transcribe supported languages
+// MAI-Transcribe-1 supported languages
 export const MAI_TRANSCRIBE_LANGUAGES = [
   { code: 'ar-SA', name: 'Arabic', nativeName: 'العربية' },
   { code: 'zh-CN', name: 'Chinese', nativeName: '中文 (简体)' },
@@ -39,6 +39,31 @@ export const MAI_TRANSCRIBE_LANGUAGES = [
   { code: 'tr-TR', name: 'Turkish', nativeName: 'Türkçe' },
   { code: 'vi-VN', name: 'Vietnamese', nativeName: 'Tiếng Việt' },
 ];
+
+// MAI-Transcribe-1.5 supports these 43 languages. The service accepts the
+// language portion of each locale (for example, "en" from "en-US").
+// https://learn.microsoft.com/azure/ai-services/speech-service/mai-transcribe#language-support
+export const MAI_TRANSCRIBE_15_LANGUAGES = [
+  ...MAI_TRANSCRIBE_LANGUAGES,
+  { code: 'as-IN', name: 'Assamese', nativeName: 'অসমীয়া' },
+  { code: 'bg-BG', name: 'Bulgarian', nativeName: 'Български' },
+  { code: 'bn-IN', name: 'Bengali', nativeName: 'বাংলা' },
+  { code: 'ca-ES', name: 'Catalan', nativeName: 'Català' },
+  { code: 'el-GR', name: 'Greek', nativeName: 'Ελληνικά' },
+  { code: 'et-EE', name: 'Estonian', nativeName: 'Eesti' },
+  { code: 'gu-IN', name: 'Gujarati', nativeName: 'ગુજરાતી' },
+  { code: 'kn-IN', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
+  { code: 'lt-LT', name: 'Lithuanian', nativeName: 'Lietuvių' },
+  { code: 'ml-IN', name: 'Malayalam', nativeName: 'മലയാളം' },
+  { code: 'mr-IN', name: 'Marathi', nativeName: 'मराठी' },
+  { code: 'or-IN', name: 'Odia', nativeName: 'ଓଡ଼ିଆ' },
+  { code: 'pa-IN', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ' },
+  { code: 'sk-SK', name: 'Slovak', nativeName: 'Slovenčina' },
+  { code: 'sl-SI', name: 'Slovenian', nativeName: 'Slovenščina' },
+  { code: 'ta-IN', name: 'Tamil', nativeName: 'தமிழ்' },
+  { code: 'te-IN', name: 'Telugu', nativeName: 'తెలుగు' },
+  { code: 'uk-UA', name: 'Ukrainian', nativeName: 'Українська' },
+].sort((a, b) => a.name.localeCompare(b.name));
 
 interface UseMAITranscribeReturn {
   state: STTState;
@@ -97,7 +122,7 @@ export function useMAITranscribe(settings: AzureSettings): UseMAITranscribeRetur
       try {
         result = await postTranscription(endpoint, settings.apiKey, wavBlob, definition);
       } catch (err: any) {
-        if (!isEnhancedModelUnsupportedError(err)) {
+        if (model === 'mai-transcribe-2' || !isEnhancedModelUnsupportedError(err)) {
           throw err;
         }
 
