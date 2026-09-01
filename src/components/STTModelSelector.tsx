@@ -28,6 +28,16 @@ const LLM_SPEECH_REGIONS = [
   'northeurope',
   'southeastasia',
   'westus',
+  'westus2',
+];
+
+const MAI_TRANSCRIBE_2_REGIONS = [
+  'centralindia',
+  'eastus',
+  'northeurope',
+  'southeastasia',
+  'westus',
+  'westus2',
 ];
 
 // All regions support Realtime STT, so no need for a separate list
@@ -73,6 +83,14 @@ const MODELS: ModelInfo[] = [
     features: ['LLM-enhanced', 'Prompt tuning', 'Translation', 'Diarization', `${LLM_SPEECH_LANGUAGES.length} locales`]
   },
   {
+    id: 'mai-transcribe-2',
+    name: 'MAI-Transcribe-2 (Private Preview)',
+    description: 'Latest MAI model with full transcription features',
+    icon: '✨',
+    useCases: 'High-accuracy transcription, diarization, and post-processing',
+    features: ['Latest MAI model', 'Diarization', 'Phrase list', 'Word/segment timestamps', 'Verbatim or clean style', 'Max 300 MB'],
+  },
+  {
     id: 'mai-transcribe',
     name: 'MAI-Transcribe-1.5 (Preview)',
     description: 'High accuracy & efficiency by Microsoft AI',
@@ -101,6 +119,9 @@ function isModelSupportedInRegion(modelId: STTModel, region: string): boolean {
     case 'fast-transcription':
       return FAST_TRANSCRIPTION_REGIONS.includes(regionLower);
     case 'llm-speech':
+      return LLM_SPEECH_REGIONS.includes(regionLower);
+    case 'mai-transcribe-2':
+      return MAI_TRANSCRIBE_2_REGIONS.includes(regionLower);
     case 'mai-transcribe':
       return LLM_SPEECH_REGIONS.includes(regionLower);
     case 'whisper':

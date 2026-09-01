@@ -35,6 +35,10 @@ export function LanguageSelector({ selectedLanguage, onLanguageChange, selectedM
       // LLM Speech has its own language list (auto-detect is supported)
       return [AUTO_DETECT, ...llmSpeechLanguagesAsSTT];
     }
+    if (selectedModel === 'mai-transcribe-2') {
+      // The private-preview announcement doesn't publish a locale list yet.
+      return [AUTO_DETECT];
+    }
     if (selectedModel === 'mai-transcribe') {
       // MAI-Transcribe-1.5 has its own language list (auto-detect is supported)
       return [AUTO_DETECT, ...maiTranscribeLanguagesAsSTT];
