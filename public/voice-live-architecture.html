@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <meta name="description" content="Architecture chart of the Azure Voice Live API: user scenarios, client interface, and the Voice Live platform with full-duplex, speech-to-speech, hybrid and cascaded voice-agent lanes delegating to any model family.">
 <title>Azure Voice Live API — Architecture</title>
 
@@ -280,6 +280,223 @@
   }
 }
 
+/* Aero-glass presentation shared with the Car Agent Architecture page. */
+:root {
+  color-scheme: light;
+  --color-navy: #102033;
+  --color-deep: #102033;
+  --color-slate: #5B6B7D;
+  --color-tag: #60758A;
+  --color-line: rgba(40, 80, 120, 0.28);
+  --color-accent: #2F7FD0;
+  --color-card: rgba(255, 255, 255, 0.68);
+  --color-glass: rgba(255, 255, 255, 0.82);
+  --color-tint: rgba(234, 247, 255, 0.72);
+}
+
+body {
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 14% 12%, rgba(90, 170, 255, 0.34), transparent 28rem),
+    radial-gradient(circle at 82% 18%, rgba(105, 216, 178, 0.26), transparent 30rem),
+    radial-gradient(circle at 54% 86%, rgba(255, 205, 111, 0.24), transparent 30rem),
+    linear-gradient(135deg, #EAF5FF 0%, #F8FBFF 38%, #EEF8F1 66%, #FFF7E9 100%) !important;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.42) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.42) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.78), transparent 86%);
+}
+
+.fb-wrap {
+  width: min(1500px, calc(100vw - 32px));
+  max-width: none !important;
+  padding: 18px 0 22px !important;
+}
+
+.fb-header,
+.scen,
+.platform {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.82) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.31)),
+    rgba(255, 255, 255, 0.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.24),
+    0 18px 44px rgba(57, 88, 125, 0.18) !important;
+  backdrop-filter: blur(22px) saturate(1.35) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.35) !important;
+}
+
+.fb-header::before,
+.scen::before,
+.platform::before {
+  content: "";
+  position: absolute;
+  inset: 1px 1px auto 1px !important;
+  z-index: 0 !important;
+  height: 42% !important;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.04)) !important;
+  pointer-events: none;
+}
+
+.fb-header > *,
+.scen > *,
+.platform > * {
+  position: relative;
+  z-index: 1;
+}
+
+.fb-header {
+  margin-bottom: 12px !important;
+  padding: 16px 20px;
+  border-radius: 24px;
+  animation: aeroPanelFloat 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.fb-title {
+  color: #102033;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.header-row { align-items: center; }
+
+.language-toggle {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(255, 255, 255, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.language-toggle button.is-active {
+  background: rgba(47, 127, 208, 0.16);
+  color: #14304A;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.scen {
+  border-radius: 24px !important;
+  animation: aeroModuleReveal 420ms 100ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.pill,
+.chip,
+.seg,
+.box {
+  border-color: rgba(255, 255, 255, 0.76) !important;
+  background: rgba(255, 255, 255, 0.58) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 8px 20px rgba(44, 73, 108, 0.1) !important;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.pill:hover,
+.chip:hover,
+.seg:hover,
+.box:hover {
+  border-color: rgba(47, 127, 208, 0.36) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 10px 24px rgba(47, 127, 208, 0.14) !important;
+  transform: translateY(-1px);
+}
+
+.iface {
+  animation: aeroModuleReveal 420ms 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.pill--dark {
+  color: #17314C !important;
+  background: rgba(234, 247, 255, 0.82) !important;
+}
+
+.platform {
+  margin-top: 12px !important;
+  border-radius: 28px !important;
+  animation: aeroPanelFloat 520ms 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.bar-title,
+.gov-label { color: #102033 !important; }
+.bar-features { color: #5B6B7D !important; }
+.divider { border-top-color: rgba(31, 74, 116, 0.18) !important; }
+
+.gov-chip {
+  color: #20364A !important;
+  background: rgba(255, 255, 255, 0.58) !important;
+}
+
+.lane {
+  border-color: rgba(255, 255, 255, 0.78) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.35)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 12px 30px rgba(44, 73, 108, 0.13) !important;
+  backdrop-filter: blur(18px) saturate(1.22);
+  -webkit-backdrop-filter: blur(18px) saturate(1.22);
+}
+
+.chip { background: linear-gradient(180deg, rgba(234, 247, 255, 0.88), rgba(255, 255, 255, 0.42)) !important; }
+.c-std { background: linear-gradient(180deg, rgba(234, 250, 241, 0.88), rgba(255, 255, 255, 0.42)) !important; }
+.c-tts { background: linear-gradient(180deg, rgba(255, 246, 226, 0.92), rgba(255, 255, 255, 0.42)) !important; }
+.c-deleg { background: linear-gradient(180deg, rgba(255, 237, 244, 0.86), rgba(255, 255, 255, 0.42)) !important; }
+
+.chart-grid .cell {
+  animation: aeroModuleReveal 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.chart-grid .cell:nth-of-type(4n + 1) { animation-delay: 360ms; }
+.chart-grid .cell:nth-of-type(4n + 2) { animation-delay: 420ms; }
+.chart-grid .cell:nth-of-type(4n + 3) { animation-delay: 480ms; }
+.chart-grid .cell:nth-of-type(4n) { animation-delay: 540ms; }
+
+@keyframes aeroPanelFloat {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.992);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.24),
+      0 8px 24px rgba(57, 88, 125, 0.12);
+  }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes aeroModuleReveal {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 47.99rem) {
+  .fb-wrap { width: min(100vw - 18px, 1500px); padding-top: 14px !important; }
+  .fb-header { padding: 14px; }
+  .header-row { align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fb-header,
+  .scen,
+  .iface,
+  .platform,
+  .chart-grid .cell { animation: none !important; }
+
+  .pill,
+  .chip,
+  .seg,
+  .box { transition: none !important; }
+}
+
 /* Print: one A4 landscape page, solid panels, neutral hairlines, accent container. */
 @media print {
   @page { size: A4 landscape; margin: 9mm; }
@@ -302,6 +519,7 @@
   }
   html { font-size: 14px; }
   body { background: #FFFFFF !important; min-height: 0 !important; }
+  body::before { display: none !important; }
   .fb-wrap { max-width: none !important; padding: 0 !important; }
   .fb-header { margin-bottom: 0.5rem !important; }
   .language-toggle { display: none !important; }
@@ -334,6 +552,7 @@
   .glyph svg { height: 1.5rem !important; }
   .fb-footer { margin-top: 0.5rem !important; }
   .chart, .platform { break-inside: avoid; }
+  .fb-header, .scen, .iface, .platform, .chart-grid .cell { animation: none !important; }
 }
 </style>
 
