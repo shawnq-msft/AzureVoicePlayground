@@ -1,0 +1,1511 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Car Assistant Architecture</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #102033;
+      --muted: #5b6b7d;
+      --glass: rgba(255, 255, 255, 0.42);
+      --glass-strong: rgba(255, 255, 255, 0.66);
+      --line: rgba(40, 80, 120, 0.36);
+      --azure: #2f7fd0;
+      --device: #278463;
+      --amber: #b67818;
+      --rose: #b45b78;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 14% 12%, rgba(90, 170, 255, 0.34), transparent 28rem),
+        radial-gradient(circle at 82% 18%, rgba(105, 216, 178, 0.26), transparent 30rem),
+        radial-gradient(circle at 54% 86%, rgba(255, 205, 111, 0.24), transparent 30rem),
+        linear-gradient(135deg, #eaf5ff 0%, #f8fbff 38%, #eef8f1 66%, #fff7e9 100%);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.42) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.42) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,0.78), transparent 86%);
+    }
+
+    .page-shell {
+      width: min(1500px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 18px 0 22px;
+    }
+
+    .aero {
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.82);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.31)),
+        var(--glass);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.92),
+        inset 0 -1px 0 rgba(255,255,255,0.24),
+        0 18px 44px rgba(57, 88, 125, 0.18);
+      backdrop-filter: blur(22px) saturate(1.35);
+      -webkit-backdrop-filter: blur(22px) saturate(1.35);
+    }
+
+    .aero::before {
+      content: "";
+      position: absolute;
+      inset: 1px 1px auto 1px;
+      height: 42%;
+      border-radius: inherit;
+      background: linear-gradient(180deg, rgba(255,255,255,0.62), rgba(255,255,255,0.04));
+      pointer-events: none;
+    }
+
+    .zone {
+      position: relative;
+      border-radius: 28px;
+      padding: 16px;
+      min-height: 0;
+    }
+
+    .zone-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.58);
+      border: 1px solid rgba(255,255,255,0.8);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+      color: #17314c;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .title-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.64);
+      border: 1px solid rgba(255,255,255,0.86);
+      color: #395b78;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+      text-decoration: none;
+    }
+
+    .title-link:hover {
+      background: rgba(255,255,255,0.86);
+      color: #14304a;
+    }
+
+    .title-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.64);
+      color: #395b78;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.9),
+        0 0 0 1px rgba(255,255,255,0.86);
+      cursor: pointer;
+    }
+
+    .title-toggle:hover,
+    .title-toggle:focus-visible {
+      background: rgba(255,255,255,0.86);
+      color: #14304a;
+      outline: none;
+    }
+
+    .title-link svg,
+    .title-toggle svg {
+      width: 14px;
+      height: 14px;
+      stroke-width: 2.3;
+    }
+
+    .title-toggle svg {
+      transition: transform 180ms ease;
+    }
+
+    .badge-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      box-shadow: 0 0 0 4px rgba(255,255,255,0.65);
+    }
+
+    .glass-card {
+      position: relative;
+      border-radius: 18px;
+      padding: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.35));
+      border: 1px solid rgba(255,255,255,0.78);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.95),
+        0 12px 30px rgba(44, 73, 108, 0.13);
+      backdrop-filter: blur(18px) saturate(1.22);
+      -webkit-backdrop-filter: blur(18px) saturate(1.22);
+      min-width: 0;
+    }
+
+    .glass-card.soft-blue { background: linear-gradient(180deg, rgba(234,247,255,0.82), rgba(255,255,255,0.36)); }
+    .glass-card.soft-green { background: linear-gradient(180deg, rgba(234,250,241,0.82), rgba(255,255,255,0.36)); }
+    .glass-card.soft-amber { background: linear-gradient(180deg, rgba(255,246,226,0.88), rgba(255,255,255,0.35)); }
+    .glass-card.soft-rose { background: linear-gradient(180deg, rgba(255,237,244,0.78), rgba(255,255,255,0.35)); }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 9px;
+      font-weight: 800;
+      color: #102a43;
+      letter-spacing: 0.01em;
+    }
+
+    .tiny-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 19px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.58);
+      border: 1px solid rgba(255,255,255,0.8);
+      color: var(--muted);
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      text-align: center;
+      overflow-wrap: anywhere;
+      flex-shrink: 1;
+    }
+
+    .pill {
+      display: flex;
+      min-height: 34px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 9px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.58);
+      border: 1px solid rgba(255,255,255,0.76);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
+      font-size: 0.78rem;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    .pill small {
+      color: var(--muted);
+      font-size: 0.66rem;
+      font-weight: 650;
+    }
+
+    .stack { display: grid; gap: 6px; }
+
+    .agent-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .agent-col {
+      border-radius: 14px;
+      padding: 10px;
+      background: rgba(255,255,255,0.48);
+      border: 1px solid rgba(255,255,255,0.76);
+      min-height: 172px;
+    }
+
+    .agent-col h3 {
+      margin: 0 0 8px;
+      font-size: 0.78rem;
+      font-weight: 850;
+      color: #17314c;
+    }
+
+    .agent-col ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 5px;
+    }
+
+    .agent-col li {
+      min-height: 28px;
+      padding: 5px 8px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(255,255,255,0.65);
+      color: #20364a;
+      font-size: 0.72rem;
+      line-height: 1.18;
+      font-weight: 680;
+    }
+
+    .highlight-target {
+      position: relative;
+      cursor: pointer;
+      transition:
+        border-color 160ms ease,
+        box-shadow 160ms ease,
+        background 160ms ease,
+        transform 160ms ease;
+    }
+
+    .highlight-target:hover {
+      border-color: rgba(47,127,208,0.36);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.95),
+        0 10px 24px rgba(47,127,208,0.12);
+    }
+
+    .highlight-target.is-highlighted {
+      border-color: rgba(47,127,208,0.86) !important;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.86), rgba(232,244,255,0.62)) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.98),
+        0 0 0 2px rgba(47,127,208,0.18),
+        0 14px 30px rgba(47,127,208,0.18) !important;
+      transform: translateY(-1px);
+    }
+
+    .highlight-target.is-highlighted::before {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      border-radius: inherit;
+      border: 1px solid rgba(255,255,255,0.72);
+      pointer-events: none;
+    }
+
+    .agent-col li.highlight-target.is-highlighted::before,
+    .pill.highlight-target.is-highlighted::before,
+    .tier-list div.highlight-target.is-highlighted::before {
+      inset: 2px;
+    }
+
+    .diagram-grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(170px, 0.76fr) 34px minmax(390px, 1.62fr) 34px minmax(170px, 0.76fr);
+      gap: 12px;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    .device-grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(175px, 0.86fr) 34px minmax(350px, 1.42fr) 34px minmax(175px, 0.86fr);
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 12px;
+    }
+
+    .device-grid > .connector {
+      align-self: center;
+    }
+
+    .custom-agent-zone {
+      max-height: 1600px;
+      overflow: visible;
+      transform-origin: top center;
+      transition:
+        max-height 420ms ease,
+        padding 360ms ease,
+        opacity 240ms ease,
+        transform 300ms ease,
+        border-color 240ms ease,
+        box-shadow 240ms ease;
+    }
+
+    .custom-agent-zone.is-collapsed {
+      max-height: 0;
+      overflow: hidden;
+      padding-top: 0;
+      padding-bottom: 0;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(-8px) scale(0.992);
+      border-color: transparent;
+      border-width: 0;
+      box-shadow: none;
+    }
+
+    .custom-agent-zone.is-collapsed::before {
+      opacity: 0;
+    }
+
+    .custom-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      align-items: stretch;
+      margin-top: 12px;
+      max-height: 1600px;
+      opacity: 1;
+      overflow: visible;
+      transform: translateY(0) scale(1);
+      transform-origin: top center;
+      transition:
+        max-height 360ms ease,
+        margin-top 260ms ease,
+        opacity 220ms ease,
+        transform 300ms ease;
+    }
+
+    .custom-agent-zone.is-expanding {
+      animation: customPanelFloat 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .custom-agent-zone.is-expanding .custom-grid > .glass-card {
+      opacity: 0;
+      transform: translateY(14px) scale(0.985);
+      animation: customModuleReveal 420ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    }
+
+    .custom-agent-zone.is-expanding .custom-grid > .glass-card:nth-child(1) { animation-delay: 180ms; }
+    .custom-agent-zone.is-expanding .custom-grid > .glass-card:nth-child(2) { animation-delay: 280ms; }
+    .custom-agent-zone.is-expanding .custom-grid > .glass-card:nth-child(3) { animation-delay: 380ms; }
+    .custom-agent-zone.is-expanding .custom-grid > .glass-card:nth-child(4) { animation-delay: 480ms; }
+
+    @keyframes customPanelFloat {
+      0% {
+        transform: translateY(-10px) scale(0.992);
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,0.92),
+          inset 0 -1px 0 rgba(255,255,255,0.24),
+          0 8px 24px rgba(57, 88, 125, 0.12);
+      }
+      100% {
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes customModuleReveal {
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .custom-grid,
+      .title-toggle svg {
+        transition: none;
+      }
+
+      .custom-agent-zone,
+      .panel-fusion-connector > svg,
+      .fusion-label {
+        transition: none;
+      }
+
+      .custom-agent-zone.is-expanding,
+      .custom-agent-zone.is-expanding .custom-grid > .glass-card {
+        animation: none;
+      }
+    }
+
+    .custom-grid > .glass-card {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .custom-grid > .glass-card > .card-title {
+      min-height: 28px;
+      margin-bottom: 6px;
+      align-items: center;
+    }
+
+    .custom-grid > .glass-card > .stack {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .custom-grid > .glass-card > .stack > .pill {
+      flex: 1;
+      align-items: center;
+    }
+
+    .connector {
+      position: relative;
+      height: 4px;
+      align-self: center;
+      background: linear-gradient(90deg, transparent, rgba(47,127,208,0.78), transparent);
+      border-radius: 999px;
+      filter: drop-shadow(0 3px 7px rgba(50,100,150,0.18));
+      min-width: 20px;
+    }
+
+    .connector::after {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 50%;
+      width: 0;
+      height: 0;
+      border-top: 7px solid transparent;
+      border-bottom: 7px solid transparent;
+      border-left: 10px solid rgba(47,127,208,0.82);
+      transform: translateY(-50%);
+    }
+
+    .bridge-row {
+      display: grid;
+      grid-template-columns: minmax(190px, 0.9fr) minmax(350px, 1.45fr) minmax(190px, 0.9fr);
+      gap: 22px;
+      align-items: center;
+      padding: 2px 24px 0;
+    }
+
+    .vertical-link {
+      justify-self: center;
+      width: 4px;
+      height: 34px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(47,127,208,0.78), rgba(39,132,99,0.72));
+      position: relative;
+      box-shadow: 0 6px 16px rgba(52, 95, 120, 0.18);
+    }
+
+    .vertical-link::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -4px;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 11px solid rgba(39,132,99,0.76);
+      transform: translateX(-50%);
+    }
+
+    .vertical-link.up {
+      background: linear-gradient(180deg, rgba(39,132,99,0.72), rgba(47,127,208,0.78));
+    }
+
+    .vertical-link.up::after {
+      top: -4px;
+      bottom: auto;
+      border-top: 0;
+      border-bottom: 11px solid rgba(47,127,208,0.78);
+    }
+
+    .arrow-label {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: max-content;
+      max-width: 150px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(255,255,255,0.86);
+      color: #315269;
+      font-size: 0.62rem;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      line-height: 1.05;
+      text-align: center;
+      white-space: nowrap;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.95),
+        0 6px 14px rgba(52, 95, 120, 0.14);
+      text-decoration: none;
+    }
+
+    .arrow-label:hover,
+    .arrow-label:focus-visible,
+    .link-label:hover,
+    .link-label:focus-visible {
+      background: rgba(255,255,255,0.9);
+      color: #14304a;
+    }
+
+    .panel-fusion-connector {
+      position: relative;
+      height: 40px;
+      margin: -1px 0 -1px;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .panel-fusion-connector.is-compact {
+      height: 12px;
+      margin: -2px 0 -5px;
+    }
+
+    .panel-fusion-connector > svg {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 107px;
+      overflow: visible;
+      filter: drop-shadow(0 16px 24px rgba(46, 78, 108, 0.12));
+      opacity: 1;
+      transition: opacity 220ms ease;
+    }
+
+    .panel-fusion-connector.is-compact > svg,
+    .panel-fusion-connector.is-compact .fusion-label {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .fusion-toggle {
+      position: absolute;
+      left: 50%;
+      top: 62px;
+      z-index: 8;
+      background: transparent;
+      box-shadow: none;
+      transform: translate(-50%, -50%);
+      pointer-events: auto;
+    }
+
+    .fusion-toggle:hover,
+    .fusion-toggle:focus-visible {
+      background: transparent;
+    }
+
+    .fusion-toggle svg {
+      transform: rotate(180deg);
+    }
+
+    .panel-fusion-connector.is-compact .fusion-toggle {
+      top: calc(100% + 6px);
+    }
+
+    .panel-fusion-connector.is-compact .fusion-toggle svg {
+      transform: rotate(0deg);
+    }
+
+    .fusion-fill {
+      fill: url(#fusionFill);
+      stroke: rgba(255,255,255,0.88);
+      stroke-width: 2;
+      stroke-linejoin: round;
+    }
+
+    .fusion-edge {
+      fill: none;
+      stroke: rgba(39,132,99,0.22);
+      stroke-width: 1.5;
+      stroke-linecap: round;
+    }
+
+    .fusion-label {
+      position: absolute;
+      left: 50%;
+      top: 72%;
+      transform: translate(-50%, -50%);
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(255,255,255,0.9);
+      color: #315269;
+      font-size: 0.66rem;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.95),
+        0 6px 14px rgba(52, 95, 120, 0.12);
+      opacity: 1;
+      transition: opacity 220ms ease;
+    }
+
+    .link-label {
+      justify-self: center;
+      align-self: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.62);
+      border: 1px solid rgba(255,255,255,0.84);
+      color: #315269;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+      text-decoration: none;
+    }
+
+    .mini-flow {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+      gap: 7px;
+      margin-top: 7px;
+    }
+
+    .embedded-column {
+      display: grid;
+      gap: 9px;
+      align-items: stretch;
+    }
+
+    .compact-card-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .tier-list {
+      display: grid;
+      gap: 5px;
+      margin-top: 6px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: #456272;
+    }
+
+    .tier-list div {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 5px 7px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.48);
+      border: 1px solid rgba(255,255,255,0.66);
+    }
+
+    .soft-divider {
+      height: 1px;
+      margin: 9px 0;
+      background: linear-gradient(90deg, transparent, rgba(31, 74, 116, 0.18), transparent);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 24px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.76);
+      font-size: 0.7rem;
+      color: #40566b;
+      font-weight: 700;
+    }
+
+    .language-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      min-height: 24px;
+      padding: 2px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.76);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.86);
+    }
+
+    .language-toggle button {
+      min-height: 20px;
+      padding: 2px 8px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: #40566b;
+      font-size: 0.68rem;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .language-toggle button.is-active {
+      background: rgba(47,127,208,0.16);
+      color: #14304a;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+
+    .swatch { width: 10px; height: 10px; border-radius: 999px; }
+
+    @media (max-width: 1280px) {
+      .custom-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 900px) {
+      .diagram-grid,
+      .device-grid,
+      .bridge-row,
+      .custom-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      .connector {
+        width: 4px;
+        height: 34px;
+        justify-self: center;
+        background: linear-gradient(180deg, rgba(47,127,208,0.78), rgba(47,127,208,0.28));
+      }
+      .connector::after {
+        right: auto;
+        left: 50%;
+        top: auto;
+        bottom: -7px;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 11px solid rgba(47,127,208,0.8);
+        border-bottom: 0;
+        transform: translateX(-50%);
+      }
+      .bridge-row .link-label { display: none; }
+      .agent-grid { grid-template-columns: 1fr; }
+      .panel-fusion-connector { height: 54px; }
+    }
+
+    @media (max-width: 680px) {
+      .page-shell { width: min(100vw - 18px, 1500px); padding-top: 14px; }
+      .zone { padding: 14px; border-radius: 20px; }
+      .glass-card { padding: 13px; border-radius: 15px; }
+      .card-title { align-items: flex-start; flex-direction: column; }
+      .pill { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+    <header class="aero rounded-[24px] px-5 py-4 mb-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <div>
+        <p class="text-[0.72rem] uppercase tracking-[0.18em] font-black text-slate-500">Azure VoiceLive + Foundry Agent Reference Architecture</p>
+        <h1 class="text-3xl md:text-4xl font-black tracking-normal text-slate-900 mt-0.5">Custom Car Agent Architecture</h1>
+        <p class="mt-1.5 max-w-4xl text-sm md:text-base text-slate-600 font-medium leading-snug">Drive safer, plan smarter, and feel personally cared for - contextual dialogue from intent to task completion.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <div class="language-toggle" aria-label="Language selector">
+          <button type="button" class="is-active" data-lang="en" aria-pressed="true">EN</button>
+          <button type="button" data-lang="zh" aria-pressed="false">中文</button>
+          <button type="button" data-lang="ja" aria-pressed="false">日本語</button>
+        </div>
+        <span class="legend-item"><span class="swatch bg-[#2f7fd0]"></span>Azure managed</span>
+        <span class="legend-item"><span class="swatch bg-[#7c5bd6]"></span>Custom agent</span>
+        <span class="legend-item"><span class="swatch bg-[#278463]"></span>Customer device</span>
+      </div>
+    </header>
+
+    <section class="zone aero mb-0 custom-agent-zone" id="custom-agent-cloud">
+      <div class="zone-title">
+        <span class="badge-dot bg-[#7c5bd6]"></span>
+        Azure Cloud - Custom Agent
+        <a class="title-link" href="https://learn.microsoft.com/en-us/azure/ai-foundry/agents/overview" target="_blank" rel="noreferrer" aria-label="Open Foundry Agent Service documentation" title="Foundry Agent Service docs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L10.9 5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.81 13.12a5 5 0 0 0 7.07 7.07L13.1 19"/></svg>
+        </a>
+      </div>
+
+      <div class="custom-grid" id="custom-agent-modules">
+        <article class="glass-card soft-green">
+          <div class="card-title">
+            <span>Harnessing</span>
+            <span class="tiny-label">policy + context</span>
+          </div>
+          <div class="stack">
+            <div class="pill"><span>Persona</span><small>profile + tone</small></div>
+            <div class="pill"><span>Planner / Router</span><small>task routing</small></div>
+            <div class="pill"><span>Consent Gates</span><small>approval policy</small></div>
+            <div class="pill"><span>Scheduler / IFTTT</span><small>routines + triggers</small></div>
+          </div>
+        </article>
+
+        <article class="glass-card soft-blue">
+          <div class="card-title">
+            <span>Skills</span>
+            <span class="tiny-label">vertical categories</span>
+          </div>
+          <div class="stack">
+            <div class="pill"><span>Dinning</span><small>restaurant help</small></div>
+            <div class="pill"><span>Journey</span><small>route confidence</small></div>
+            <div class="pill"><span>Parking</span><small>spot + payment</small></div>
+            <div class="pill"><span>Ownership</span><small>service lifecycle</small></div>
+          </div>
+        </article>
+
+        <article class="glass-card soft-amber">
+          <div class="card-title">
+            <span>MCPs</span>
+            <span class="tiny-label">tool servers</span>
+          </div>
+          <div class="stack">
+            <div class="pill"><span>Maps / Traffic MCP</span><small>ETA + hazards</small></div>
+            <div class="pill"><span>Music / Media MCP</span><small>playback + search</small></div>
+            <div class="pill"><span>Weather / Climate MCP</span><small>forecast + comfort</small></div>
+            <div class="pill"><span>Office 365 MCP</span><small>calendar + mail</small></div>
+            <div class="pill"><span>Smart Home MCP</span><small>home handoff</small></div>
+          </div>
+        </article>
+
+        <article class="glass-card soft-rose">
+          <div class="card-title">
+            <span>Memory + Vector DB</span>
+            <span class="tiny-label">grounding</span>
+          </div>
+          <div class="stack">
+            <div class="pill"><span>User Preferences</span><small>personal defaults</small></div>
+            <div class="pill"><span>Vehicle Profile</span><small>car facts</small></div>
+            <div class="pill"><span>Owner Manual RAG</span><small>manual answers</small></div>
+            <div class="pill"><span>Release Notes</span><small>update knowledge</small></div>
+            <div class="pill"><span>Dealer Content</span><small>local offers</small></div>
+          </div>
+        </article>
+      </div>
+
+    </section>
+
+    <div class="panel-fusion-connector" aria-label="Custom Agent panel expands into Foundry Agent component">
+      <button class="title-toggle fusion-toggle" type="button" aria-expanded="true" aria-controls="custom-agent-cloud" aria-label="Collapse Azure Cloud custom agent panel" title="Collapse Azure Cloud custom agent panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg>
+      </button>
+      <svg viewBox="0 0 1000 224" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="fusionFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.72)" />
+            <stop offset="58%" stop-color="rgba(248,253,255,0.56)" />
+            <stop offset="100%" stop-color="rgba(234,250,241,0.76)" />
+          </linearGradient>
+        </defs>
+        <path class="fusion-fill" d="M 6 0 H 994 C 760 18 752 152 724 224 H 276 C 248 152 240 18 6 0 Z" />
+        <path class="fusion-edge" d="M 6 0 C 240 18 248 152 276 224" />
+        <path class="fusion-edge" d="M 994 0 C 760 18 752 152 724 224" />
+      </svg>
+      <span class="fusion-label">Managed Agent by Azure AI Foundry</span>
+    </div>
+
+    <section class="zone aero mb-0">
+      <div class="zone-title">
+        <span class="badge-dot bg-[#2f7fd0]"></span>
+        Azure Cloud - Voice Live Architecture
+        <a class="title-link" href="https://learn.microsoft.com/en-us/azure/ai-services/speech-service/voice-live" target="_blank" rel="noreferrer" aria-label="Open Voice Live documentation" title="Voice Live docs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L10.9 5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.81 13.12a5 5 0 0 0 7.07 7.07L13.1 19"/></svg>
+        </a>
+      </div>
+
+      <div class="diagram-grid">
+        <article class="glass-card soft-blue">
+          <div class="card-title">
+            <span>STT</span>
+            <span class="tiny-label">speech input</span>
+          </div>
+          <div class="stack">
+            <div class="pill"><span>Fast ASR</span><small>batch / eval</small></div>
+            <div class="pill"><span>Fast LLM</span><small>enhanced mode</small></div>
+            <div class="pill"><span>Fast MAI</span><small>model lane</small></div>
+          </div>
+          <div class="soft-divider"></div>
+          <div class="glass-card p-3 soft-green">
+            <div class="text-sm font-extrabold">Turn Detection</div>
+            <div class="mt-2 pill"><span>Smart VAD</span><small>barge-in</small></div>
+          </div>
+        </article>
+
+        <div class="connector" aria-hidden="true"></div>
+
+        <article class="glass-card soft-green">
+          <div class="card-title">
+            <span>Foundry Agent</span>
+            <span class="tiny-label">runtime + model + governance</span>
+          </div>
+          <div class="agent-grid">
+            <section class="agent-col">
+              <h3>Model Catalog</h3>
+              <ul>
+                <li>OpenAI GPT-5.5 family</li>
+                <li>Anthropic Claude 4.7</li>
+                <li>xAI Grok 4.2</li>
+                <li>Kimi / DeepSeek / partner models</li>
+                <li>Bring-your-own models</li>
+              </ul>
+            </section>
+            <section class="agent-col">
+              <h3>Harnessing</h3>
+              <ul>
+                <li>Receives selected skills</li>
+                <li>Calls curated MCP endpoints</li>
+                <li>Uses memory and vector grounding</li>
+                <li>Applies customer safety policy</li>
+                <li>Dispatches approved actions</li>
+              </ul>
+            </section>
+            <section class="agent-col">
+              <h3>Governance</h3>
+              <ul>
+                <li>Entra identity and RBAC</li>
+                <li>Safety controls</li>
+                <li>Tracing and evaluations</li>
+                <li>Deployment and monitoring</li>
+                <li>Regional model validation</li>
+              </ul>
+            </section>
+          </div>
+        </article>
+
+        <div class="connector" aria-hidden="true"></div>
+
+        <article class="glass-card soft-rose">
+          <div class="card-title">
+            <span>TTS</span>
+            <span class="tiny-label">speech output</span>
+          </div>
+          <div class="stack">
+            <div class="pill"><span>Dragon HD</span><small>high quality</small></div>
+            <div class="pill"><span>Omni HD</span><small>role playing</small></div>
+            <div class="pill"><span>HD Flash</span><small>latency target</small></div>
+          </div>
+          <div class="soft-divider"></div>
+          <div class="glass-card p-3 soft-amber">
+            <div class="text-sm font-extrabold">Branding Voice</div>
+            <div class="mt-2 pill"><span>Custom HD</span><small>multi-lingual</small></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="bridge-row" aria-label="Cloud to device links">
+      <div class="flex flex-col items-center gap-2">
+        <div class="vertical-link up"><a class="arrow-label" href="https://learn.microsoft.com/en-us/azure/ai-services/speech-service/voice-live-api-reference-2025-10-01#client-events" target="_blank" rel="noreferrer" title="Voice Live client events">audio/state up</a></div>
+      </div>
+      <a class="link-label" href="https://learn.microsoft.com/en-us/azure/ai-services/speech-service/voice-live-how-to" target="_blank" rel="noreferrer" title="How to use the Voice Live API">cloud path primary, embedded path fallback</a>
+      <div class="flex flex-col items-center gap-2">
+        <div class="vertical-link"><a class="arrow-label" href="https://learn.microsoft.com/en-us/azure/ai-services/speech-service/voice-live-api-reference-2025-10-01#server-events" target="_blank" rel="noreferrer" title="Voice Live server events">audio/control down</a></div>
+      </div>
+    </div>
+
+    <section class="zone aero">
+      <div class="zone-title"><span class="badge-dot bg-[#278463]"></span>Customer Device - SoC / Embedded Platform</div>
+
+      <div class="device-grid">
+        <article class="glass-card soft-blue">
+          <div class="card-title">
+            <span>Front End</span>
+            <span class="tiny-label">Customer owned</span>
+          </div>
+          <div class="stack">
+            <div class="pill"><span>Microphone Array</span><small>capture</small></div>
+            <div class="pill"><span>Beamforming</span><small>spatial focus</small></div>
+            <div class="pill"><span>Acoustic Echo Cancellation</span><small>echo control</small></div>
+            <div class="pill"><span>Noise Reduction</span><small>noise cleanup</small></div>
+            <div class="pill"><span>Auto Gain Control</span><small>level balance</small></div>
+            <div class="pill"><span>Voice Activity Detection</span><small>wake / trigger</small></div>
+          </div>
+        </article>
+
+        <div class="connector" aria-hidden="true"></div>
+
+        <div class="embedded-column">
+          <article class="glass-card soft-green">
+            <div class="card-title">
+              <span>Embedded Speech</span>
+              <span class="tiny-label">local fallback</span>
+            </div>
+            <div class="mini-flow">
+              <div class="pill flex-col items-stretch">
+                <span>STT</span>
+                <div class="tier-list">
+                  <div><span>Tier 1</span><span>30M</span></div>
+                  <div><span>Tier 2</span><span>90M</span></div>
+                  <div><span>Tier 3</span><span>200M</span></div>
+                </div>
+              </div>
+              <div class="pill flex-col items-stretch">
+                <span>TTS</span>
+                <div class="tier-list">
+                  <div><span>Tier 1</span><span>900 DMIPS</span></div>
+                  <div><span>Tier 2</span><span>1500 DMIPS</span></div>
+                  <div><span>Tier 3</span><span>5000 DMIPS</span></div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="glass-card p-3 soft-amber">
+            <div class="compact-card-title">
+              <span class="text-sm font-extrabold">Foundry Local / Qualcomm AI Hub</span>
+              <span class="tiny-label">Customer owned</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div class="pill justify-center"><span>Phi</span></div>
+              <div class="pill justify-center"><span>Gemma</span></div>
+              <div class="pill justify-center"><span>Qwen</span></div>
+              <div class="pill justify-center"><span>BERT</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="connector" aria-hidden="true"></div>
+
+        <article class="glass-card soft-amber">
+          <div class="card-title">
+            <span>Vehicle Integration</span>
+            <span class="tiny-label">Customer owned</span>
+          </div>
+          <div class="stack">
+            <div class="pill"><span>Audio Manager</span><small>routing</small></div>
+            <div class="pill"><span>Speakers</span><small>playback</small></div>
+          </div>
+          <div class="soft-divider"></div>
+          <div class="glass-card p-3">
+            <div class="text-sm font-extrabold">Car HAL</div>
+            <div class="mt-2 stack">
+              <div class="pill"><span>Navigation</span><small>tool call</small></div>
+              <div class="pill"><span>HVAC</span><small>command</small></div>
+              <div class="pill"><span>Media</span><small>control</small></div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <footer class="mt-3 grid lg:grid-cols-3 gap-2 text-xs text-slate-600 font-semibold">
+      <div class="glass-card">Customer owns car-domain harnessing: skill manifests, MCP tool servers, memory, vector stores, policy gates, and telemetry.</div>
+      <div class="glass-card">Voice Live Architecture owns the spoken turn: STT, turn detection, model runtime handoff, TTS, custom voice, and avatar-capable output.</div>
+      <div class="glass-card">Car-use examples are shaped by all-domain intelligent vehicle releases: dinning control, ADAS explanation, route/charging, service, and ecosystem handoff.</div>
+    </footer>
+  </main>
+  <script>
+    (() => {
+      const translations = {
+        zh: {
+          'Azure VoiceLive + Foundry Agent Reference Architecture': 'Azure VoiceLive + Foundry Agent 参考架构',
+          'Custom Car Agent Architecture': '定制车载智能体架构',
+          'Drive safer, plan smarter, and feel personally cared for - contextual dialogue from intent to task completion.': '更安全地驾驶，更聪明地规划，更贴心地服务 - 从一句话意图到任务完成。',
+          'Azure managed': 'Azure 托管',
+          'Custom agent': '定制智能体',
+          'Customer device': '客户设备',
+          'Azure Cloud - Custom Agent': 'Azure 云 - 定制智能体',
+          'Harnessing': '编排',
+          'policy + context': '策略 + 上下文',
+          'Persona': '人设',
+          'profile + tone': '画像 + 语气',
+          'Planner / Router': '规划 / 路由',
+          'task routing': '任务分发',
+          'Consent Gates': '授权门控',
+          'approval policy': '审批策略',
+          'Scheduler / IFTTT': '调度 / IFTTT',
+          'routines + triggers': '例程 + 触发器',
+          'Skills': '技能',
+          'vertical categories': '垂直场景',
+          'Dinning': '用餐',
+          'restaurant help': '餐厅协助',
+          'Journey': '旅程',
+          'route confidence': '路线信心',
+          'Parking': '停车',
+          'spot + payment': '车位 + 支付',
+          'Ownership': '用车权益',
+          'service lifecycle': '服务周期',
+          'MCPs': 'MCP 服务',
+          'tool servers': '工具服务器',
+          'Maps / Traffic MCP': '地图 / 交通 MCP',
+          'ETA + hazards': '到达时间 + 风险',
+          'Music / Media MCP': '音乐 / 媒体 MCP',
+          'playback + search': '播放 + 搜索',
+          'Weather / Climate MCP': '天气 / 气候 MCP',
+          'forecast + comfort': '预报 + 舒适',
+          'Office 365 MCP': 'Office 365 MCP',
+          'calendar + mail': '日历 + 邮件',
+          'Smart Home MCP': '智能家居 MCP',
+          'home handoff': '家庭联动',
+          'Memory + Vector DB': '记忆 + 向量库',
+          'grounding': '知识锚定',
+          'User Preferences': '用户偏好',
+          'personal defaults': '个人默认值',
+          'Vehicle Profile': '车辆档案',
+          'car facts': '车辆事实',
+          'Owner Manual RAG': '车主手册 RAG',
+          'manual answers': '手册问答',
+          'Release Notes': '发布说明',
+          'update knowledge': '更新知识',
+          'Dealer Content': '经销商内容',
+          'local offers': '本地优惠',
+          'Managed Agent by Azure AI Foundry': '由 Azure AI Foundry 托管的智能体',
+          'Azure Cloud - Voice Live Architecture': 'Azure 云 - Voice Live 架构',
+          'STT': 'STT',
+          'speech input': '语音输入',
+          'Fast ASR': 'Fast ASR',
+          'batch / eval': '批处理 / 评测',
+          'Fast LLM': 'Fast LLM',
+          'enhanced mode': '增强模式',
+          'Fast MAI': 'Fast MAI',
+          'model lane': '模型通道',
+          'Turn Detection': '轮次检测',
+          'Smart VAD': '智能 VAD',
+          'barge-in': '打断响应',
+          'Foundry Agent': 'Foundry 智能体',
+          'runtime + model + governance': '运行时 + 模型 + 治理',
+          'Model Catalog': '模型目录',
+          'OpenAI GPT-5.5 family': 'OpenAI GPT-5.5 系列',
+          'Anthropic Claude 4.7': 'Anthropic Claude 4.7',
+          'xAI Grok 4.2': 'xAI Grok 4.2',
+          'Kimi / DeepSeek / partner models': 'Kimi / DeepSeek / 伙伴模型',
+          'Bring-your-own models': '自带模型',
+          'Receives selected skills': '接收已选技能',
+          'Calls curated MCP endpoints': '调用精选 MCP 端点',
+          'Uses memory and vector grounding': '使用记忆和向量锚定',
+          'Applies customer safety policy': '应用客户安全策略',
+          'Dispatches approved actions': '派发已批准动作',
+          'Governance': '治理',
+          'Entra identity and RBAC': 'Entra 身份与 RBAC',
+          'Safety controls': '安全控制',
+          'Tracing and evaluations': '追踪与评测',
+          'Deployment and monitoring': '部署与监控',
+          'Regional model validation': '区域模型验证',
+          'TTS': 'TTS',
+          'speech output': '语音输出',
+          'Dragon HD': 'Dragon HD',
+          'high quality': '高品质',
+          'Omni HD': 'Omni HD',
+          'role playing': '角色化表达',
+          'HD Flash': 'HD Flash',
+          'latency target': '低延迟目标',
+          'Branding Voice': '品牌声音',
+          'Custom HD': 'Custom HD',
+          'multi-lingual': '多语言',
+          'audio/state up': '音频/状态上行',
+          'cloud path primary, embedded path fallback': '云端优先，本地兜底',
+          'audio/control down': '音频/控制下行',
+          'Customer Device - SoC / Embedded Platform': '客户设备 - SoC / 嵌入式平台',
+          'Front End': '前端音频',
+          'Customer owned': '客户拥有',
+          'Microphone Array': '麦克风阵列',
+          'capture': '采集',
+          'Beamforming': '波束成形',
+          'spatial focus': '空间聚焦',
+          'Acoustic Echo Cancellation': '声学回声消除',
+          'echo control': '回声控制',
+          'Noise Reduction': '降噪',
+          'noise cleanup': '噪声清理',
+          'Auto Gain Control': '自动增益控制',
+          'level balance': '音量平衡',
+          'Voice Activity Detection': '语音活动检测',
+          'wake / trigger': '唤醒 / 触发',
+          'Embedded Speech': '嵌入式语音',
+          'local fallback': '本地兜底',
+          'Tier 1': '等级 1',
+          '30M': '30M',
+          'Tier 2': '等级 2',
+          '90M': '90M',
+          'Tier 3': '等级 3',
+          '200M': '200M',
+          '900 DMIPS': '900 DMIPS',
+          '1500 DMIPS': '1500 DMIPS',
+          '5000 DMIPS': '5000 DMIPS',
+          'Foundry Local / Qualcomm AI Hub': 'Foundry Local / Qualcomm AI Hub',
+          'Phi': 'Phi',
+          'Gemma': 'Gemma',
+          'Qwen': 'Qwen',
+          'BERT': 'BERT',
+          'Vehicle Integration': '车辆集成',
+          'Audio Manager': '音频管理器',
+          'routing': '路由',
+          'Speakers': '扬声器',
+          'playback': '播放',
+          'Car HAL': '车辆 HAL',
+          'Navigation': '导航',
+          'tool call': '工具调用',
+          'HVAC': '空调 HVAC',
+          'command': '命令',
+          'Media': '媒体',
+          'control': '控制',
+          'Customer owns car-domain harnessing: skill manifests, MCP tool servers, memory, vector stores, policy gates, and telemetry.': '客户负责车域编排：技能清单、MCP 工具服务器、记忆、向量库、策略门控与遥测。',
+          'Voice Live Architecture owns the spoken turn: STT, turn detection, model runtime handoff, TTS, custom voice, and avatar-capable output.': 'Voice Live 架构负责语音轮次：STT、轮次检测、模型运行时交接、TTS、定制声音和可支持虚拟形象的输出。',
+          'Car-use examples are shaped by all-domain intelligent vehicle releases: dinning control, ADAS explanation, route/charging, service, and ecosystem handoff.': '车载场景示例来自全域智能汽车能力：用餐控制、ADAS 解释、路线/充电、服务和生态联动。'
+        },
+        ja: {
+          'Azure VoiceLive + Foundry Agent Reference Architecture': 'Azure VoiceLive + Foundry Agent 参照アーキテクチャ',
+          'Custom Car Agent Architecture': 'カスタムカーエージェント アーキテクチャ',
+          'Drive safer, plan smarter, and feel personally cared for - contextual dialogue from intent to task completion.': 'より安全に走り、賢く計画し、寄り添われる体験へ - 意図から完了まで声でつながる。',
+          'Azure managed': 'Azure 管理',
+          'Custom agent': 'カスタムエージェント',
+          'Customer device': '顧客デバイス',
+          'Azure Cloud - Custom Agent': 'Azure クラウド - カスタムエージェント',
+          'Harnessing': 'オーケストレーション',
+          'policy + context': 'ポリシー + 文脈',
+          'Persona': 'ペルソナ',
+          'profile + tone': 'プロフィール + 口調',
+          'Planner / Router': 'プランナー / ルーター',
+          'task routing': 'タスク振り分け',
+          'Consent Gates': '同意ゲート',
+          'approval policy': '承認ポリシー',
+          'Scheduler / IFTTT': 'スケジューラー / IFTTT',
+          'routines + triggers': 'ルーチン + トリガー',
+          'Skills': 'スキル',
+          'vertical categories': '用途カテゴリ',
+          'Dinning': '食事',
+          'restaurant help': 'レストラン支援',
+          'Journey': '移動',
+          'route confidence': 'ルート安心感',
+          'Parking': '駐車',
+          'spot + payment': '空き状況 + 支払い',
+          'Ownership': 'オーナー支援',
+          'service lifecycle': 'サービス周期',
+          'MCPs': 'MCP 群',
+          'tool servers': 'ツールサーバー',
+          'Maps / Traffic MCP': '地図 / 交通 MCP',
+          'ETA + hazards': '到着予測 + リスク',
+          'Music / Media MCP': '音楽 / メディア MCP',
+          'playback + search': '再生 + 検索',
+          'Weather / Climate MCP': '天気 / 気候 MCP',
+          'forecast + comfort': '予報 + 快適性',
+          'Office 365 MCP': 'Office 365 MCP',
+          'calendar + mail': '予定表 + メール',
+          'Smart Home MCP': 'スマートホーム MCP',
+          'home handoff': '家庭連携',
+          'Memory + Vector DB': 'メモリ + ベクトル DB',
+          'grounding': '知識グラウンディング',
+          'User Preferences': 'ユーザー設定',
+          'personal defaults': '個人デフォルト',
+          'Vehicle Profile': '車両プロファイル',
+          'car facts': '車両情報',
+          'Owner Manual RAG': '取扱説明書 RAG',
+          'manual answers': '説明書回答',
+          'Release Notes': 'リリースノート',
+          'update knowledge': '更新知識',
+          'Dealer Content': '販売店コンテンツ',
+          'local offers': '地域オファー',
+          'Managed Agent by Azure AI Foundry': 'Azure AI Foundry による管理エージェント',
+          'Azure Cloud - Voice Live Architecture': 'Azure クラウド - Voice Live アーキテクチャ',
+          'STT': 'STT',
+          'speech input': '音声入力',
+          'Fast ASR': 'Fast ASR',
+          'batch / eval': 'バッチ / 評価',
+          'Fast LLM': 'Fast LLM',
+          'enhanced mode': '拡張モード',
+          'Fast MAI': 'Fast MAI',
+          'model lane': 'モデル経路',
+          'Turn Detection': 'ターン検出',
+          'Smart VAD': 'スマート VAD',
+          'barge-in': '割り込み応答',
+          'Foundry Agent': 'Foundry エージェント',
+          'runtime + model + governance': '実行基盤 + モデル + ガバナンス',
+          'Model Catalog': 'モデルカタログ',
+          'OpenAI GPT-5.5 family': 'OpenAI GPT-5.5 ファミリー',
+          'Anthropic Claude 4.7': 'Anthropic Claude 4.7',
+          'xAI Grok 4.2': 'xAI Grok 4.2',
+          'Kimi / DeepSeek / partner models': 'Kimi / DeepSeek / パートナーモデル',
+          'Bring-your-own models': '持ち込みモデル',
+          'Receives selected skills': '選択済みスキルを受信',
+          'Calls curated MCP endpoints': '厳選 MCP エンドポイントを呼び出し',
+          'Uses memory and vector grounding': 'メモリとベクトルで根拠付け',
+          'Applies customer safety policy': '顧客安全ポリシーを適用',
+          'Dispatches approved actions': '承認済みアクションを実行',
+          'Governance': 'ガバナンス',
+          'Entra identity and RBAC': 'Entra ID と RBAC',
+          'Safety controls': '安全制御',
+          'Tracing and evaluations': 'トレースと評価',
+          'Deployment and monitoring': 'デプロイと監視',
+          'Regional model validation': 'リージョン別モデル検証',
+          'TTS': 'TTS',
+          'speech output': '音声出力',
+          'Dragon HD': 'Dragon HD',
+          'high quality': '高品質',
+          'Omni HD': 'Omni HD',
+          'role playing': 'ロール表現',
+          'HD Flash': 'HD Flash',
+          'latency target': '低遅延目標',
+          'Branding Voice': 'ブランド音声',
+          'Custom HD': 'Custom HD',
+          'multi-lingual': '多言語',
+          'audio/state up': '音声/状態 上り',
+          'cloud path primary, embedded path fallback': 'クラウド優先、組み込みでフォールバック',
+          'audio/control down': '音声/制御 下り',
+          'Customer Device - SoC / Embedded Platform': '顧客デバイス - SoC / 組み込みプラットフォーム',
+          'Front End': 'フロントエンド',
+          'Customer owned': '顧客所有',
+          'Microphone Array': 'マイクアレイ',
+          'capture': '収音',
+          'Beamforming': 'ビームフォーミング',
+          'spatial focus': '空間フォーカス',
+          'Acoustic Echo Cancellation': '音響エコーキャンセル',
+          'echo control': 'エコー制御',
+          'Noise Reduction': 'ノイズ低減',
+          'noise cleanup': 'ノイズ除去',
+          'Auto Gain Control': '自動ゲイン制御',
+          'level balance': 'レベル調整',
+          'Voice Activity Detection': '音声活動検出',
+          'wake / trigger': '起動 / トリガー',
+          'Embedded Speech': '組み込み音声',
+          'local fallback': 'ローカル代替',
+          'Tier 1': 'ティア 1',
+          '30M': '30M',
+          'Tier 2': 'ティア 2',
+          '90M': '90M',
+          'Tier 3': 'ティア 3',
+          '200M': '200M',
+          '900 DMIPS': '900 DMIPS',
+          '1500 DMIPS': '1500 DMIPS',
+          '5000 DMIPS': '5000 DMIPS',
+          'Foundry Local / Qualcomm AI Hub': 'Foundry Local / Qualcomm AI Hub',
+          'Phi': 'Phi',
+          'Gemma': 'Gemma',
+          'Qwen': 'Qwen',
+          'BERT': 'BERT',
+          'Vehicle Integration': '車両連携',
+          'Audio Manager': 'オーディオ管理',
+          'routing': 'ルーティング',
+          'Speakers': 'スピーカー',
+          'playback': '再生',
+          'Car HAL': '車両 HAL',
+          'Navigation': 'ナビゲーション',
+          'tool call': 'ツール呼び出し',
+          'HVAC': '空調 HVAC',
+          'command': 'コマンド',
+          'Media': 'メディア',
+          'control': '制御',
+          'Customer owns car-domain harnessing: skill manifests, MCP tool servers, memory, vector stores, policy gates, and telemetry.': '顧客が車両領域のオーケストレーションを担います：スキルマニフェスト、MCP ツールサーバー、メモリ、ベクトルストア、ポリシーゲート、テレメトリ。',
+          'Voice Live Architecture owns the spoken turn: STT, turn detection, model runtime handoff, TTS, custom voice, and avatar-capable output.': 'Voice Live アーキテクチャは音声ターンを担います：STT、ターン検出、モデル実行基盤への引き継ぎ、TTS、カスタム音声、アバター対応出力。',
+          'Car-use examples are shaped by all-domain intelligent vehicle releases: dinning control, ADAS explanation, route/charging, service, and ecosystem handoff.': '車内ユースケースは全領域の知能化車両機能から構成されます：食事制御、ADAS 説明、ルート/充電、サービス、エコシステム連携。'
+        }
+      };
+
+      const textNodes = [];
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          const text = node.nodeValue.trim();
+          if (!text) return NodeFilter.FILTER_REJECT;
+          if (node.parentElement?.closest('script, style')) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+
+      while (walker.nextNode()) {
+        textNodes.push({ node: walker.currentNode, source: walker.currentNode.nodeValue.trim() });
+      }
+
+      const buttons = Array.from(document.querySelectorAll('.language-toggle button'));
+
+      const setLanguage = (language) => {
+        const dictionary = translations[language] || {};
+        textNodes.forEach(({ node, source }) => {
+          node.nodeValue = node.nodeValue.replace(node.nodeValue.trim(), dictionary[source] || source);
+        });
+        buttons.forEach((button) => {
+          const active = button.dataset.lang === language;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-pressed', String(active));
+        });
+        document.documentElement.lang = language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja' : 'en';
+        document.title = language === 'zh' ? '车载智能体架构' : language === 'ja' ? 'カーエージェント アーキテクチャ' : 'Car Assistant Architecture';
+        localStorage.setItem('carAgentArchitectureLanguage', language);
+      };
+
+      buttons.forEach((button) => {
+        button.addEventListener('click', () => setLanguage(button.dataset.lang));
+      });
+
+      setLanguage(localStorage.getItem('carAgentArchitectureLanguage') || 'en');
+    })();
+
+    (() => {
+      const zone = document.querySelector('#custom-agent-cloud');
+      const connector = document.querySelector('.panel-fusion-connector');
+      const toggle = connector?.querySelector('.fusion-toggle');
+      if (!zone || !connector || !toggle) return;
+
+      const setCollapsed = (collapsed, animate = true) => {
+        zone.classList.toggle('is-collapsed', collapsed);
+        connector.classList.toggle('is-compact', collapsed);
+        zone.toggleAttribute('inert', collapsed);
+        zone.setAttribute('aria-hidden', String(collapsed));
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+        const label = collapsed ? 'Expand Azure Cloud custom agent panel' : 'Collapse Azure Cloud custom agent panel';
+        toggle.setAttribute('aria-label', label);
+        toggle.setAttribute('title', label);
+
+        if (!collapsed && animate) {
+          zone.classList.add('is-expanding');
+          window.setTimeout(() => zone.classList.remove('is-expanding'), 980);
+        } else {
+          zone.classList.remove('is-expanding');
+        }
+      };
+
+      setCollapsed(false, false);
+
+      toggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        setCollapsed(!zone.classList.contains('is-collapsed'));
+      });
+
+      zone.addEventListener('animationend', (event) => {
+        if (event.animationName === 'customPanelFloat') {
+          zone.classList.remove('is-expanding');
+        }
+      });
+    })();
+
+    (() => {
+      const selector = '.glass-card, .pill, .agent-col, .agent-col li, .tier-list div';
+      const targets = Array.from(document.querySelectorAll(selector));
+
+      targets.forEach((target) => {
+        target.classList.add('highlight-target');
+        target.tabIndex = 0;
+        target.setAttribute('role', 'button');
+        target.setAttribute('aria-pressed', 'false');
+
+        const toggleHighlight = (event) => {
+          event.stopPropagation();
+          const highlighted = target.classList.toggle('is-highlighted');
+          target.setAttribute('aria-pressed', String(highlighted));
+        };
+
+        target.addEventListener('click', toggleHighlight);
+        target.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleHighlight(event);
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
