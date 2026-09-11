@@ -4,6 +4,12 @@ This directory contains API documentation and technical references for products 
 
 ## Available Products
 
+### [Voice Live API Architecture](./voice-live-architecture.html)
+
+Explore the Voice Live platform architecture, agent processing lanes, enterprise governance, and task delegation in English, Chinese, Japanese, or Korean.
+
+---
+
 ### 🎙️ [Podcast API](./podcast/README.md)
 
 Generate AI-powered podcast content from text using advanced speech synthesis.
