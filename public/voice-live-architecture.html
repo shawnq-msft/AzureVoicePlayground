@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Architecture chart of the Azure Voice Live API: user scenarios, client interface, and the Voice Live platform with full-duplex, speech-to-speech, hybrid and cascaded voice-agent lanes delegating to any model family.">
+<title>Azure Voice Live API — Architecture</title>
+
+<!-- Tailwind theme extension (compiled at runtime by the Tailwind Play CDN build loaded below) -->
+<style type="text/tailwindcss">
+@theme {
+  --color-deep: #1F2A44;
+  --font-sans: "Segoe UI", "Segoe UI Variable Text", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-emoji: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif;
+
+  --color-navy: #1F2A44;
+  --color-slate: #475569;
+  --color-tag: #64748B;
+  --color-line: #CBD5E1;
+  --color-accent: #0078D4;
+  --color-card: #FFFFFF;
+  --color-glass: #FFFFFF;
+  --color-tint: #F1F5F9;
+  --color-page: #FFFFFF;
+  --color-page-mid: #F5F7FB;
+  --color-page-end: #E8EEF6;
+}
+</style>
+
+<style>
+/* Cascade-layer order: the fallback sits BELOW Tailwind's layers, so Tailwind
+   utilities win whenever the CDN build loads. */
+@layer fallback, theme, base, components, utilities;
+
+/* Palette — shared by the Tailwind utilities (var(--color-*)) and the fallback. */
+:root {
+  --color-navy: #1F2A44;
+  --color-deep: #1F2A44;
+  --color-slate: #475569;
+  --color-tag: #64748B;
+  --color-line: #CBD5E1;
+  --color-accent: #0078D4;
+  --color-card: #FFFFFF;
+  --color-glass: #FFFFFF;
+  --color-tint: #F1F5F9;
+  --color-page: #FFFFFF;
+  --color-page-mid: #F5F7FB;
+  --color-page-end: #E8EEF6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-navy: #E8EDF6;
+    --color-deep: #1A2340;
+    --color-slate: #B6C0D4;
+    --color-tag: #94A3B8;
+    --color-line: #3B4660;
+    --color-accent: #4DA3E8;
+    --color-card: #151B2B;
+    --color-glass: #6A7AA0;
+    --color-tint: #1B2336;
+    --color-page: #0F1424;
+    --color-page-mid: #131A2C;
+    --color-page-end: #172038;
+  }
+}
+
+/* Minimal layout fallback — only takes effect when the Tailwind build cannot
+   load (solid panels, same structure). Every rule mirrors a Tailwind utility in the markup. */
+@layer fallback {
+  *, *::before, *::after { box-sizing: border-box; }
+  html {
+    font-family: "Segoe UI", "Segoe UI Variable Text", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--color-page);
+    background-image: linear-gradient(135deg, var(--color-page) 0%, var(--color-page-mid) 50%, var(--color-page-end) 100%);
+    color: var(--color-navy);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, p, ul { margin: 0; }
+  ul { list-style: none; padding: 0; }
+  svg { display: block; }
+  hr { margin: 0; border: 0; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+  }
+  .blobs, .lane-no { display: none; }
+  .lane { display: none; }
+  .contents { display: contents; }
+
+  .fb-wrap { max-width: 88rem; margin-inline: auto; padding: 2rem 1rem; }
+  .fb-header { margin-bottom: 1.5rem; }
+  .fb-title { font-size: 1.875rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.025em; }
+  .fb-subtitle { margin-top: 0.5rem; font-size: 1rem; line-height: 1.375; color: var(--color-slate); }
+  .fb-date { margin-top: 0.25rem; font-size: 0.875rem; color: var(--color-tag); white-space: nowrap; }
+  .header-row { display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .language-toggle {
+    display: inline-flex; align-items: center; gap: 2px; min-height: 24px; padding: 2px;
+    border: 1px solid var(--color-line); border-radius: 999px; background: var(--color-card);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-card) 86%, transparent);
+  }
+  .language-toggle button {
+    min-height: 20px; border: 0; border-radius: 999px; background: transparent;
+    padding: 2px 8px; color: var(--color-slate); font: inherit; font-size: 0.68rem;
+    font-weight: 700; cursor: pointer;
+  }
+  .language-toggle button:hover { color: var(--color-navy); }
+  .language-toggle button.is-active { background: color-mix(in srgb, var(--color-accent) 16%, transparent); color: var(--color-navy); }
+  .language-toggle button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+  .panel { background-color: var(--color-card); border: 1px solid var(--color-line); border-radius: 1rem; }
+  .pill {
+    display: inline-flex; align-items: center; border-radius: 9999px; border: 1px solid var(--color-line); background-color: var(--color-card);
+    padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 700; line-height: 1.25; white-space: nowrap; color: var(--color-navy);
+  }
+  .pill--scen { padding: 0.625rem 1rem; font-size: 1rem; }
+  .emoji { margin-inline-end: 0.375rem; font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif; font-size: 1.1em; line-height: 1; }
+  .cap { font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; color: var(--color-tag); }
+
+  .scen { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; }
+  .scen-label { font-size: 0.875rem; font-weight: 700; line-height: 1.25; white-space: nowrap; color: var(--color-navy); }
+  .scen-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+
+  .iface { margin-top: 0.75rem; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; justify-items: center; gap: 0.5rem; }
+  .iface-side { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.5rem; }
+  .glyph svg { height: 2.5rem; width: auto; fill: var(--color-accent); }
+
+  .platform { margin-top: 0.75rem; background-color: var(--color-deep); border: 2px solid var(--color-accent); border-radius: 1.5rem; }
+  .plat-head { padding: 1rem 1rem 0.75rem; text-align: center; }
+  .bar-title { font-size: 1.5rem; font-weight: 700; line-height: 1.25; letter-spacing: -0.025em; white-space: nowrap; color: #FFFFFF; }
+  .title-rule { display: block; margin: 0.375rem auto 0; height: 0.25rem; width: 4rem; border-radius: 9999px; background-color: var(--color-accent); }
+  .bar-features { margin-top: 0.5rem; font-size: 0.875rem; font-weight: 500; line-height: 1.375; color: #E2E8F0; text-wrap: balance; }
+  .gov-row { margin-top: 0.75rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; column-gap: 0.75rem; row-gap: 0.5rem; }
+  .gov-label { font-size: 0.875rem; font-weight: 700; line-height: 1.25; white-space: nowrap; color: #FFFFFF; }
+  .gov-chip, .pill--dark { background-color: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.25); color: #FFFFFF; }
+  .pill--dark { background-color: var(--color-deep); }
+  .gov-chips { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.5rem; }
+  .divider { margin-inline: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.15); }
+  .lanes-area { padding: 0.75rem; }
+
+  .chart-grid {
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: minmax(5.5rem, 26%) minmax(0, 1fr);
+  }
+  .cell { min-width: 0; }
+
+  .chip, .seg, .box {
+    position: relative;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    border-radius: 1rem; border: 1px solid var(--color-line); background-color: var(--color-card); font-weight: 700; line-height: 1.25;
+    font-size: 0.875rem; text-wrap: balance; overflow-wrap: break-word; color: var(--color-navy);
+  }
+  .chip { padding: 0.75rem 0.5rem; background-color: var(--color-tint); }
+  .seg { padding: 0.75rem; min-height: 3.5rem; }
+  .seg--shared { flex-direction: column; background-color: var(--color-tint); }
+  .box { padding: 0.75rem; min-height: 3.5rem; }
+  .lane-head { display: none; height: 0.75rem; width: 0.625rem; fill: var(--color-accent); }
+  .box--stack { flex-direction: column; }
+  .box--tint { background-color: var(--color-tint); }
+  .box-lines { margin-top: 0.5rem; font-size: 0.75rem; font-weight: 600; line-height: 1.25; color: var(--color-slate); }
+  .box-lines > li + li { margin-top: 0.125rem; }
+  .box-sub { margin-top: 0.25rem; font-size: 0.75rem; font-weight: 600; line-height: 1.25; color: var(--color-slate); }
+  .seg--small { font-size: 0.875rem; }
+  .caption { margin-top: 0.125rem; font-size: 0.75rem; font-style: italic; font-weight: 500; line-height: 1.25; color: var(--color-slate); }
+  .c-fd-box { padding-bottom: 1.75rem; }
+  .note {
+    position: absolute; inset-inline-end: 0.5rem; bottom: 0.25rem; font-size: 0.75rem; line-height: 1;
+    font-style: italic; font-weight: 500; white-space: nowrap; color: var(--color-slate);
+  }
+  .tag { display: none; position: absolute; top: 0.375rem; inset-inline-start: 0.5rem; font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; color: var(--color-tag); }
+
+  .group { display: grid; gap: 0.5rem; grid-template-columns: minmax(0, 1fr); }
+
+  /* Mobile placement (chips beside boxes; shared stages become their own rows) */
+  .c-fd-chip  { grid-column: 1; grid-row: 1; }
+  .c-fd-box   { grid-column: 2; grid-row: 1; }
+  .c-std      { grid-column: 1 / span 2; grid-row: 2; }
+  .c-s2s-chip { grid-column: 1; grid-row: 3; }
+  .c-s2s-box  { grid-column: 2; grid-row: 3; }
+  .c-hy-chip  { grid-column: 1; grid-row: 4; }
+  .c-hy-box   { grid-column: 2; grid-row: 4; }
+  .c-ca-chip  { grid-column: 1; grid-row: 5; }
+  .c-ca-box   { grid-column: 2; grid-row: 5; }
+  .c-tts      { grid-column: 1 / span 2; grid-row: 6; }
+  .c-deleg    { grid-column: 1 / span 2; grid-row: 7; }
+
+  .fb-footer { margin-top: 2rem; text-align: center; font-size: 0.75rem; color: var(--color-tag); }
+
+  @media (min-width: 48rem) {
+    .fb-wrap { padding-inline: 2rem; }
+    .fb-header { margin-bottom: 2rem; }
+    .header-row { flex-direction: row; justify-content: space-between; gap: 2rem; }
+    .language-toggle { flex-shrink: 0; }
+    .fb-title { font-size: 2.25rem; }
+    .fb-subtitle { font-size: 1.125rem; }
+    .scen { padding-inline: 1.25rem; }
+    .iface { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 1rem; }
+    .iface-side--start { justify-content: flex-end; }
+    .iface-side--end { justify-content: flex-start; }
+    .plat-head { padding: 1.25rem 1.5rem 1rem; }
+    .bar-title { font-size: 1.875rem; }
+    .bar-features { font-size: 1rem; }
+    .gov-row { margin-top: 1rem; }
+    .divider { margin-inline: 1.5rem; }
+    .chart-grid {
+      grid-template-columns: 12% 11% minmax(0, 65fr) minmax(0, 35fr) 1.75rem 15%;
+      grid-template-rows: repeat(4, minmax(0, 1fr));
+      column-gap: 0;
+    }
+    .chip, .seg, .box { font-size: 0.8125rem; }
+    .seg--small { font-size: 0.75rem; }
+    .chip, .seg { border: 0; border-radius: 0; background-color: transparent; }
+    .chip { border-start-start-radius: 1rem; border-end-start-radius: 1rem; background-color: var(--color-tint); }
+    .seg--shared { background-color: var(--color-tint); border-inline: 1px solid color-mix(in srgb, var(--color-line) 50%, transparent); }
+    .seg--div { border-inline-start: 1px solid color-mix(in srgb, var(--color-line) 50%, transparent); }
+    .seg--tagged { padding-top: 1.25rem; }
+    .c-fd-box { padding-bottom: 0.75rem; }
+    .c-std, .c-tts, .c-ca-box .seg { padding-inline: 0.375rem; }
+    .tag { display: block; }
+    .tag--lg, .tag--xl { display: none; }
+    /* Lane frames run from the first to the last grid line, beneath Task Delegation (z-index 0, panel 10). */
+    .lane { display: block; position: relative; z-index: 0; border: 1px solid var(--color-line); border-radius: 1rem; background-color: var(--color-card); }
+    .lane-head { display: block; grid-column: 5 / 6; justify-self: end; align-self: center; margin-inline-end: 0.25rem; z-index: 20; }
+    .group { grid-template-columns: 7fr 18fr; gap: 0; }
+
+    .lane:nth-of-type(1) { grid-column: 1 / -1; grid-row: 1; }
+    .lane:nth-of-type(2) { grid-column: 1 / -1; grid-row: 2; }
+    .lane:nth-of-type(3) { grid-column: 1 / -1; grid-row: 3; }
+    .lane:nth-of-type(4) { grid-column: 1 / -1; grid-row: 4; }
+    .lane-head:nth-of-type(1) { grid-row: 1; }
+    .lane-head:nth-of-type(2) { grid-row: 2; }
+    .lane-head:nth-of-type(3) { grid-row: 3; }
+    .lane-head:nth-of-type(4) { grid-row: 4; }
+    .c-fd-chip  { grid-column: 1; grid-row: 1; }
+    .c-fd-box   { grid-column: 2 / 5; grid-row: 1; }
+    .c-deleg    { grid-column: 6 / 7; grid-row: 1 / 5; z-index: 10; }
+    .c-std      { grid-column: 2 / 3; grid-row: 2 / 5; }
+    .c-s2s-chip { grid-column: 1; grid-row: 2; }
+    .c-s2s-box  { grid-column: 3 / 5; grid-row: 2; }
+    .c-hy-chip  { grid-column: 1; grid-row: 3; }
+    .c-hy-box   { grid-column: 3; grid-row: 3; }
+    .c-ca-chip  { grid-column: 1; grid-row: 4; }
+    .c-ca-box   { grid-column: 3; grid-row: 4; }
+    .c-tts      { grid-column: 4 / 5; grid-row: 3 / 5; }
+  }
+
+  @media (min-width: 64rem) {
+    .fb-wrap { padding-block: 2.5rem; }
+    .fb-title { font-size: 3rem; }
+    .lanes-area { padding: 1rem; }
+    .chart-grid {
+      row-gap: 0.75rem;
+      grid-template-columns: 11.5% 11% minmax(0, 65fr) minmax(0, 35fr) 2rem 13%;
+    }
+    .chip, .seg, .box { font-size: 0.9375rem; }
+    .seg--small { font-size: 0.8125rem; }
+    .box-lines, .box-sub { font-size: 0.875rem; }
+    .box-sub--tts { font-size: 0.75rem; }
+    .box-sub--tts > span { white-space: nowrap; }
+    .tag--lg { display: block; }
+    .bar-features { font-size: 1.125rem; }
+    .bar-title { font-size: 2.25rem; }
+    .gov-label { font-size: 1rem; }
+    .pill { font-size: 0.875rem; }
+  }
+
+  @media (min-width: 80rem) {
+    .chip, .seg, .box { font-size: 1rem; }
+    .c-std { font-size: 0.9375rem; }
+    .seg--small { font-size: 0.875rem; }
+    .tag--xl { display: block; }
+  }
+}
+
+/* Print: one A4 landscape page, solid panels, neutral hairlines, accent container. */
+@media print {
+  @page { size: A4 landscape; margin: 9mm; }
+  :root {
+  --color-navy: #1F2A44;
+    --color-deep: #1F2A44;
+    --color-slate: #475569;
+    --color-tag: #64748B;
+    --color-line: #CBD5E1;
+    --color-accent: #0078D4;
+    --color-card: #FFFFFF;
+    --color-glass: #FFFFFF;
+    --color-tint: #F1F5F9;
+    --color-page: #FFFFFF;
+    --color-page-mid: #F5F7FB;
+    --color-page-end: #E8EEF6;
+    --color-line: #94A3B8;
+    --color-page-mid: #FFFFFF;
+    --color-page-end: #FFFFFF;
+  }
+  html { font-size: 14px; }
+  body { background: #FFFFFF !important; min-height: 0 !important; }
+  .fb-wrap { max-width: none !important; padding: 0 !important; }
+  .fb-header { margin-bottom: 0.5rem !important; }
+  .language-toggle { display: none !important; }
+  .blobs, .lane-no { display: none !important; }
+  .glass, .pill {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    background-image: none !important; background-color: var(--color-card) !important;
+    border: 1px solid var(--color-line) !important;
+  }
+  .glass::before { display: none !important; }
+  .platform { border: 2px solid var(--color-accent) !important; }
+  .bar-title, .gov-label, .gov-chip, .pill--dark { color: var(--color-navy) !important; }
+  .bar-features { color: var(--color-slate) !important; }
+  .divider { border-top-color: var(--color-line) !important; }
+  .pill--dark { border: 2px solid var(--color-deep) !important; }
+  .box--tint, .chip, .seg--shared { background-color: var(--color-tint) !important; }
+  .lane { background-color: var(--color-card) !important; border: 1px solid var(--color-line) !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; z-index: 0; }
+  .c-deleg { z-index: 10; }
+  .lane-head { z-index: 20; }
+  .seg, .chip { box-shadow: none !important; }
+  .scen, .iface { padding-block: 0.375rem !important; }
+  .iface { margin-top: 0.375rem !important; }
+  .platform { margin-top: 0.375rem !important; }
+  .plat-head { padding-block: 0.5rem !important; }
+  .gov-row { margin-top: 0.5rem !important; }
+  .lanes-area { padding: 0.5rem !important; }
+  .chart-grid { row-gap: 0.5rem !important; }
+  .glyph { padding-block: 0 !important; }
+  .glyph svg { height: 1.5rem !important; }
+  .fb-footer { margin-top: 0.5rem !important; }
+  .chart, .platform { break-inside: avoid; }
+}
+</style>
+
+<!-- Tailwind CSS v4 Play CDN (official browser build), pinned -->
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4"></script>
+</head>
+<body class="relative isolate min-h-screen bg-linear-135 from-page via-page-mid to-page-end font-sans text-navy antialiased">
+<div class="blobs pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+  <div class="absolute top-1/4 -end-40 h-[34rem] w-[34rem] rounded-full bg-accent/10 blur-3xl"></div>
+</div>
+<div class="fb-wrap mx-auto max-w-[88rem] px-4 py-8 md:px-8 lg:py-10">
+
+  <header class="fb-header mb-6 md:mb-8">
+    <div class="header-row">
+      <div>
+        <h1 class="fb-title text-3xl font-bold leading-[1.15] tracking-tight md:text-4xl lg:text-5xl">Azure Voice Live API — Architecture</h1>
+        <p class="fb-subtitle mt-2 text-base leading-snug text-slate md:text-lg">Speech-to-speech, hybrid and cascaded voice agents with delegation to any model family</p>
+        <p class="fb-date mt-1 text-sm whitespace-nowrap text-tag"><time datetime="2026-09">September 2026</time></p>
+      </div>
+      <div class="language-toggle" aria-label="Language selector">
+        <button type="button" class="is-active" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="zh" aria-pressed="false">中文</button>
+        <button type="button" data-lang="ja" aria-pressed="false">日本語</button>
+        <button type="button" data-lang="ko" aria-pressed="false">한국어</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="chart" aria-label="Azure Voice Live API architecture chart">
+      <p class="sr-only">The chart reads top to bottom. First, user scenarios: Contact Center, In-car Assistant, Education and Learning, Public Services, HR and Employee Productivity, and Personal Assistant. Second, the client interface: the SDK (Python, C#, JavaScript, Java), WebSocket, WebRTC and SIP exchange audio with the platform, and a photo or video avatar is the visual output. Third, the Azure Voice Live API platform, providing Noise Suppression, Echo Cancellation, Barge-in, Function Calling and Interim Responses, with Enterprise Governance pillars hosting, scalability, safety and observability. Inside the platform are four voice-agent lanes. Full Duplex: GPT-Live-1 handles turn-taking natively and flows straight to Task Delegation; it is marked as coming soon. The Speech to Speech, Hybrid and Cascade lanes each start at a shared Smart Turn-detection stage (semantic voice activity detection and end-of-utterance), then run their model pipeline and flow to Task Delegation. The Hybrid and Cascade lanes share one Azure Speech TTS stage offering HD Voice, Custom Voice, Personal Voice and Marketplace voices. All lanes delegate reasoning and tools; delegation targets are Foundry Agent, GPT, Claude, Gemini, open-source models such as Phi and Llama, and bring-your-own backends or tools. Tags on the segments name the provider: Foundry models or Azure Speech services.</p>
+
+      <!-- User Scenarios -->
+      <div class="scen panel glass rounded-2xl relative isolate bg-card/60 backdrop-blur-md border border-glass/70 ring-1 ring-line shadow-sm shadow-navy/5 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-1/2 before:rounded-t-2xl before:bg-linear-to-b before:from-glass/50 before:to-transparent flex flex-col items-center gap-2 px-4 py-3 md:px-5" role="group" aria-label="User Scenarios">
+        <h2 class="scen-label text-sm leading-tight font-bold whitespace-nowrap text-navy">User Scenarios</h2>
+        <ul class="scen-chips flex flex-wrap justify-center gap-2">
+          <li class="pill pill--scen inline-flex items-center rounded-full border border-glass/70 bg-card/85 px-4 py-2.5 text-base leading-tight font-bold whitespace-nowrap text-navy ring-1 ring-line shadow-sm shadow-navy/5"><span class="emoji me-1.5 font-emoji text-[1.1em] leading-none" aria-hidden="true">🎧</span>Contact Center</li>
+          <li class="pill pill--scen inline-flex items-center rounded-full border border-glass/70 bg-card/85 px-4 py-2.5 text-base leading-tight font-bold whitespace-nowrap text-navy ring-1 ring-line shadow-sm shadow-navy/5"><span class="emoji me-1.5 font-emoji text-[1.1em] leading-none" aria-hidden="true">🚗</span>In-car Assistant</li>
+          <li class="pill pill--scen inline-flex items-center rounded-full border border-glass/70 bg-card/85 px-4 py-2.5 text-base leading-tight font-bold whitespace-nowrap text-navy ring-1 ring-line shadow-sm shadow-navy/5"><span class="emoji me-1.5 font-emoji text-[1.1em] leading-none" aria-hidden="true">🎓</span>Education &amp; Learning</li>
+          <li class="pill pill--scen inline-flex items-center rounded-full border border-glass/70 bg-card/85 px-4 py-2.5 text-base leading-tight font-bold whitespace-nowrap text-navy ring-1 ring-line shadow-sm shadow-navy/5"><span class="emoji me-1.5 font-emoji text-[1.1em] leading-none" aria-hidden="true">🏛️</span>Public Services</li>
+          <li class="pill pill--scen inline-flex items-center rounded-full border border-glass/70 bg-card/85 px-4 py-2.5 text-base leading-tight font-bold whitespace-nowrap text-navy ring-1 ring-line shadow-sm shadow-navy/5"><span class="emoji me-1.5 font-emoji text-[1.1em] leading-none" aria-hidden="true">🧑‍💼</span>HR &amp; Employee Productivity</li>
+          <li class="pill pill--scen inline-flex items-center rounded-full border border-glass/70 bg-card/85 px-4 py-2.5 text-base leading-tight font-bold whitespace-nowrap text-navy ring-1 ring-line shadow-sm shadow-navy/5"><span class="emoji me-1.5 font-emoji text-[1.1em] leading-none" aria-hidden="true">🤖</span>Personal Assistant</li>
+        </ul>
+      </div>
+
+      <!-- Interface band -->
+      <div class="iface mt-3 grid grid-cols-1 items-center justify-items-center gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-4" role="group" aria-label="Interface and output">
+        <div class="iface-side iface-side--start flex flex-wrap items-center justify-center gap-2 md:justify-end">
+          <span class="cap text-[10px] leading-none font-bold tracking-wider uppercase whitespace-nowrap text-tag">Interface</span>
+          <ul class="contents">
+            <li class="pill rounded-full border border-glass/70 bg-card/85 px-3 py-1 text-xs leading-tight font-bold whitespace-nowrap text-navy ring-1 ring-line shadow-sm shadow-navy/5 lg:text-sm">SDK (Python · C# · JS · Java)</li>
+            <li class="pill rounded-full border border-glass/70 bg-card/85 px-3 py-1 text-xs leading-tight font-bold whitespace-nowrap text-navy ring-1 ring-line shadow-sm shadow-navy/5 lg:text-sm">WebSocket</li>
+            <li class="pill rounded-full border border-glass/70 bg-card/85 px-3 py-1 text-xs leading-tight font-bold whitespace-nowrap text-navy ring-1 ring-line shadow-sm shadow-navy/5 lg:text-sm">WebRTC</li>
+            <li class="pill rounded-full border border-glass/70 bg-card/85 px-3 py-1 text-xs leading-tight font-bold whitespace-nowrap text-navy ring-1 ring-line shadow-sm shadow-navy/5 lg:text-sm">SIP</li>
+          </ul>
+        </div>
+        <div class="glyph flex justify-center" aria-hidden="true">
+          <svg class="h-10 w-auto fill-accent" viewBox="0 0 24 28"><path d="M5 27V10H1l6-9 6 9H9v17z"/><path d="M15 1v17h-4l6 9 6-9h-4V1z"/></svg>
+        </div>
+        <div class="iface-side iface-side--end flex flex-wrap items-center justify-center gap-2 md:justify-start">
+          <span class="cap text-[10px] leading-none font-bold tracking-wider uppercase whitespace-nowrap text-tag">Output</span>
+          <span class="pill pill--dark inline-flex items-center rounded-full border border-white/10 bg-deep/92 backdrop-blur-md px-3 py-1 text-xs leading-tight font-bold whitespace-nowrap text-white ring-1 ring-white/25 shadow-sm shadow-navy/20 lg:text-sm"><span class="emoji me-1.5 font-emoji text-[1.1em] leading-none" aria-hidden="true">🎭</span>Photo/Video Avatar</span>
+        </div>
+      </div>
+
+      <!-- Platform container -->
+      <section class="platform glass relative isolate mt-3 rounded-3xl bg-deep/92 backdrop-blur-lg border border-white/10 ring-2 ring-accent shadow-xl shadow-navy/25 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-32 before:rounded-t-3xl before:bg-linear-to-b before:from-white/10 before:to-transparent" aria-label="Azure Voice Live API platform">
+        <div class="plat-head px-4 pt-4 pb-3 text-center md:px-6 md:pt-5 md:pb-4">
+          <h2 class="bar-title text-2xl leading-tight font-bold tracking-tight whitespace-nowrap text-white md:text-3xl lg:text-4xl">Azure Voice Live API</h2>
+          <span class="title-rule mx-auto mt-1.5 block h-1 w-16 rounded-full bg-accent" aria-hidden="true"></span>
+          <p class="bar-features mt-2 text-sm leading-snug font-medium text-balance text-slate-200 md:text-base lg:text-lg">Noise Suppression · Echo Cancellation · <span class="whitespace-nowrap">Barge-in</span> · Function Calling · Interim Responses</p>
+          <div class="gov-row mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 md:mt-4" role="group" aria-label="Enterprise Governance">
+            <span class="gov-label text-sm leading-tight font-bold whitespace-nowrap text-white lg:text-base">Enterprise Governance</span>
+            <ul class="gov-chips flex flex-wrap items-center justify-center gap-2">
+              <li class="gov-chip pill rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs leading-tight font-bold whitespace-nowrap text-white ring-1 ring-white/25 shadow-sm shadow-black/10 lg:text-sm">Hosting</li>
+              <li class="gov-chip pill rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs leading-tight font-bold whitespace-nowrap text-white ring-1 ring-white/25 shadow-sm shadow-black/10 lg:text-sm">Scalability</li>
+              <li class="gov-chip pill rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs leading-tight font-bold whitespace-nowrap text-white ring-1 ring-white/25 shadow-sm shadow-black/10 lg:text-sm">Safety</li>
+              <li class="gov-chip pill rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs leading-tight font-bold whitespace-nowrap text-white ring-1 ring-white/25 shadow-sm shadow-black/10 lg:text-sm">Observability</li>
+            </ul>
+          </div>
+        </div>
+        <hr class="divider mx-4 border-0 border-t border-white/15 md:mx-6">
+
+        <div class="lanes-area p-3 lg:p-4">
+          <div class="chart-grid grid grid-cols-[minmax(5.5rem,26%)_minmax(0,1fr)] gap-2 md:grid-cols-[12%_11%_minmax(0,65fr)_minmax(0,35fr)_1.75rem_15%] md:grid-rows-4 md:gap-x-0 lg:grid-cols-[11.5%_11%_minmax(0,65fr)_minmax(0,35fr)_2rem_13%] lg:gap-y-3">
+
+            <!-- Lane frames (wide screens): one continuous frame per lane, running from the label segment
+                 to the last grid line, layered beneath the Task Delegation panel (z-0 under z-10) -->
+            <div class="lane relative z-0 hidden rounded-2xl bg-card/98 backdrop-blur-sm ring-1 ring-line shadow-sm shadow-navy/5 md:col-start-1 md:-col-end-1 md:row-start-1 md:block" aria-hidden="true"></div>
+            <div class="lane relative z-0 hidden rounded-2xl bg-card/98 backdrop-blur-sm ring-1 ring-line shadow-sm shadow-navy/5 md:col-start-1 md:-col-end-1 md:row-start-2 md:block" aria-hidden="true"></div>
+            <div class="lane relative z-0 hidden rounded-2xl bg-card/98 backdrop-blur-sm ring-1 ring-line shadow-sm shadow-navy/5 md:col-start-1 md:-col-end-1 md:row-start-3 md:block" aria-hidden="true"></div>
+            <div class="lane relative z-0 hidden rounded-2xl bg-card/98 backdrop-blur-sm ring-1 ring-line shadow-sm shadow-navy/5 md:col-start-1 md:-col-end-1 md:row-start-4 md:block" aria-hidden="true"></div>
+
+            <!-- Lane arrowheads (wide screens): one per lane, in the gutter column just before Task Delegation -->
+            <svg class="lane-head hidden h-3 w-2.5 fill-accent md:col-start-5 md:col-end-6 md:row-start-1 md:z-20 md:me-1 md:block md:self-center md:justify-self-end" viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0l10 6-10 6z"/></svg>
+            <svg class="lane-head hidden h-3 w-2.5 fill-accent md:col-start-5 md:col-end-6 md:row-start-2 md:z-20 md:me-1 md:block md:self-center md:justify-self-end" viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0l10 6-10 6z"/></svg>
+            <svg class="lane-head hidden h-3 w-2.5 fill-accent md:col-start-5 md:col-end-6 md:row-start-3 md:z-20 md:me-1 md:block md:self-center md:justify-self-end" viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0l10 6-10 6z"/></svg>
+            <svg class="lane-head hidden h-3 w-2.5 fill-accent md:col-start-5 md:col-end-6 md:row-start-4 md:z-20 md:me-1 md:block md:self-center md:justify-self-end" viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0l10 6-10 6z"/></svg>
+
+            <!-- Lane 1 — Full Duplex (coming soon) -->
+            <div class="chip relative isolate flex min-w-0 items-center justify-center rounded-2xl bg-tint/90 px-2 py-3 ring-1 ring-line md:rounded-none md:rounded-s-2xl md:ring-0 text-center text-sm leading-tight font-bold text-balance wrap-break-word md:text-[0.8125rem] lg:text-[0.9375rem] xl:text-base text-navy cell c-fd-chip col-start-1 row-start-1"><span class="lane-no absolute top-1 start-1 hidden h-3.5 w-3.5 items-center justify-center rounded-full bg-accent text-[9px] leading-none font-bold text-white xl:flex" aria-hidden="true">1</span><p>Full Duplex</p></div>
+            <div class="seg relative isolate flex min-h-14 min-w-0 items-center justify-center rounded-2xl bg-card/92 ring-1 ring-line md:rounded-none md:bg-transparent md:ring-0 p-3 pb-7 text-center text-sm leading-tight font-bold text-balance wrap-break-word md:text-[0.8125rem] lg:text-[0.9375rem] xl:text-base md:border-s md:border-line/50 seg--div seg--tagged cell c-fd-box col-start-2 row-start-1 md:col-end-5 md:pt-5 md:pb-3"><span class="tag absolute top-1.5 start-2 hidden text-[10px] leading-none font-bold tracking-wider uppercase whitespace-nowrap text-tag md:block">Foundry Models</span><p><span class="whitespace-nowrap">GPT-Live-1</span> (<span class="whitespace-nowrap">Full-duplex</span> <span class="whitespace-nowrap">Speech-to-Speech</span> · listens while speaking)</p><span class="note absolute end-2 bottom-1 text-xs leading-none font-medium whitespace-nowrap text-slate italic">coming soon</span></div>
+
+            <!-- Shared stage for lanes 2–4 — Smart Turn-detection -->
+            <div class="seg seg--shared relative isolate flex min-h-14 min-w-0 flex-col items-center justify-center rounded-2xl bg-tint/92 ring-1 ring-line md:rounded-none md:ring-0 md:border-s md:border-e md:border-line/50 px-2 py-3 text-center text-sm leading-tight font-bold text-balance wrap-break-word md:text-[0.8125rem] lg:text-[0.9375rem] xl:text-base seg--tagged cell c-std col-start-1 col-end-3 row-start-2 md:col-start-2 md:col-end-3 md:row-start-2 md:row-end-5 md:px-1.5 md:pt-5 xl:text-[0.9375rem]"><span class="tag absolute top-1.5 start-2 hidden text-[10px] leading-none font-bold tracking-wider uppercase whitespace-nowrap text-tag tag--xl xl:block">Azure Speech</span>
+              <p>Smart Turn-detection</p>
+              <p class="box-sub mt-1 text-xs leading-tight font-semibold text-slate lg:text-sm">Semantic VAD · EoU</p>
+            </div>
+
+            <!-- Lane 2 — Speech to Speech -->
+            <div class="chip relative isolate flex min-w-0 items-center justify-center rounded-2xl bg-tint/90 px-2 py-3 ring-1 ring-line md:rounded-none md:rounded-s-2xl md:ring-0 text-center text-sm leading-tight font-bold text-balance wrap-break-word md:text-[0.8125rem] lg:text-[0.9375rem] xl:text-base text-navy cell c-s2s-chip col-start-1 row-start-3 md:row-start-2"><span class="lane-no absolute top-1 start-1 hidden h-3.5 w-3.5 items-center justify-center rounded-full bg-accent text-[9px] leading-none font-bold text-white xl:flex" aria-hidden="true">2</span><p>Speech to Speech</p></div>
+            <div class="seg relative isolate flex min-h-14 min-w-0 items-center justify-center rounded-2xl bg-card/92 ring-1 ring-line md:rounded-none md:bg-transparent md:ring-0 p-3 text-center text-sm leading-tight font-bold text-balance wrap-break-word md:text-[0.8125rem] lg:text-[0.9375rem] xl:text-base md:border-s md:border-line/50 seg--div seg--tagged cell c-s2s-box col-start-2 row-start-3 md:col-start-3 md:col-end-5 md:row-start-2 md:pt-5"><span class="tag absolute top-1.5 start-2 hidden text-[10px] leading-none font-bold tracking-wider uppercase whitespace-nowrap text-tag md:block">Foundry Models</span><p>GPT Realtime · Azure Realtime (<span class="whitespace-nowrap">Speech-to-Speech</span>)</p></div>
+
+            <!-- Lane 3 — Hybrid -->
+            <div class="chip relative isolate flex min-w-0 items-center justify-center rounded-2xl bg-tint/90 px-2 py-3 ring-1 ring-line md:rounded-none md:rounded-s-2xl md:ring-0 text-center text-sm leading-tight font-bold text-balance wrap-break-word md:text-[0.8125rem] lg:text-[0.9375rem] xl:text-base text-navy cell c-hy-chip col-start-1 row-start-4 md:row-start-3"><span class="lane-no absolute top-1 start-1 hidden h-3.5 w-3.5 items-center justify-center rounded-full bg-accent text-[9px] leading-none font-bold text-white xl:flex" aria-hidden="true">3</span><p>Hybrid</p></div>
+            <div class="seg relative isolate flex min-h-14 min-w-0 items-center justify-center rounded-2xl bg-card/92 ring-1 ring-line md:rounded-none md:bg-transparent md:ring-0 p-3 text-center text-sm leading-tight font-bold text-balance wrap-break-word md:text-[0.8125rem] lg:text-[0.9375rem] xl:text-base md:border-s md:border-line/50 seg--div seg--tagged cell c-hy-box col-start-2 row-start-4 md:col-start-3 md:row-start-3 md:pt-5"><span class="tag absolute top-1.5 start-2 hidden text-[10px] leading-none font-bold tracking-wider uppercase whitespace-nowrap text-tag md:block">Foundry Models</span><p>GPT Realtime 2.1/1.5 (<span class="whitespace-nowrap">Speech-LLM</span>)</p></div>
+
+            <!-- Lane 4 — Cascade -->
+            <div class="chip relative isolate flex min-w-0 items-center justify-center rounded-2xl bg-tint/90 px-2 py-3 ring-1 ring-line md:rounded-none md:rounded-s-2xl md:ring-0 text-center text-sm leading-tight font-bold text-balance wrap-break-word md:text-[0.8125rem] lg:text-[0.9375rem] xl:text-base text-navy cell c-ca-chip col-start-1 row-start-5 md:row-start-4"><span class="lane-no absolute top-1 start-1 hidden h-3.5 w-3.5 items-center justify-center rounded-full bg-accent text-[9px] leading-none font-bold text-white xl:flex" aria-hidden="true">4</span><p>Cascade</p></div>
+            <div class="group cell c-ca-box col-start-2 row-start-5 grid min-w-0 grid-cols-1 gap-2 md:col-start-3 md:row-start-4 md:grid-cols-[7fr_18fr] md:gap-0">
+              <div class="seg relative isolate flex min-h-14 min-w-0 items-center justify-center rounded-2xl bg-card/92 ring-1 ring-line md:rounded-none md:bg-transparent md:ring-0 px-2 py-3 text-center text-sm leading-tight font-bold text-balance wrap-break-word md:text-[0.8125rem] lg:text-[0.9375rem] xl:text-base md:border-s md:border-line/50 seg--div seg--tagged md:px-1.5 md:pt-5 xl:text-[0.9375rem]"><span class="tag absolute top-1.5 start-2 hidden text-[10px] leading-none font-bold tracking-wider uppercase whitespace-nowrap text-tag tag--xl xl:block">Azure Speech</span><p>Azure STT</p></div>
+              <div class="seg relative isolate flex min-h-14 min-w-0 items-center justify-center rounded-2xl bg-card/92 ring-1 ring-line md:rounded-none md:bg-transparent md:ring-0 px-2 py-3 text-center text-sm leading-tight font-bold text-balance wrap-break-word md:text-xs lg:text-[0.8125rem] xl:text-sm md:border-s md:border-line/50 seg--div seg--tagged seg--small md:px-1.5 md:pt-5"><span class="tag absolute top-1.5 start-2 hidden text-[10px] leading-none font-bold tracking-wider uppercase whitespace-nowrap text-tag md:block">Foundry Models</span><p>GPT · Claude · Gemini · OSS · BYO</p></div>
+            </div>
+
+            <!-- Merged Azure Speech TTS (spans lanes 3–4 on wide screens) -->
+            <div class="seg seg--shared relative isolate flex min-h-14 min-w-0 flex-col items-center justify-center rounded-2xl bg-tint/92 ring-1 ring-line md:rounded-none md:ring-0 md:border-s md:border-e md:border-line/50 p-3 text-center text-sm leading-tight font-bold text-balance wrap-break-word md:text-[0.8125rem] lg:text-[0.9375rem] xl:text-base seg--tagged cell c-tts col-start-1 col-end-3 row-start-6 md:col-start-4 md:col-end-5 md:row-start-3 md:row-end-5 md:px-1.5 md:pt-5"><span class="tag absolute top-1.5 start-2 hidden text-[10px] leading-none font-bold tracking-wider uppercase whitespace-nowrap text-tag md:block">Azure Speech</span>
+              <p>Azure Speech TTS</p>
+              <p class="box-sub box-sub--tts mt-1 text-xs leading-tight font-semibold text-slate"><span class="lg:whitespace-nowrap">HD Voice ·</span> <span class="lg:whitespace-nowrap">Custom Voice ·</span> <span class="lg:whitespace-nowrap">Personal Voice ·</span> <span class="lg:whitespace-nowrap">Marketplace</span></p>
+            </div>
+
+            <!-- Task Delegation column (spans all four lanes on wide screens; sits above the lane frames) -->
+            <div class="box glass box--stack box--tint cell c-deleg col-start-1 col-end-3 row-start-7 rounded-2xl relative isolate z-10 bg-tint/95 backdrop-blur-md border border-glass/70 ring-1 ring-line shadow-md shadow-navy/5 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-1/2 before:rounded-t-2xl before:bg-linear-to-b before:from-glass/50 before:to-transparent flex min-h-14 flex-col min-w-0 items-center justify-center p-3 text-center text-sm leading-tight font-bold text-balance wrap-break-word md:text-[0.8125rem] lg:text-[0.9375rem] xl:text-base md:col-start-6 md:col-end-7 md:row-start-1 md:row-end-5">
+              <p>Task Delegation</p>
+              <p class="caption mt-0.5 text-xs leading-tight font-medium text-slate italic">all lanes delegate reasoning &amp; tools</p>
+              <ul class="box-lines mt-2 space-y-0.5 text-xs leading-tight font-semibold text-slate lg:text-sm">
+                <li>Foundry Agent</li>
+                <li><span class="whitespace-nowrap">GPT · Claude ·</span> Gemini</li>
+                <li><span class="whitespace-nowrap">OSS (Phi,</span> <span class="whitespace-nowrap">Llama …)</span></li>
+                <li><span class="whitespace-nowrap">BYO backend /</span> tools</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </section>
+  </main>
+
+  <footer class="fb-footer mt-8 text-center text-xs text-tag">Azure Voice Live API · Microsoft Foundry</footer>
+</div>
+<script>
+(() => {
+  const translations = {
+    zh: {
+      'Azure Voice Live API — Architecture': 'Azure Voice Live API — 架构',
+      'Speech-to-speech, hybrid and cascaded voice agents with delegation to any model family': '语音到语音、混合式和级联式语音智能体，可将任务委派给任意模型系列',
+      'September 2026': '2026 年 9 月',
+      'User Scenarios': '用户场景',
+      'Contact Center': '联络中心',
+      'In-car Assistant': '车载助手',
+      'Education & Learning': '教育与学习',
+      'Public Services': '公共服务',
+      'HR & Employee Productivity': '人力资源与员工效率',
+      'Personal Assistant': '个人助手',
+      'Interface': '接口',
+      'Output': '输出',
+      'Photo/Video Avatar': '照片/视频虚拟形象',
+      'Noise Suppression · Echo Cancellation ·': '降噪 · 回声消除 ·',
+      'Barge-in': '打断',
+      '· Function Calling · Interim Responses': '· 函数调用 · 中间响应',
+      'Enterprise Governance': '企业治理',
+      'Hosting': '托管',
+      'Scalability': '可扩展性',
+      'Safety': '安全性',
+      'Observability': '可观测性',
+      'Foundry Models': 'Foundry 模型',
+      'Azure Speech': 'Azure 语音',
+      'Full Duplex': '全双工',
+      '· listens while speaking)': '· 边说边听）',
+      'coming soon': '即将推出',
+      'Smart Turn-detection': '智能轮次检测',
+      'Speech to Speech': '语音到语音',
+      'Hybrid': '混合式',
+      'Cascade': '级联式',
+      'Task Delegation': '任务委派',
+      'all lanes delegate reasoning & tools': '所有路径均可委派推理与工具',
+      'Foundry Agent': 'Foundry 智能体',
+      'BYO backend /': '自带后端 /',
+      'tools': '工具'
+    },
+    ja: {
+      'Azure Voice Live API — Architecture': 'Azure Voice Live API — アーキテクチャ',
+      'Speech-to-speech, hybrid and cascaded voice agents with delegation to any model family': 'あらゆるモデル ファミリに委任できる音声対音声、ハイブリッド、カスケード型音声エージェント',
+      'September 2026': '2026年9月',
+      'User Scenarios': 'ユーザー シナリオ',
+      'Contact Center': 'コンタクト センター',
+      'In-car Assistant': '車載アシスタント',
+      'Education & Learning': '教育と学習',
+      'Public Services': '公共サービス',
+      'HR & Employee Productivity': '人事と従業員の生産性',
+      'Personal Assistant': 'パーソナル アシスタント',
+      'Interface': 'インターフェイス',
+      'Output': '出力',
+      'Photo/Video Avatar': '写真/動画アバター',
+      'Noise Suppression · Echo Cancellation ·': 'ノイズ抑制 · エコー キャンセル ·',
+      'Barge-in': '割り込み',
+      '· Function Calling · Interim Responses': '· 関数呼び出し · 中間応答',
+      'Enterprise Governance': 'エンタープライズ ガバナンス',
+      'Hosting': 'ホスティング',
+      'Scalability': 'スケーラビリティ',
+      'Safety': '安全性',
+      'Observability': '可観測性',
+      'Foundry Models': 'Foundry モデル',
+      'Azure Speech': 'Azure Speech',
+      'Full Duplex': '全二重',
+      '· listens while speaking)': '· 発話中も聞き取り）',
+      'coming soon': '近日公開',
+      'Smart Turn-detection': 'スマート ターン検出',
+      'Speech to Speech': '音声対音声',
+      'Hybrid': 'ハイブリッド',
+      'Cascade': 'カスケード',
+      'Task Delegation': 'タスク委任',
+      'all lanes delegate reasoning & tools': 'すべてのレーンが推論とツールを委任',
+      'Foundry Agent': 'Foundry エージェント',
+      'BYO backend /': '独自バックエンド /',
+      'tools': 'ツール'
+    },
+    ko: {
+      'Azure Voice Live API — Architecture': 'Azure Voice Live API — 아키텍처',
+      'Speech-to-speech, hybrid and cascaded voice agents with delegation to any model family': '모든 모델 제품군에 위임할 수 있는 음성 간, 하이브리드 및 캐스케이드 음성 에이전트',
+      'September 2026': '2026년 9월',
+      'User Scenarios': '사용자 시나리오',
+      'Contact Center': '컨택 센터',
+      'In-car Assistant': '차량용 도우미',
+      'Education & Learning': '교육 및 학습',
+      'Public Services': '공공 서비스',
+      'HR & Employee Productivity': '인사 및 직원 생산성',
+      'Personal Assistant': '개인 도우미',
+      'Interface': '인터페이스',
+      'Output': '출력',
+      'Photo/Video Avatar': '사진/비디오 아바타',
+      'Noise Suppression · Echo Cancellation ·': '소음 억제 · 에코 제거 ·',
+      'Barge-in': '말 끊기',
+      '· Function Calling · Interim Responses': '· 함수 호출 · 중간 응답',
+      'Enterprise Governance': '엔터프라이즈 거버넌스',
+      'Hosting': '호스팅',
+      'Scalability': '확장성',
+      'Safety': '안전성',
+      'Observability': '관찰 가능성',
+      'Foundry Models': 'Foundry 모델',
+      'Azure Speech': 'Azure Speech',
+      'Full Duplex': '전이중',
+      '· listens while speaking)': '· 말하면서 듣기)',
+      'coming soon': '출시 예정',
+      'Smart Turn-detection': '스마트 턴 감지',
+      'Speech to Speech': '음성 간 변환',
+      'Hybrid': '하이브리드',
+      'Cascade': '캐스케이드',
+      'Task Delegation': '작업 위임',
+      'all lanes delegate reasoning & tools': '모든 경로가 추론 및 도구를 위임',
+      'Foundry Agent': 'Foundry 에이전트',
+      'BYO backend /': '사용자 지정 백엔드 /',
+      'tools': '도구'
+    }
+  };
+
+  const textNodes = [];
+  const originalText = new WeakMap();
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      return node.parentElement.closest('script, style, .language-toggle, .sr-only') || !node.textContent.trim()
+        ? NodeFilter.FILTER_REJECT
+        : NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  while (walker.nextNode()) {
+    textNodes.push(walker.currentNode);
+    originalText.set(walker.currentNode, walker.currentNode.textContent);
+  }
+
+  const metadata = {
+    description: document.querySelector('meta[name="description"]').content,
+    title: document.title
+  };
+  const metadataTranslations = {
+    zh: {
+      description: 'Azure Voice Live API 架构图：用户场景、客户端接口和支持多种语音智能体路径的平台。',
+      title: 'Azure Voice Live API — 架构'
+    },
+    ja: {
+      description: 'Azure Voice Live API のアーキテクチャ図：ユーザー シナリオ、クライアント インターフェイス、複数の音声エージェント レーンを備えたプラットフォーム。',
+      title: 'Azure Voice Live API — アーキテクチャ'
+    },
+    ko: {
+      description: 'Azure Voice Live API 아키텍처 다이어그램: 사용자 시나리오, 클라이언트 인터페이스 및 여러 음성 에이전트 경로를 지원하는 플랫폼.',
+      title: 'Azure Voice Live API — 아키텍처'
+    }
+  };
+
+  function setLanguage(language) {
+    const dictionary = translations[language] || {};
+    textNodes.forEach((node) => {
+      const source = originalText.get(node);
+      const key = source.trim();
+      node.textContent = dictionary[key] ? source.replace(key, dictionary[key]) : source;
+    });
+
+    document.documentElement.lang = language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja' : language === 'ko' ? 'ko' : 'en';
+    document.title = metadataTranslations[language]?.title || metadata.title;
+    document.querySelector('meta[name="description"]').content = metadataTranslations[language]?.description || metadata.description;
+    document.querySelectorAll('.language-toggle button').forEach((button) => {
+      const active = button.dataset.lang === language;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    localStorage.setItem('voiceLiveArchitectureLanguage', language);
+  }
+
+  document.querySelectorAll('.language-toggle button').forEach((button) => {
+    button.addEventListener('click', () => setLanguage(button.dataset.lang));
+  });
+
+  setLanguage(localStorage.getItem('voiceLiveArchitectureLanguage') || 'en');
+})();
+</script>
+</body>
+</html>

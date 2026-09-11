@@ -1,3 +1,3 @@
 // This file is auto-generated during build
-export const BUILD_TIMESTAMP = '2026-04-26T07:43:19.580Z';
-export const BUILD_COMMIT = 'acd4a95';
+export const BUILD_TIMESTAMP = '2026-09-11T09:35:23.445Z';
+export const BUILD_COMMIT = '197e6cc';

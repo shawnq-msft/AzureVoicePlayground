@@ -499,6 +499,20 @@ export function NavigationSidebar({
                   )}
                 </div>
               ))}
+              <a
+                href={`${import.meta.env.BASE_URL}voice-live-architecture.html`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={isCollapsed ? 'Voice Live Architecture' : undefined}
+                className={`theme-sidebar__nav-button text-sm ${isCollapsed ? 'justify-center px-0' : ''}`}
+              >
+                <span className={`theme-sidebar__nav-action ${isCollapsed ? 'justify-center' : ''}`}>
+                  <svg className="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V4H6.5A2.5 2.5 0 004 6.5v13z" />
+                  </svg>
+                  {!isCollapsed && <span className="truncate">Voice Live Architecture</span>}
+                </span>
+              </a>
             </nav>
           </div>
         </div>
