@@ -322,7 +322,6 @@ body::before {
   padding: 18px 0 22px !important;
 }
 
-.fb-header,
 .scen,
 .platform {
   position: relative;
@@ -338,7 +337,6 @@ body::before {
   -webkit-backdrop-filter: blur(22px) saturate(1.35) !important;
 }
 
-.fb-header::before,
 .scen::before,
 .platform::before {
   content: "";
@@ -351,7 +349,6 @@ body::before {
   pointer-events: none;
 }
 
-.fb-header > *,
 .scen > *,
 .platform > * {
   position: relative;
@@ -360,30 +357,59 @@ body::before {
 
 .fb-header {
   margin-bottom: 12px !important;
-  padding: 16px 20px;
-  border-radius: 24px;
+  padding: 0 4px;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   animation: aeroPanelFloat 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .fb-title {
   color: #102033;
   font-weight: 800;
+  font-size: 1.875rem;
   letter-spacing: 0;
 }
 
-.header-row { align-items: center; }
+.fb-subtitle {
+  margin-top: 0.375rem;
+  max-width: 56rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.fb-date { font-size: 0.75rem; }
+
+.header-row {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
 
 .language-toggle {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.72);
   border-color: rgba(255, 255, 255, 0.76);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
+.language-toggle button[data-lang="en"] { background: rgba(47, 127, 208, 0.18); color: #174A78; }
+.language-toggle button[data-lang="zh"] { background: rgba(124, 91, 214, 0.18); color: #503A91; }
+.language-toggle button[data-lang="ja"] { background: rgba(39, 132, 99, 0.18); color: #176348; }
+.language-toggle button[data-lang="ko"] { background: rgba(182, 120, 24, 0.18); color: #7A4E0F; }
+
 .language-toggle button.is-active {
-  background: rgba(47, 127, 208, 0.16);
-  color: #14304A;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  color: #FFFFFF;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 3px 8px rgba(44, 73, 108, 0.18);
 }
+.language-toggle button[data-lang="en"].is-active { background: #2F7FD0; }
+.language-toggle button[data-lang="zh"].is-active { background: #7C5BD6; }
+.language-toggle button[data-lang="ja"].is-active { background: #278463; }
+.language-toggle button[data-lang="ko"].is-active { background: #B67818; }
 
 .scen {
   border-radius: 24px !important;
@@ -417,10 +443,7 @@ body::before {
   animation: aeroModuleReveal 420ms 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-.pill--dark {
-  color: #17314C !important;
-  background: rgba(234, 247, 255, 0.82) !important;
-}
+.pill--dark { color: #17314C !important; }
 
 .platform {
   margin-top: 12px !important;
@@ -448,10 +471,10 @@ body::before {
   -webkit-backdrop-filter: blur(18px) saturate(1.22);
 }
 
-.chip { background: linear-gradient(180deg, rgba(234, 247, 255, 0.88), rgba(255, 255, 255, 0.42)) !important; }
-.c-std { background: linear-gradient(180deg, rgba(234, 250, 241, 0.88), rgba(255, 255, 255, 0.42)) !important; }
-.c-tts { background: linear-gradient(180deg, rgba(255, 246, 226, 0.92), rgba(255, 255, 255, 0.42)) !important; }
-.c-deleg { background: linear-gradient(180deg, rgba(255, 237, 244, 0.86), rgba(255, 255, 255, 0.42)) !important; }
+.chip,
+.c-std,
+.c-tts,
+.c-deleg { background: rgba(255, 255, 255, 0.58) !important; }
 
 .chart-grid .cell {
   animation: aeroModuleReveal 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -480,8 +503,19 @@ body::before {
 
 @media (max-width: 47.99rem) {
   .fb-wrap { width: min(100vw - 18px, 1500px); padding-top: 14px !important; }
-  .fb-header { padding: 14px; }
-  .header-row { align-items: flex-start; }
+  .fb-header { padding-inline: 4px; }
+}
+
+@media (min-width: 48rem) {
+  .fb-title { font-size: 2.25rem; }
+  .fb-subtitle { font-size: 1rem; }
+}
+
+@media (min-width: 64rem) {
+  .header-row {
+    flex-direction: row;
+    align-items: center;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -568,8 +602,8 @@ body::before {
   <header class="fb-header mb-6 md:mb-8">
     <div class="header-row">
       <div>
-        <h1 class="fb-title text-3xl font-bold leading-[1.15] tracking-tight md:text-4xl lg:text-5xl">Azure Voice Live API — Architecture</h1>
-        <p class="fb-subtitle mt-2 text-base leading-snug text-slate md:text-lg">Speech-to-speech, hybrid and cascaded voice agents with delegation to any model family</p>
+        <h1 class="fb-title text-3xl font-bold leading-[1.15] tracking-normal md:text-4xl">Azure Voice Live API — Architecture</h1>
+        <p class="fb-subtitle mt-1.5 max-w-4xl text-sm leading-snug font-medium text-slate md:text-base">Speech-to-speech, hybrid and cascaded voice agents with delegation to any model family</p>
         <p class="fb-date mt-1 text-sm whitespace-nowrap text-tag"><time datetime="2026-09">September 2026</time></p>
       </div>
       <div class="language-toggle" aria-label="Language selector">
